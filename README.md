@@ -317,10 +317,19 @@ cookie it sets isn't a cross-origin (and therefore browser-blocked)
 third-party cookie.
 
 Deployed separately from the API - Vercel, not Railway, since it's a
-static SPA rather than a long-running process. `VITE_API_URL` is set in
+static SPA rather than a long-running process, at `app.tidybridge.dev`
+(a custom domain on the same Vercel project). `VITE_API_URL` is set in
 Vercel's project settings for production; the API's `FRONTEND_URL` env
 var must point back at that same deployed URL for CORS and the OAuth
 redirect to work.
+
+**Landing page** (`marketing/`) is a separate, independent React + Vite
+project - not a route inside this app. It's a single static page with no
+auth, no API calls, and no shared build with the app it links to; see
+`docs/superpowers/specs/2026-09-13-custom-domain-landing-page-design.md`
+for why. Deployed to Cloudflare Pages at the apex domain, `tidybridge.dev`
+(`www.tidybridge.dev` redirects there too); the app itself lives one level
+down, at `app.tidybridge.dev`.
 
 ## Privacy & Terms
 
