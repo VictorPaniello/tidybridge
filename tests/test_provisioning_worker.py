@@ -81,6 +81,50 @@ def test_deliver_provisioning_attempt_records_a_connection_failure(db: Session, 
     assert remote_id is None
 
 
+def test_deliver_provisioning_attempt_rejects_an_oversized_response(db: Session, monkeypatch):
+    """An oversized response fails the attempt instead of being read
+    into memory in full - see _read_response_within_limit's docstring.
+    Shrinks _MAX_PROVISIONING_RESPONSE_BYTES instead of building a real
+    multi-MB response, same idiom as test_api.py's
+    test_upload_exceeding_size_limit_is_rejected."""
+    import threading
+    import uuid as uuid_module
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    import tidybridge.provisioning as provisioning_module
+
+    class _OversizedHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            length = int(self.headers.get("Content-Length", 0))
+            self.rfile.read(length)
+            body = b'{"id": "' + b"x" * 200 + b'"}'
+            self.send_response(201)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *args):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), _OversizedHandler)
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    monkeypatch.setattr(provisioning_module, "_MAX_PROVISIONING_RESPONSE_BYTES", 100)
+    monkeypatch.setattr(provisioning_module.settings, "provisioning_url", f"http://127.0.0.1:{port}/Users")
+    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    db.add(record)
+    db.flush()
+
+    attempt, remote_id = deliver_provisioning_attempt(db, record, 1, uuid_module.uuid4())
+    server.shutdown()
+
+    assert attempt.success is False
+    assert attempt.error is not None
+    assert remote_id is None
+
+
 def test_process_due_provisioning_jobs_marks_a_job_dead_after_max_attempts(
     db: Session, monkeypatch
 ):

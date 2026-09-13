@@ -30,7 +30,31 @@ from tidybridge.models import ClientRecord, ProvisioningAttempt, ProvisioningJob
 
 TIMEOUT_SECONDS = 5.0
 
+# A SCIM user-creation response is a few hundred bytes at most - this is
+# already generous, not a real constraint on legitimate use. Without a
+# cap, a misbehaving or compromised downstream target could send an
+# unbounded body and exhaust this process's memory: a plain (non-
+# streaming) httpx.post() downloads the entire response into memory
+# before handing back control, regardless of whether the caller ever
+# reads it. Same reasoning as main.py's _MAX_UPLOAD_BYTES/
+# _read_upload_within_limit.
+_MAX_PROVISIONING_RESPONSE_BYTES = 1024 * 1024
+
 _INDEXED_SEGMENT = re.compile(r"^(\w+)\[(\d+)\]$")
+
+
+def _read_response_within_limit(response: httpx.Response) -> bytes:
+    """Reads a streamed response in bounded chunks, aborting as soon as
+    the limit is crossed - same idiom as main.py's
+    _read_upload_within_limit."""
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in response.iter_bytes():
+        total += len(chunk)
+        if total > _MAX_PROVISIONING_RESPONSE_BYTES:
+            raise httpx.HTTPError("response exceeded the provisioning response size limit")
+        chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _load_mapping() -> dict[str, str]:
@@ -146,21 +170,26 @@ def deliver_provisioning_attempt(
     )
     remote_id: str | None = None
     try:
-        response = httpx.post(
-            settings.provisioning_url, content=body, headers=headers, timeout=TIMEOUT_SECONDS
-        )
-        attempt.status_code = response.status_code
-        # 409 (duplicate userName) means the user already exists on the
-        # target system - resolved, not a failure to retry (see the
-        # spec's "skipped_exists is terminal" rationale).
-        attempt.success = response.is_success or response.status_code == 409
-        if response.is_success:
-            try:
-                remote_id = response.json().get("id")
-            except ValueError:
-                remote_id = None  # non-JSON 2xx body - nothing to capture
-        elif response.status_code != 409:
-            attempt.error = f"non-2xx response: {response.status_code}"
+        with httpx.stream(
+            "POST",
+            settings.provisioning_url,
+            content=body,
+            headers=headers,
+            timeout=TIMEOUT_SECONDS,
+        ) as response:
+            attempt.status_code = response.status_code
+            response_body = _read_response_within_limit(response)
+            # 409 (duplicate userName) means the user already exists on
+            # the target system - resolved, not a failure to retry (see
+            # the spec's "skipped_exists is terminal" rationale).
+            attempt.success = response.is_success or response.status_code == 409
+            if response.is_success:
+                try:
+                    remote_id = json.loads(response_body).get("id")
+                except (ValueError, AttributeError):
+                    remote_id = None  # non-JSON or non-object 2xx body - nothing to capture
+            elif response.status_code != 409:
+                attempt.error = f"non-2xx response: {response.status_code}"
     except httpx.HTTPError as exc:
         attempt.error = f"{type(exc).__name__}: {exc}"
 
