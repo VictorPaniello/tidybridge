@@ -89,9 +89,10 @@ the app does today. Not a bug to fix, just a real boundary worth stating.
   `app` added in Cloudflare DNS pointing at Vercel's assigned target.
 - **API** stays on its current Railway-generated domain, unchanged (see scope
   decision 4).
-- **`www.tidybridge.dev`**: out of scope. Not set up, not redirected. Can be
-  added later as a one-line DNS/Cloudflare redirect rule if ever wanted - not
-  worth deciding now.
+- **`www.tidybridge.dev`** redirects to the apex (`tidybridge.dev`, the
+  landing page) - a Cloudflare redirect rule, not a second Pages deployment
+  or a second custom domain to maintain. Same pattern most sites use for
+  `www`: one canonical URL, `www` just forwards to it.
 
 ## Backend changes & sequencing
 
@@ -131,7 +132,6 @@ having been written and manually verified once in `frontend/`.
 
 - `api.tidybridge.dev` (scope decision 4).
 - A multi-page marketing site, blog, or docs stub (scope decision 2).
-- `www.tidybridge.dev` redirect handling.
 - Shared dark-mode state across the two origins (not solvable via
   `localStorage` alone; not attempted).
 - Any change to GitHub OAuth App registration beyond the optional cosmetic
