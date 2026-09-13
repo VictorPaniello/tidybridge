@@ -89,6 +89,12 @@ class Settings(BaseSettings):
     immediately rather than trusting an unknown value - production sets a
     real random secret via the environment, never committed."""
 
+    password_reset_secret: str = "insecure-local-dev-reset-secret-do-not-use-in-production"
+    """Signs password-reset and email-verification tokens (see auth.py's
+    UserManager) - deliberately a separate secret from jwt_secret so a
+    leak of one doesn't also compromise the other. Same
+    obviously-fake-default convention as jwt_secret above."""
+
     github_client_id: str | None = None
     github_client_secret: str | None = None
     """GitHub OAuth App credentials (Settings > Developer settings > OAuth

@@ -92,6 +92,36 @@ def test_forgot_password_on_password_account_reports_oauth_only_false(_fake_rese
     assert _fake_resend, "should have sent an email - this account has a real password"
 
 
+def test_reset_token_signed_with_jwt_secret_is_rejected(_fake_resend):
+    """Regression coverage for the secret-reuse gap found via a follow-up
+    security review: reset_password_token_secret used to be jwt_secret.
+    Forges a reset token with the *correct* audience claim (so this isn't
+    just re-testing fastapi-users' own aud check) but signed with
+    jwt_secret instead of password_reset_secret - now that they're
+    independent (config.py), this must fail on signature verification
+    alone."""
+    from fastapi_users.jwt import generate_jwt
+    from fastapi_users.manager import RESET_PASSWORD_TOKEN_AUDIENCE
+
+    from tidybridge.config import settings
+    from tidybridge.main import app
+
+    assert settings.jwt_secret != settings.password_reset_secret
+
+    client = TestClient(app)
+    email = f"cross-token-{uuid.uuid4()}@example.com"
+    _register(client, email, "Original-Password-1!")
+
+    forged_token = generate_jwt(
+        {"sub": "irrelevant", "aud": RESET_PASSWORD_TOKEN_AUDIENCE},
+        settings.jwt_secret,
+    )
+    resp = client.post(
+        "/auth/reset-password", json={"token": forged_token, "password": "New-Password-1!"}
+    )
+    assert resp.status_code == 400
+
+
 def test_forgot_password_on_oauth_only_account_sends_nothing(_fake_resend, db):
     """Simulates the has_password=False end state a real GitHub-only
     signup leaves a user in (auth.py's UserManager.create() is the only

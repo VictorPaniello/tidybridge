@@ -370,9 +370,9 @@ your account.
 
 Deployed on [Railway](https://railway.app): a Postgres instance and this
 service in the same project. Environment variables (`DATABASE_URL`,
-`WEBHOOK_URL`, `WEBHOOK_SECRET`, `JWT_SECRET`, `GITHUB_CLIENT_ID`,
-`GITHUB_CLIENT_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`) are set in
-Railway's dashboard, never committed.
+`WEBHOOK_URL`, `WEBHOOK_SECRET`, `JWT_SECRET`, `PASSWORD_RESET_SECRET`,
+`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `RESEND_API_KEY`,
+`EMAIL_FROM`) are set in Railway's dashboard, never committed.
 
 Uvicorn runs with `--proxy-headers --forwarded-allow-ips='*'` (see the
 Dockerfile) - without it, every request looks like plain `http://` to the
