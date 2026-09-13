@@ -544,8 +544,20 @@ project's own code or in actually deploying it:
    never root or this app's. Found while adding the forgot-password flow
    below: the dev-fallback log line (no `RESEND_API_KEY` configured) never
    appeared anywhere, in a real terminal, not a test. Fixed by giving the
-   `tidybridge` logger namespace its own explicit level and handler in
-   `main.py`.
+   `tidybridge` logger namespace its own explicit level and handler
+   (`logging_setup.py`, called from `main.py`).
+9. **`caplog`-based tests for the app's own logging came back empty, every
+   time, no matter what was logged or how.** Cause: `alembic/env.py`'s
+   `fileConfig(config.config_file_name)` disables every logger that
+   already exists at the moment it runs (`disable_existing_loggers=True`
+   is alembic's own default) - harmless when `alembic upgrade head` is its
+   own standalone CLI process (the only way it runs in production), but
+   the test suite's `_migrate_schema` fixture runs that same `env.py`
+   *inside* the app's own process, where `tidybridge`'s loggers already
+   exist by then. They went silently `.disabled = True` for the rest of
+   the test session - which had been quietly true of every one of this
+   app's loggers all along, just never noticed until a test actually
+   asserted on log output. Fixed with `disable_existing_loggers=False`.
 
 ## What it doesn't do (yet)
 

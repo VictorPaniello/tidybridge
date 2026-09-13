@@ -15,6 +15,7 @@ original position and can be matched against `issues` directly."""
 
 from __future__ import annotations
 
+import logging
 import tempfile
 import uuid
 from pathlib import Path
@@ -29,6 +30,8 @@ from tidybridge.models import ClientRecord, IngestionRun
 from tidybridge.provisioning import enqueue_provisioning
 from tidybridge.webhooks import enqueue_delivery
 
+logger = logging.getLogger(__name__)
+
 
 def load_schema() -> Schema:
     return Schema.load(Path(settings.schema_path))
@@ -37,97 +40,150 @@ def load_schema() -> Schema:
 def ingest_file(
     db: Session, filename: str, content: bytes, schema: Schema, owner_id: uuid.UUID
 ) -> tuple[list[ClientRecord], IngestionRun]:
-    suffix = Path(filename).suffix or ".csv"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(content)
-        tmp_path = Path(tmp.name)
+    # Generated here, up front, rather than left to IngestionRun's own
+    # id default at flush() below - this is the correlation_id logged
+    # against *every* stage of this upload (received, failed if it never
+    # finishes, completed, and later - via ClientRecord.ingestion_run_id
+    # - each webhook/provisioning attempt the worker makes for it), so it
+    # has to exist before the riskiest work (tidycsv parsing) even runs.
+    correlation_id = uuid.uuid4()
+    logger.info(
+        "upload.received",
+        extra={
+            "correlation_id": str(correlation_id),
+            "owner_id": str(owner_id),
+            "source_file": filename,
+        },
+    )
 
     try:
-        raw = load_input(tmp_path)
-        mapped = map_columns(raw, schema)
-        coerced, issues = coerce_and_validate(mapped, schema)
-        deduped, dropped = flag_duplicates(coerced, schema.key_columns)
-    finally:
-        tmp_path.unlink(missing_ok=True)
+        suffix = Path(filename).suffix or ".csv"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
 
-    issue_map: dict[int, list[dict]] = {}
-    for issue in issues:
-        issue_map.setdefault(issue.row_index, []).append(
-            {"field": issue.field, "issue": issue.issue}
-        )
+        try:
+            raw = load_input(tmp_path)
+            mapped = map_columns(raw, schema)
+            coerced, issues = coerce_and_validate(mapped, schema)
+            deduped, dropped = flag_duplicates(coerced, schema.key_columns)
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
-    # Created up front - rows_clean/rows_flagged are filled in below once
-    # the loop that computes them finishes, but rows_total/
-    # rows_dropped_duplicates are already known here, and run.id needs to
-    # exist before any ClientRecord below can reference it.
-    run = IngestionRun(
-        owner_id=owner_id,
-        source_file=filename,
-        rows_total=len(raw),
-        rows_clean=0,
-        rows_flagged=0,
-        rows_dropped_duplicates=dropped,
-    )
-    db.add(run)
-    db.flush()  # assigns run.id
+        issue_map: dict[int, list[dict]] = {}
+        for issue in issues:
+            issue_map.setdefault(issue.row_index, []).append(
+                {"field": issue.field, "issue": issue.issue}
+            )
 
-    inserted: list[ClientRecord] = []
-    skipped_existing = 0
-    for idx in deduped.index:
-        # Column-wise .at[] access, not deduped.iterrows(): iterrows() builds
-        # a fresh per-row Series spanning every column, and pandas infers a
-        # single dtype for that Series just like it does for a column - so a
-        # correctly-None cell comes back as float NaN yet again once it's
-        # inside a row-Series, even though the source column holds it fine.
-        # Same root cause as the fix upstream in tidycsv, different call site.
-        row_issues = issue_map.get(idx)
-        email = deduped.at[idx, "email"]
-        if email:
-            # Scoped to this owner: two different engineers uploading a
-            # client with the same email are two separate records, not a
-            # duplicate of each other's - each engineer's dedup is their own.
-            existing = db.execute(
-                select(ClientRecord).where(
-                    ClientRecord.email == email, ClientRecord.owner_id == owner_id
-                )
-            ).scalar_one_or_none()
-            if existing:
-                # Already ingested - re-uploading the same list is a no-op,
-                # not an error. Counted, not just skipped silently: without
-                # this, rows_total stops summing to rows_clean +
-                # rows_flagged + rows_dropped_duplicates on a re-upload,
-                # and the run's own numbers no longer account for every row.
-                skipped_existing += 1
-                continue
-
-        record = ClientRecord(
+        # Created up front - rows_clean/rows_flagged are filled in below
+        # once the loop that computes them finishes, but rows_total/
+        # rows_dropped_duplicates are already known here, and run.id
+        # needs to exist before any ClientRecord below can reference it.
+        run = IngestionRun(
+            id=correlation_id,
             owner_id=owner_id,
-            ingestion_run_id=run.id,
             source_file=filename,
-            full_name=deduped.at[idx, "full_name"],
-            email=email,
-            signup_date=deduped.at[idx, "signup_date"],
-            amount=deduped.at[idx, "amount"],
-            phone=deduped.at[idx, "phone"],
-            has_issues=row_issues is not None,
-            issues=row_issues,
+            rows_total=len(raw),
+            rows_clean=0,
+            rows_flagged=0,
+            rows_dropped_duplicates=dropped,
         )
-        db.add(record)
-        db.flush()  # assigns record.id before we reference it in the webhook
-        inserted.append(record)
+        db.add(run)
+        db.flush()
 
-    run.rows_flagged = sum(1 for r in inserted if r.has_issues)
-    run.rows_clean = len(inserted) - run.rows_flagged
-    run.rows_skipped_existing = skipped_existing
+        inserted: list[ClientRecord] = []
+        skipped_existing = 0
+        for idx in deduped.index:
+            # Column-wise .at[] access, not deduped.iterrows(): iterrows()
+            # builds a fresh per-row Series spanning every column, and
+            # pandas infers a single dtype for that Series just like it
+            # does for a column - so a correctly-None cell comes back as
+            # float NaN yet again once it's inside a row-Series, even
+            # though the source column holds it fine. Same root cause as
+            # the fix upstream in tidycsv, different call site.
+            row_issues = issue_map.get(idx)
+            email = deduped.at[idx, "email"]
+            if email:
+                # Scoped to this owner: two different engineers uploading
+                # a client with the same email are two separate records,
+                # not a duplicate of each other's - each engineer's dedup
+                # is their own.
+                existing = db.execute(
+                    select(ClientRecord).where(
+                        ClientRecord.email == email, ClientRecord.owner_id == owner_id
+                    )
+                ).scalar_one_or_none()
+                if existing:
+                    # Already ingested - re-uploading the same list is a
+                    # no-op, not an error. Counted, not just skipped
+                    # silently: without this, rows_total stops summing to
+                    # rows_clean + rows_flagged + rows_dropped_duplicates
+                    # on a re-upload, and the run's own numbers no longer
+                    # account for every row.
+                    skipped_existing += 1
+                    continue
 
-    # Enqueued in the same transaction as the run/records themselves, not
-    # after - a job only ever exists for a record that actually made it
-    # into the database, never an orphan left behind by a rolled-back
-    # ingest.
-    for record in inserted:
-        enqueue_delivery(db, record)
-        enqueue_provisioning(db, record)
+            record = ClientRecord(
+                owner_id=owner_id,
+                ingestion_run_id=run.id,
+                source_file=filename,
+                full_name=deduped.at[idx, "full_name"],
+                email=email,
+                signup_date=deduped.at[idx, "signup_date"],
+                amount=deduped.at[idx, "amount"],
+                phone=deduped.at[idx, "phone"],
+                has_issues=row_issues is not None,
+                issues=row_issues,
+            )
+            db.add(record)
+            db.flush()  # assigns record.id before we reference it in the webhook
+            inserted.append(record)
 
-    db.commit()
+        run.rows_flagged = sum(1 for r in inserted if r.has_issues)
+        run.rows_clean = len(inserted) - run.rows_flagged
+        run.rows_skipped_existing = skipped_existing
 
+        # Enqueued in the same transaction as the run/records themselves,
+        # not after - a job only ever exists for a record that actually
+        # made it into the database, never an orphan left behind by a
+        # rolled-back ingest.
+        for record in inserted:
+            enqueue_delivery(db, record)
+            enqueue_provisioning(db, record)
+
+        db.commit()
+    except Exception as exc:
+        # Pure visibility, not error handling: nothing here is caught to
+        # be recovered from, only logged before the same exception
+        # propagates on to the caller exactly as it would without this
+        # try/except (POST /records/upload still 500s). Without this, an
+        # upload that dies mid-ingest (a bad file, a DB error) leaves
+        # zero trace of the attempt ever happening - not even
+        # upload.received's correlation_id is enough on its own to know
+        # the run never finished.
+        logger.info(
+            "upload.failed",
+            extra={
+                "correlation_id": str(correlation_id),
+                "owner_id": str(owner_id),
+                "source_file": filename,
+                "error": f"{type(exc).__name__}: {exc}",
+            },
+        )
+        raise
+
+    logger.info(
+        "upload.completed",
+        extra={
+            "correlation_id": str(correlation_id),
+            "owner_id": str(owner_id),
+            "source_file": filename,
+            "rows_total": run.rows_total,
+            "rows_clean": run.rows_clean,
+            "rows_flagged": run.rows_flagged,
+            "rows_dropped_duplicates": run.rows_dropped_duplicates,
+            "rows_skipped_existing": run.rows_skipped_existing,
+        },
+    )
     return inserted, run
