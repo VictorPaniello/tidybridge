@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 import time
 import uuid
 
@@ -28,6 +29,8 @@ from sqlalchemy.orm import Session
 
 from tidybridge.config import settings
 from tidybridge.models import ClientRecord, WebhookDelivery, WebhookJob
+
+logger = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 5.0
 
@@ -104,6 +107,20 @@ def deliver_attempt(
 
     db.add(delivery)
     db.commit()
+    logger.info(
+        "webhook.attempt",
+        extra={
+            # None for a record that predates ingestion_run_id (see its
+            # docstring in models.py) - never a KeyError.
+            "correlation_id": str(record.ingestion_run_id) if record.ingestion_run_id else None,
+            "record_id": str(record.id),
+            "url": delivery.url,
+            "status_code": delivery.status_code,
+            "success": delivery.success,
+            "attempt_number": delivery.attempt_number,
+            "error": delivery.error,
+        },
+    )
     return delivery
 
 

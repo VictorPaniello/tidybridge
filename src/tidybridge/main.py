@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import io
-import logging
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
@@ -39,6 +38,7 @@ from tidybridge.auth_models import User
 from tidybridge.config import settings
 from tidybridge.db import get_db
 from tidybridge.ingest import ingest_file, load_schema
+from tidybridge.logging_setup import configure_logging
 from tidybridge.models import (
     ClientRecord,
     IngestionRun,
@@ -73,12 +73,11 @@ from tidybridge.webhooks import notify_new_record
 # finding nothing, not by inspecting this in isolation. uvicorn's own
 # dictConfig (uvicorn.config.LOGGING_CONFIG) only wires up its own
 # "uvicorn"/"uvicorn.access" loggers, so this app's own logger needs its
-# own explicit level + handler; propagate=False keeps it from also
-# duplicating through root if root ever gets a handler configured later.
-_tidybridge_logger = logging.getLogger("tidybridge")
-_tidybridge_logger.setLevel(logging.INFO)
-_tidybridge_logger.addHandler(logging.StreamHandler())
-_tidybridge_logger.propagate = False
+# own explicit level + handler - configure_logging() (logging_setup.py)
+# does that, as structured JSON rather than plain text, and is also
+# called from scripts/webhook_worker.py's own entrypoint, since that
+# process never imports this module.
+configure_logging()
 
 # Schema is Alembic-managed now (see alembic/), not created on startup -
 # `alembic upgrade head` runs before the app starts (Dockerfile's CMD;

@@ -16,6 +16,7 @@ principle as WebhookDelivery."""
 from __future__ import annotations
 
 import json
+import logging
 import re
 import uuid
 from datetime import UTC, datetime
@@ -27,6 +28,8 @@ from sqlalchemy.orm import Session
 
 from tidybridge.config import settings
 from tidybridge.models import ClientRecord, ProvisioningAttempt, ProvisioningJob
+
+logger = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 5.0
 
@@ -195,6 +198,19 @@ def deliver_provisioning_attempt(
 
     db.add(attempt)
     db.commit()
+    logger.info(
+        "provisioning.attempt",
+        extra={
+            "correlation_id": str(record.ingestion_run_id) if record.ingestion_run_id else None,
+            "record_id": str(record.id),
+            "url": attempt.url,
+            "status_code": attempt.status_code,
+            "success": attempt.success,
+            "attempt_number": attempt.attempt_number,
+            "remote_id": remote_id,
+            "error": attempt.error,
+        },
+    )
     return attempt, remote_id
 
 

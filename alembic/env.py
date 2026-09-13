@@ -23,8 +23,18 @@ config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
+#
+# disable_existing_loggers=False: alembic's own default (True) disables
+# every logger that already exists at the moment this runs - harmless
+# when `alembic upgrade head` is its own standalone CLI process (the
+# only way this runs in production, per the Dockerfile), but this same
+# env.py also runs *inside* the test suite's own process (conftest.py's
+# _migrate_schema fixture), where "tidybridge" and its children already
+# exist by then. Without this, every one of this app's own loggers goes
+# silently .disabled = True for the rest of the test session - found
+# because logging_setup.py's caplog-based tests kept coming back empty.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
