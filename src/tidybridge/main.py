@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import csv
 import io
+import secrets
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -147,6 +149,31 @@ async def add_security_headers(request: Request, call_next):
     # production, see the README's Deployment section.
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
     return response
+
+
+# Optional, and normally a no-op: staging_gate_password is unset in
+# production, so this whole check is skipped there. It exists for the
+# staging sandbox environment, which has no platform-level protection of
+# its own the way its frontend does (Vercel's own Preview Deployment
+# Protection already blocks every path on staging.tidybridge.dev without
+# a Vercel login - see README's Deployment section) - without this,
+# anyone who found the staging API's URL directly could call it. Not
+# real HTTP Basic Auth: this API already uses the Authorization header
+# for actual login sessions (Authorization: Bearer <token>), so a second
+# credential scheme on that same header would collide with it - a
+# separate custom header sidesteps that entirely. Registered last (see
+# add_security_headers above for why that makes it outermost), so an
+# unauthorized caller is rejected before CORS or rate-limiting ever run.
+@app.middleware("http")
+async def require_staging_gate_password(request: Request, call_next):
+    if settings.staging_gate_password is None or request.method == "OPTIONS":
+        # CORS preflight never carries custom headers - rejecting it here
+        # would break every real request before the browser even sends it.
+        return await call_next(request)
+    supplied = request.headers.get("x-staging-password", "")
+    if not secrets.compare_digest(supplied, settings.staging_gate_password):
+        return JSONResponse(status_code=401, content={"detail": "Staging access required"})
+    return await call_next(request)
 
 
 _STRICT_AUTH_LIMIT = "5/minute"

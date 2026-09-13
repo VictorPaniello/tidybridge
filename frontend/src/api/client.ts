@@ -13,6 +13,10 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL;
 const TOKEN_KEY = "tidybridge_token";
+// Only set on the staging build - matches STAGING_GATE_PASSWORD in the
+// API's config.py, which 401s every request without it. undefined in
+// every other build, so the header below is simply never added.
+const STAGING_GATE_PASSWORD = import.meta.env.VITE_STAGING_GATE_PASSWORD;
 
 // A plain module-level variable, not React state - the API client has no
 // business knowing about React. AuthContext reads/writes it and is the
@@ -70,6 +74,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
+  if (STAGING_GATE_PASSWORD) {
+    headers["X-Staging-Password"] = STAGING_GATE_PASSWORD;
+  }
 
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? "GET",
@@ -80,7 +87,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     // Set-Cookie response header instead of storing it. Only cookie in
     // play is the GitHub OAuth CSRF token /auth/github/authorize sets
     // (see auth.py) - regular auth doesn't use cookies at all, it's the
-    // bearer JWT in the Authorization header - but without this, that
+    // bearer token in the Authorization header - but without this, that
     // cookie never gets stored and the OAuth callback 400s with
     // OAUTH_INVALID_STATE. The backend's CORS config already sets
     // allow_credentials=True to allow this.
