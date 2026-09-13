@@ -327,9 +327,22 @@ redirect to work.
 project - not a route inside this app. It's a single static page with no
 auth, no API calls, and no shared build with the app it links to; see
 `docs/superpowers/specs/2026-09-13-custom-domain-landing-page-design.md`
-for why. Deployed to Cloudflare Pages at the apex domain, `tidybridge.dev`
-(`www.tidybridge.dev` redirects there too); the app itself lives one level
-down, at `app.tidybridge.dev`.
+for why. Deployed to Vercel (a separate project from the app, same
+provider) at the apex domain, `tidybridge.dev` (`www.tidybridge.dev`
+redirects there too, via a Cloudflare Redirect Rule); the app itself
+lives one level down, at `app.tidybridge.dev`.
+
+**Not on Cloudflare Pages, despite the original design spec choosing
+it** - the apex domain resolves to a Cloudflare anycast IP range
+(`188.114.96.0/24`/`188.114.97.0/24`) that Spanish ISPs (Movistar, Digi,
+Orange) block under a LaLiga anti-piracy court order, since a pirated
+football-streaming site happened to share the same range. This is
+well-documented collateral damage - Cloudflare's own community forum has
+multiple threads about legitimate, unrelated sites (this one included)
+becoming unreachable from Spain because of it. Moving `marketing/` to
+Vercel (a different IP range entirely) sidesteps the problem; `api.tidybridge.dev`
+and `app.tidybridge.dev` were never on Cloudflare Pages, so they were
+never affected.
 
 ## Privacy & Terms
 
@@ -567,6 +580,19 @@ project's own code or in actually deploying it:
    the test session - which had been quietly true of every one of this
    app's loggers all along, just never noticed until a test actually
    asserted on log output. Fixed with `disable_existing_loggers=False`.
+10. **`tidybridge.dev` was unreachable from a real Spanish home network and
+    mobile carrier, but worked fine over a foreign VPN and from every
+    other network tested.** `curl` to the Cloudflare Pages IP it resolved
+    to (`188.114.96.5`) hung until timeout - DNS resolved correctly, TLS
+    never got the chance to start. Not a DNS, SSL, or app bug: those
+    exact IPs (`188.114.96.0/24`/`188.114.97.0/24`) are blocked by major
+    Spanish ISPs under a LaLiga anti-piracy court order, catching this
+    site as collateral damage for sharing Cloudflare's shared anycast
+    range with an unrelated pirated stream - confirmed against multiple
+    Cloudflare community threads reporting the identical symptom for
+    other unrelated sites. Fixed by moving `marketing/` off Cloudflare
+    Pages onto Vercel (a different IP range entirely), not by changing
+    anything DNS- or app-side.
 
 ## What it doesn't do (yet)
 
