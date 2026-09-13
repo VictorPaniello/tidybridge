@@ -13,13 +13,13 @@ with every delivery attempt logged (success or failure) for auditability.
 
 `tidycsv` solves "the client's data is messy." This project solves the next
 problem: "now get that data into a system, and tell another system about
-it" — the two things that show up over and over in Forward Deployed
+it": the two things that show up over and over in Forward Deployed
 Engineer job postings (Juryo, Flyboard, ElevenLabs, Valerdat, mafer AI):
 connect to what the client already has (a CRM, an ERP, a spreadsheet
 export), and own the integration end to end.
 
 It reuses `tidycsv` as a real dependency (`pip install`-ed from its GitHub
-repo), not by copy-pasting its logic — and finding and fixing several real
+repo), not by copy-pasting its logic. Finding and fixing several real
 bugs along the way, in the code and in deploying it, is part of the story,
 not something to hide (see
 [Bugs found while building this](#bugs-found-while-building-this) below).
@@ -193,10 +193,10 @@ curl -X POST http://127.0.0.1:8000/records/upload \
 ### Tests
 
 Tests run against a **real** PostgreSQL database (`tidybridge_test`), not a
-mock — the whole point of this project is proving the ingest → Postgres →
+mock: the whole point of this project is proving the ingest → Postgres →
 API path actually works. The schema is bootstrapped by running the real
 Alembic migration chain once per test session (`alembic upgrade head`),
-not `Base.metadata.create_all()` — `create_all()` only ever creates
+not `Base.metadata.create_all()`. `create_all()` only ever creates
 *missing* tables, so it can't catch a migration that's wrong or
 misordered relative to what's already there. That gap caused two real
 bugs earlier in this project (see [Bugs found while building
@@ -209,7 +209,7 @@ ruff check .
 ```
 
 If `tidybridge_test` predates this (tables from an old `create_all()` run,
-no `alembic_version` tracking), drop and recreate it once — the same fix
+no `alembic_version` tracking), drop and recreate it once - the same fix
 used when this project itself adopted Alembic.
 
 ## Database migrations
@@ -345,7 +345,7 @@ your account.
 
 ## Deployment
 
-Deployed on [Railway](https://railway.app) — a Postgres instance and this
+Deployed on [Railway](https://railway.app): a Postgres instance and this
 service in the same project. Environment variables (`DATABASE_URL`,
 `WEBHOOK_URL`, `WEBHOOK_SECRET`, `JWT_SECRET`, `GITHUB_CLIENT_ID`,
 `GITHUB_CLIENT_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`) are set in

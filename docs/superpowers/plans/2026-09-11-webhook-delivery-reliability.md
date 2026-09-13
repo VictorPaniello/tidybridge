@@ -2,22 +2,22 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Move automatic webhook delivery off the request path into a background queue, make retries of the same logical delivery idempotent, and surface a visible "delivery failed permanently" state — the top 3 improvements from the market-research report.
+**Goal:** Move automatic webhook delivery off the request path into a background queue, make retries of the same logical delivery idempotent, and surface a visible "delivery failed permanently" state: the top 3 improvements from the market-research report.
 
-**Architecture:** A new Postgres-backed queue (`webhook_jobs`) replaces the direct `notify_new_record()` call `ingest_file()` currently makes: ingestion enqueues a job per new record (a fast DB insert), and a new standalone worker process (`scripts/webhook_worker.py`, polling in a loop) claims due jobs with `SELECT ... FOR UPDATE SKIP LOCKED` and delivers them, reusing the existing per-attempt HTTP/signing/audit-log logic (extracted into `deliver_attempt()`). Every attempt of one job — and one manual replay — carries a stable `idempotency_key` a receiver can dedupe by. The job's own `status` column (`pending` / `done` / `dead`) is exposed via a new endpoint and a status badge on the record detail page. No new runtime dependency (no Redis/Celery) — Postgres and SQLAlchemy are already there and this project's throughput doesn't need more.
+**Architecture:** A new Postgres-backed queue (`webhook_jobs`) replaces the direct `notify_new_record()` call `ingest_file()` currently makes: ingestion enqueues a job per new record (a fast DB insert), and a new standalone worker process (`scripts/webhook_worker.py`, polling in a loop) claims due jobs with `SELECT ... FOR UPDATE SKIP LOCKED` and delivers them, reusing the existing per-attempt HTTP/signing/audit-log logic (extracted into `deliver_attempt()`). Every attempt of one job (and one manual replay) carries a stable `idempotency_key` a receiver can dedupe by. The job's own `status` column (`pending` / `done` / `dead`) is exposed via a new endpoint and a status badge on the record detail page. No new runtime dependency (no Redis/Celery): Postgres and SQLAlchemy are already there and this project's throughput doesn't need more.
 
 **Tech Stack:** FastAPI, SQLAlchemy 2.0 (typed `Mapped` columns), Alembic, pytest against a real local Postgres test DB, React/TypeScript frontend, existing `httpx`/`hmac` webhook signing.
 
-**Spec:** `.scratch/market-research.md` (items #1–#3 of "Prioritized improvement ideas") plus the design decisions recorded in this document — no separate pre-written spec exists; scope and design tradeoffs were settled during this planning session and are captured inline in each task.
+**Spec:** `.scratch/market-research.md` (items #1-#3 of "Prioritized improvement ideas") plus the design decisions recorded in this document; no separate pre-written spec exists, scope and design tradeoffs were settled during this planning session and are captured inline in each task.
 
 ## Global Constraints
 
-- No new runtime dependency for the queue — Postgres-backed (`webhook_jobs` table), not Redis/Celery/RQ. An already-installed dependency (Postgres + SQLAlchemy) solves this at this project's scale.
-- New models follow the existing typed `Mapped`/`mapped_column` style (see `src/databridge/models.py`) exactly — no bare `Column()`.
+- No new runtime dependency for the queue: Postgres-backed (`webhook_jobs` table), not Redis/Celery/RQ. An already-installed dependency (Postgres + SQLAlchemy) solves this at this project's scale.
+- New models follow the existing typed `Mapped`/`mapped_column` style (see `src/databridge/models.py`) exactly; no bare `Column()`.
 - New Alembic migrations are hand-styled like the existing ones: a docstring on `upgrade()` explaining *why*, not just *what*, and a real `downgrade()`. Every new `NOT NULL` column on a table that may already hold rows gets a `server_default`, never a bare default that would fail against existing data (see `9fd2d1b03bea`'s precedent).
-- Tests run against the real local Postgres test DB via the existing `db`/`client` fixtures in `tests/conftest.py` — never mock the DB or the HTTP layer (see `tests/test_webhooks.py`'s existing pattern of a real local `HTTPServer`).
+- Tests run against the real local Postgres test DB via the existing `db`/`client` fixtures in `tests/conftest.py`; never mock the DB or the HTTP layer (see `tests/test_webhooks.py`'s existing pattern of a real local `HTTPServer`).
 - `ruff check .` and `pytest -v` (the backend CI job) must pass at the end of every task. `npx tsc --noEmit`, `npx eslint src`, and `npx vitest run` (from `frontend/`) must pass at the end of Task 7.
-- The manual replay path (`POST /records/{id}/webhooks/replay` → `notify_new_record()`) keeps its exact current observable behavior — synchronous, its own fresh retry sequence — except for the new `idempotency_key` field appearing on its response/payload (Task 5).
+- The manual replay path (`POST /records/{id}/webhooks/replay` → `notify_new_record()`) keeps its exact current observable behavior (synchronous, its own fresh retry sequence) except for the new `idempotency_key` field appearing on its response/payload (Task 5).
 
 ---
 
@@ -28,8 +28,8 @@
 | `src/databridge/models.py` | + `WebhookJob` ORM model; `idempotency_key` column on both `WebhookJob` and `WebhookDelivery` |
 | `alembic/versions/<gen1>_*.py` | Creates `webhook_jobs` (Task 1) |
 | `alembic/versions/<gen2>_*.py` | Adds `idempotency_key` to both webhook tables (Task 5) |
-| `src/databridge/webhooks.py` | `deliver_attempt()` (one HTTP attempt + audit row — extracted), `enqueue_delivery()` (queue a job), `notify_new_record()` (manual replay, now built on `deliver_attempt()`) |
-| `src/databridge/webhook_worker.py` (new) | `process_due_jobs()` — claims and works through due `webhook_jobs` rows |
+| `src/databridge/webhooks.py` | `deliver_attempt()` (one HTTP attempt + audit row, extracted), `enqueue_delivery()` (queue a job), `notify_new_record()` (manual replay, now built on `deliver_attempt()`) |
+| `src/databridge/webhook_worker.py` (new) | `process_due_jobs()`: claims and works through due `webhook_jobs` rows |
 | `scripts/webhook_worker.py` (new) | Long-lived process entrypoint (poll loop), same pattern as `scripts/backup_db.py`/`retention_sweep.py` but continuous, not one-shot |
 | `src/databridge/ingest.py` | Calls `enqueue_delivery()` instead of `notify_new_record()` after a successful ingest |
 | `src/databridge/main.py` | New `GET /records/{id}/webhook-status` endpoint; updated `run_in_threadpool` comment |
@@ -51,7 +51,7 @@
 - Test: `tests/test_webhook_worker.py` (new file)
 
 **Interfaces:**
-- Produces: `WebhookJob` (fields: `id: uuid.UUID`, `record_id: uuid.UUID`, `status: str` — `"pending"|"done"|"dead"`, `attempt_number: int`, `available_at: datetime`, `created_at: datetime`), importable from `databridge.models`.
+- Produces: `WebhookJob` (fields: `id: uuid.UUID`, `record_id: uuid.UUID`, `status: str` (`"pending"|"done"|"dead"`), `attempt_number: int`, `available_at: datetime`, `created_at: datetime`), importable from `databridge.models`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -96,7 +96,7 @@ Expected: FAIL with `ImportError: cannot import name 'WebhookJob' from 'databrid
 
 - [ ] **Step 3: Add the `WebhookJob` model**
 
-In `src/databridge/models.py`, add near the top of the file (after the existing `datetime`/`uuid` imports, no new imports needed beyond what's already there — `UTC`/`datetime` come from the `datetime` module already imported):
+In `src/databridge/models.py`, add near the top of the file (after the existing `datetime`/`uuid` imports, no new imports needed beyond what's already there; `UTC`/`datetime` come from the `datetime` module already imported):
 
 ```python
 from datetime import UTC, datetime
@@ -248,18 +248,18 @@ git commit -m "feat: add webhook_jobs queue table"
 
 ### Task 2: Extract `deliver_attempt()` (pure refactor)
 
-Pulls the single-HTTP-attempt logic out of `notify_new_record()`'s retry loop into its own function, so both the manual replay path (unchanged) and the new queue worker (Task 3) can share it instead of duplicating it. No behavior change — every existing test in `tests/test_webhooks.py` must still pass unmodified.
+Pulls the single-HTTP-attempt logic out of `notify_new_record()`'s retry loop into its own function, so both the manual replay path (unchanged) and the new queue worker (Task 3) can share it instead of duplicating it. No behavior change: every existing test in `tests/test_webhooks.py` must still pass unmodified.
 
 **Files:**
 - Modify: `src/databridge/webhooks.py`
 
 **Interfaces:**
-- Produces: `deliver_attempt(db: Session, record: ClientRecord, attempt_number: int) -> WebhookDelivery` — builds the payload, signs it, makes one HTTP POST, persists and commits one `WebhookDelivery` row, returns it. Used by both `notify_new_record()` (this task) and `process_due_jobs()` (Task 3).
+- Produces: `deliver_attempt(db: Session, record: ClientRecord, attempt_number: int) -> WebhookDelivery`: builds the payload, signs it, makes one HTTP POST, persists and commits one `WebhookDelivery` row, returns it. Used by both `notify_new_record()` (this task) and `process_due_jobs()` (Task 3).
 
 - [ ] **Step 1: Run the existing suite to confirm the baseline**
 
 Run: `pytest tests/test_webhooks.py -v`
-Expected: PASS (12 tests) — this is the regression baseline this refactor must not break.
+Expected: PASS (12 tests); this is the regression baseline this refactor must not break.
 
 - [ ] **Step 2: Extract `deliver_attempt()` and rewrite `notify_new_record()`**
 
@@ -341,7 +341,7 @@ def notify_new_record(db: Session, record: ClientRecord) -> WebhookDelivery | No
 - [ ] **Step 3: Run the existing suite again**
 
 Run: `pytest tests/test_webhooks.py -v`
-Expected: PASS (12 tests, unchanged) — proves the extraction didn't change behavior.
+Expected: PASS (12 tests, unchanged); proves the extraction didn't change behavior.
 
 - [ ] **Step 4: Lint and commit**
 
@@ -354,7 +354,7 @@ git commit -m "refactor: extract deliver_attempt() from notify_new_record()"
 
 ---
 
-### Task 3: Queue + worker — `enqueue_delivery()`, `process_due_jobs()`, wire into `ingest.py`
+### Task 3: Queue + worker - `enqueue_delivery()`, `process_due_jobs()`, wire into `ingest.py`
 
 This is the core of the feature: automatic post-ingest notification becomes "insert a job row" instead of "make the HTTP call right now," and a new `process_due_jobs()` function does the actual delivering. Existing `tests/test_webhooks.py` tests that assumed synchronous delivery-on-upload need to explicitly drain the queue.
 
@@ -368,11 +368,11 @@ This is the core of the feature: automatic post-ingest notification becomes "ins
 
 **Interfaces:**
 - Consumes: `deliver_attempt(db, record, attempt_number) -> WebhookDelivery` (Task 2), `WebhookJob` (Task 1), `_backoff_seconds(attempt: int) -> float` (existing).
-- Produces: `enqueue_delivery(db: Session, record: ClientRecord) -> WebhookJob | None` (webhooks.py); `process_due_jobs(db: Session, limit: int = 20) -> int` (webhook_worker.py, returns count of jobs processed) — both consumed by Task 4's script entrypoint and Task 3's own tests.
+- Produces: `enqueue_delivery(db: Session, record: ClientRecord) -> WebhookJob | None` (webhooks.py); `process_due_jobs(db: Session, limit: int = 20) -> int` (webhook_worker.py, returns count of jobs processed); both consumed by Task 4's script entrypoint and Task 3's own tests.
 
 - [ ] **Step 1: Write the failing tests**
 
-Add these imports to the top of `tests/test_webhook_worker.py`, alongside the existing ones (so the file's imports stay together at the top — `ruff` flags a mid-file import):
+Add these imports to the top of `tests/test_webhook_worker.py`, alongside the existing ones (so the file's imports stay together at the top; `ruff` flags a mid-file import):
 
 ```python
 import time
@@ -776,7 +776,7 @@ The remaining tests (`test_sign_payload_matches_a_reference_hmac_implementation`
 - [ ] **Step 9: Run the full backend suite**
 
 Run: `pytest -v`
-Expected: PASS (all tests, including the updated `test_webhooks.py` and `test_concurrency.py` — `test_concurrency.py` needs no code change, it only asserts `ingest_file` runs off the event-loop thread, which is still true)
+Expected: PASS (all tests, including the updated `test_webhooks.py` and `test_concurrency.py`; `test_concurrency.py` needs no code change, it only asserts `ingest_file` runs off the event-loop thread, which is still true)
 
 - [ ] **Step 10: Lint and commit**
 
@@ -922,7 +922,7 @@ Every attempt of one automatic delivery job (its retries) shares one `idempotenc
 
 **Interfaces:**
 - Consumes: `WebhookJob`, `WebhookDelivery` (Task 1).
-- Produces: `deliver_attempt(db, record, attempt_number, idempotency_key: uuid.UUID) -> WebhookDelivery` (signature change from Task 2/3 — update both call sites).
+- Produces: `deliver_attempt(db, record, attempt_number, idempotency_key: uuid.UUID) -> WebhookDelivery` (signature change from Task 2/3; update both call sites).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -966,7 +966,7 @@ def test_idempotency_key_is_included_in_the_signed_payload(
 - [ ] **Step 2: Run to verify these fail**
 
 Run: `pytest tests/test_webhooks.py -k idempotency -v`
-Expected: FAIL with a `KeyError`/`AssertionError` on `"idempotency_key"` — the field doesn't exist yet.
+Expected: FAIL with a `KeyError`/`AssertionError` on `"idempotency_key"`; the field doesn't exist yet.
 
 - [ ] **Step 3: Generate and edit the migration**
 
@@ -1186,7 +1186,7 @@ git commit -m "feat: idempotency keys on webhook deliveries"
 
 ---
 
-### Task 6: Dead-letter visible status — backend
+### Task 6: Dead-letter visible status - backend
 
 Exposes the job's `status` (`pending`/`done`/`dead`/`not_configured`) per record, so a permanently-failed delivery is visible instead of silently sitting there.
 
@@ -1315,7 +1315,7 @@ git commit -m "feat: expose webhook delivery status via GET /records/{id}/webhoo
 
 ---
 
-### Task 7: Dead-letter visible status — frontend badge
+### Task 7: Dead-letter visible status - frontend badge
 
 **Files:**
 - Modify: `frontend/src/api/types.ts`
@@ -1433,7 +1433,7 @@ function WebhookStatusBadge({ status }: { status: WebhookJobStatus | null }) {
 - [ ] **Step 4: Verify**
 
 Run: `npx tsc --noEmit && npx eslint src && npx vitest run` (from `frontend/`)
-Expected: all clean/passing (no existing test file covers `RecordDetailPage` — this page has no automated test today, consistent with the rest of the page components; verify manually by running the dev server, uploading a file with `WEBHOOK_URL` unset, and unset/misconfigured, and confirming the badge does/doesn't appear as expected).
+Expected: all clean/passing (no existing test file covers `RecordDetailPage`; this page has no automated test today, consistent with the rest of the page components; verify manually by running the dev server, uploading a file with `WEBHOOK_URL` unset, and unset/misconfigured, and confirming the badge does/doesn't appear as expected).
 
 - [ ] **Step 5: Commit**
 
