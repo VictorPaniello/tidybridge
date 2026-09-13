@@ -6,7 +6,8 @@ import csv
 import io
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time, timedelta
+from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
-from sqlalchemy import delete, func, select
+from sqlalchemy import Date, Float, cast, delete, func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -49,6 +50,8 @@ from tidybridge.models import (
 from tidybridge.provisioning import replay_provisioning
 from tidybridge.schemas import (
     ClientRecordOut,
+    DailySuccessRatePoint,
+    DeliverySuccessStats,
     IngestionRunOut,
     IngestionRunsPage,
     IngestResult,
@@ -379,6 +382,83 @@ def list_records(
         total=total,
         limit=limit,
         offset=offset,
+    )
+
+
+_STATS_CHANNEL_MODELS: dict[str, type[WebhookDelivery] | type[ProvisioningAttempt]] = {
+    "webhook": WebhookDelivery,
+    "provisioning": ProvisioningAttempt,
+}
+_MAX_STATS_RANGE_DAYS = 366
+
+
+@app.get("/stats/delivery-success", response_model=DeliverySuccessStats)
+def get_delivery_success_stats(
+    channel: Literal["webhook", "provisioning"],
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> DeliverySuccessStats:
+    date_to = date_to or datetime.now(UTC).date()
+    date_from = date_from or (date_to - timedelta(days=29))
+    if date_from > date_to:
+        raise HTTPException(status_code=400, detail="date_from must not be after date_to")
+    if (date_to - date_from).days > _MAX_STATS_RANGE_DAYS:
+        raise HTTPException(
+            status_code=400, detail=f"Range too wide - max {_MAX_STATS_RANGE_DAYS} days"
+        )
+
+    model = _STATS_CHANNEL_MODELS[channel]
+    range_start = datetime.combine(date_from, time.min, tzinfo=UTC)
+    range_end = datetime.combine(date_to, time.max, tzinfo=UTC)
+
+    # Neither WebhookDelivery nor ProvisioningAttempt carries owner_id -
+    # only client_records does - so scoping this caller's stats to their
+    # own records needs an actual join, not just a WHERE.
+    daily = (
+        select(
+            cast(model.attempted_at, Date).label("day"),
+            func.count().label("attempts"),
+            func.count().filter(model.success).label("successes"),
+        )
+        .join(ClientRecord, ClientRecord.id == model.record_id)
+        .where(ClientRecord.owner_id == user.id)
+        .where(model.attempted_at.between(range_start, range_end))
+        .group_by(cast(model.attempted_at, Date))
+        .cte("daily")
+    )
+    rated = select(
+        daily.c.day,
+        daily.c.attempts,
+        daily.c.successes,
+        (cast(daily.c.successes, Float) / daily.c.attempts).label("success_rate"),
+    ).cte("rated")
+    # The window function: each day's rate averaged with up to 6 preceding
+    # days that actually had attempts - smooths the noise a single quiet
+    # day (one attempt, 0% or 100%) would otherwise put on a chart.
+    query = select(
+        rated.c.day,
+        rated.c.attempts,
+        rated.c.successes,
+        rated.c.success_rate,
+        func.avg(rated.c.success_rate)
+        .over(order_by=rated.c.day, rows=(-6, 0))
+        .label("rolling_7d_rate"),
+    ).order_by(rated.c.day)
+
+    points = [
+        DailySuccessRatePoint(
+            day=row.day,
+            attempts=row.attempts,
+            successes=row.successes,
+            success_rate=row.success_rate,
+            rolling_7d_rate=row.rolling_7d_rate,
+        )
+        for row in db.execute(query).all()
+    ]
+    return DeliverySuccessStats(
+        channel=channel, date_from=date_from, date_to=date_to, points=points
     )
 
 
