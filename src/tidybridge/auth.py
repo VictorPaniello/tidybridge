@@ -15,7 +15,8 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_users import BaseUserManager, FastAPIUsers, InvalidPasswordException, UUIDIDMixin
 from fastapi_users import exceptions as fastapi_users_exceptions
-from fastapi_users.authentication import AuthenticationBackend, BearerTransport, JWTStrategy
+from fastapi_users.authentication import AuthenticationBackend, BearerTransport
+from fastapi_users.authentication.strategy.db import AccessTokenDatabase, DatabaseStrategy
 from fastapi_users.authentication.transport.base import (
     Transport,
     TransportLogoutNotSupportedError,
@@ -31,8 +32,8 @@ from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 from httpx_oauth.clients.github import GitHubOAuth2
 from pydantic import EmailStr, Field
 
-from tidybridge.auth_db import get_user_db
-from tidybridge.auth_models import User
+from tidybridge.auth_db import get_access_token_db, get_user_db
+from tidybridge.auth_models import AccessToken, User
 from tidybridge.config import settings
 
 MIN_PASSWORD_LENGTH = 8
@@ -276,14 +277,24 @@ async def get_user_manager(
 bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
 
 
-def get_jwt_strategy() -> JWTStrategy:
-    return JWTStrategy(secret=settings.jwt_secret, lifetime_seconds=3600 * 24 * 7)
+def get_database_strategy(
+    access_token_db: AccessTokenDatabase[AccessToken] = Depends(get_access_token_db),
+) -> DatabaseStrategy:
+    """A real, revocable session token (a random string in the accesstoken
+    table) instead of a stateless JWT. Found via a follow-up security
+    review: the old JWTStrategy had a 7-day lifetime with no way to cut a
+    session short - POST /auth/jwt/logout was a no-op (JWTStrategy.
+    destroy_token can't invalidate a JWT before it expires, by design),
+    so a leaked token stayed valid for up to a week regardless. Same
+    7-day window here, but logout - or deleting the row directly - now
+    actually ends the session immediately."""
+    return DatabaseStrategy(access_token_db, lifetime_seconds=3600 * 24 * 7)
 
 
 auth_backend = AuthenticationBackend(
     name="jwt",
     transport=bearer_transport,
-    get_strategy=get_jwt_strategy,
+    get_strategy=get_database_strategy,
 )
 
 
@@ -328,7 +339,7 @@ class RedirectTransport(Transport):
 oauth_redirect_backend = AuthenticationBackend(
     name="jwt-oauth-redirect",
     transport=RedirectTransport(f"{settings.frontend_url}/auth/callback"),
-    get_strategy=get_jwt_strategy,
+    get_strategy=get_database_strategy,
 )
 
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])

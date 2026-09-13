@@ -697,6 +697,17 @@ Found via a deliberate review, not a user report:
   the whole API surface browsable is free reconnaissance for no benefit
   once the API is actually live.
 
+- **Login sessions were stateless JWTs with a 7-day lifetime and no way
+  to cut one short** - found in a follow-up security review. `POST
+  /auth/jwt/logout` looked like it worked (200 response) but was
+  actually a no-op: fastapi-users' `JWTStrategy.destroy_token` can't
+  invalidate a JWT before it expires, by design, so a token stayed valid
+  for the rest of its 7 days regardless. Switched to fastapi-users'
+  `DatabaseStrategy` (`auth.py`) - each login writes a row to a new
+  `accesstoken` table instead of signing a JWT, so logout (or deleting
+  the row directly) revokes a session immediately. Same 7-day lifetime,
+  now actually enforceable.
+
 - **Known, currently unpatched: `react-router-dom` 6.30.6 (the latest
   6.x release - there is no patched 6.x) carries a moderate-severity
   open-redirect advisory** (`GHSA-wrjc-x8rr-h8h6` - a backslash-prefixed

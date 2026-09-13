@@ -14,9 +14,10 @@ from collections.abc import AsyncGenerator
 
 from fastapi import Depends
 from fastapi_users.db import SQLAlchemyUserDatabase
+from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyAccessTokenDatabase
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from tidybridge.auth_models import OAuthAccount, User
+from tidybridge.auth_models import AccessToken, OAuthAccount, User
 from tidybridge.config import settings
 
 async_engine = create_async_engine(settings.database_url, pool_pre_ping=True)
@@ -32,3 +33,9 @@ async def get_user_db(
     session: AsyncSession = Depends(get_async_session),
 ) -> AsyncGenerator[SQLAlchemyUserDatabase, None]:
     yield SQLAlchemyUserDatabase(session, User, OAuthAccount)
+
+
+async def get_access_token_db(
+    session: AsyncSession = Depends(get_async_session),
+) -> AsyncGenerator[SQLAlchemyAccessTokenDatabase, None]:
+    yield SQLAlchemyAccessTokenDatabase(session, AccessToken)

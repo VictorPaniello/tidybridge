@@ -201,15 +201,13 @@ def delete_own_account(
     """Permanently erase the caller's own account and everything tied to
     it - every client record, ingestion run, and (via client_records'
     own further cascade) webhook delivery they own, plus any linked
-    GitHub OAuth account. Real deletion via ON DELETE CASCADE at the
-    database level (migration e986a7123298), the same principle
-    DELETE /records/{id} already uses - not a soft-delete flag some
-    other query could still surface. The bearer token the caller
-    authenticated with keeps its own signature valid (JWTs are
-    stateless - there's no server-side session to revoke), but the very
-    next request made with it 401s the moment current_active_user tries
-    to look the now-deleted user id back up, so it self-invalidates on
-    first use after deletion rather than staying usable.
+    GitHub OAuth account and access token. Real deletion via ON DELETE
+    CASCADE at the database level (migration e986a7123298, extended by
+    the accesstoken table's own FK), the same principle DELETE /records/
+    {id} already uses - not a soft-delete flag some other query could
+    still surface. The cascade takes the caller's own session token out
+    with it, so the bearer token they authenticated with is immediately
+    invalid too, not just self-invalidating on next lookup.
     """
     db.execute(delete(User).where(User.id == user.id))
     db.commit()

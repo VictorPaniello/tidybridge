@@ -10,6 +10,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi_users.db import SQLAlchemyBaseOAuthAccountTableUUID, SQLAlchemyBaseUserTableUUID
+from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyBaseAccessTokenTableUUID
 from fastapi_users_db_sqlalchemy.generics import GUID
 from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -58,3 +59,20 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     has_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship("OAuthAccount", lazy="joined")
+
+
+class AccessToken(SQLAlchemyBaseAccessTokenTableUUID, Base):
+    """One row per issued login session (email+password or GitHub OAuth) -
+    backs auth.py's DatabaseStrategy instead of a stateless JWT, so a
+    session can actually be revoked: POST /auth/jwt/logout now deletes
+    the row instead of being a no-op (a JWT can't be invalidated before
+    it expires, see fastapi-users' JWTStrategyDestroyNotSupportedError -
+    that was the gap this replaces, found via a follow-up security
+    review), and deleting the user cascades here too.
+
+    Same ForeignKey-retargeting fix as OAuthAccount above: the mixin
+    hardcodes ForeignKey("user.id") singular, this table is plural."""
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        GUID, ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
