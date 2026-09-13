@@ -157,6 +157,14 @@ class Settings(BaseSettings):
     verified-domain address once one exists; until then, production
     email only actually reaches the account owner."""
 
+    staging_gate_password: str | None = None
+    """When set, every request must carry a matching X-Staging-Password
+    header (see main.py's require_staging_gate_password) or gets a 401 -
+    a lightweight access gate for the staging sandbox environment, which
+    has no platform-level protection of its own the way its frontend does
+    (Vercel's own login wall). None (the default) skips the check
+    entirely; production leaves this unset."""
+
     enable_api_docs: bool = True
     """Whether FastAPI's own interactive docs (/docs, /redoc) and the raw
     schema (/openapi.json) are served at all (see main.py). Every route
