@@ -10,6 +10,21 @@
       // theme that a React effect (which only runs after mount) couldn't
       // prevent. Same localStorage key ThemeToggle.tsx reads/writes.
       (function () {
+        // One-time handoff from the landing page's "Get started" link
+        // (marketing/src/App.tsx) - localStorage can't cross origins, so
+        // it passes the theme via the URL instead. Persisted here so it
+        // behaves like a normal preference from now on, then stripped
+        // from the URL so a later manual toggle isn't overridden if this
+        // exact link ever gets revisited.
+        var params = new URLSearchParams(location.search);
+        var handoff = params.get("theme");
+        if (handoff === "dark" || handoff === "light") {
+          localStorage.setItem("theme", handoff);
+          params.delete("theme");
+          var query = params.toString();
+          history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
+        }
+
         var stored = localStorage.getItem("theme");
         var dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
         document.documentElement.classList.toggle("dark", dark);
