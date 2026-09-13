@@ -6,9 +6,31 @@ Limiter object exists and looks configured correctly."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from tidybridge.main import app, limiter
+
+FIXTURES = Path(__file__).parent.parent / "examples"
+
+
+def test_upload_is_rate_limited_after_repeated_attempts(client: TestClient):
+    limiter.enabled = True
+    try:
+        statuses = []
+        for _ in range(21):
+            with open(FIXTURES / "messy_clients.csv", "rb") as f:
+                response = client.post(
+                    "/records/upload",
+                    files={"file": ("messy_clients.csv", f, "text/csv")},
+                )
+            statuses.append(response.status_code)
+    finally:
+        limiter.enabled = False
+
+    assert statuses[:20] == [200] * 20
+    assert statuses[20] == 429
 
 
 def test_login_is_rate_limited_after_repeated_attempts():
