@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page not found - tidybridge</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      // Same theme-detection logic as index.html - a plain static file
+      // (Cloudflare Pages serves this directly for any unmatched path,
+      // bypassing the React app entirely), so no shared component here,
+      // just the same handful of lines.
+      (function () {
+        var stored = localStorage.getItem("theme");
+        var dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
+    <style>
+      :root {
+        --background: #fafaf9;
+        --foreground: #1c1917;
+        --muted-foreground: #57534e;
+        --primary: #047857;
+        --primary-foreground: #ecfdf5;
+        --ring: #059669;
+      }
+      .dark {
+        --background: #0c0a09;
+        --foreground: #fafaf9;
+        --muted-foreground: #a8a29e;
+        --primary: #34d399;
+        --primary-foreground: #022c22;
+        --ring: #34d399;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main {
+        text-align: center;
+        padding: 24px;
+      }
+      .brand {
+        font-weight: 600;
+        margin-bottom: 24px;
+      }
+      .brand span {
+        color: var(--ring);
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 8px;
+      }
+      p {
+        color: var(--muted-foreground);
+        margin-bottom: 24px;
+      }
+      a {
+        display: inline-block;
+        border-radius: 6px;
+        background: var(--primary);
+        color: var(--primary-foreground);
+        padding: 10px 20px;
+        font-weight: 500;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="brand">tidy<span>bridge</span></p>
+      <h1>Page not found</h1>
+      <p>That page doesn't exist - it's a one-page site.</p>
+      <a href="/">Back to tidybridge.dev</a>
+    </main>
+  </body>
+</html>
