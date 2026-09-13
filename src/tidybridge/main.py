@@ -275,7 +275,15 @@ async def _read_upload_within_limit(file: UploadFile) -> bytes:
 
 
 @app.post("/records/upload", response_model=IngestResult)
+# Stricter than the API-wide 60/minute default: this route does CSV
+# parsing plus one DB round-trip per row, so it's the one endpoint where
+# a burst of requests (accidental retry loop, or deliberate abuse) turns
+# into real CPU/DB load rather than a handful of cheap SELECTs. 20/minute
+# still comfortably covers a person re-uploading a corrected file a few
+# times in a row.
+@limiter.limit("20/minute")
 async def upload_records(
+    request: Request,
     file: UploadFile,
     db: Session = Depends(get_db),
     user: User = Depends(current_active_user),
