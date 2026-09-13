@@ -73,3 +73,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  marketing:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
