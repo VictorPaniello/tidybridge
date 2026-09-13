@@ -49,6 +49,7 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/records/{id}/webhooks` | Audit log of webhook delivery attempts for one of your own records |
 | `POST` | `/records/{id}/webhooks/replay` | Manually re-send the notification for one of your own records, on demand - 400 if no `WEBHOOK_URL` is configured |
 | `DELETE` | `/records/{id}` | Permanently erase one of your own records (and its webhook delivery history) - supports the GDPR right to erasure, not a standalone claim of full GDPR compliance on its own; see [Privacy Policy](#privacy--terms) |
+| `GET` | `/stats/delivery-success` | Daily webhook/provisioning success rate for **your own** records (`?channel=webhook\|provisioning`, optional `?date_from=&date_to=`, default trailing 30 days, capped at a year) - each day's attempt/success counts, its success rate, and a 7-day rolling average of that rate |
 
 Re-uploading a file already ingested (matched by email, scoped to the
 uploading engineer) is a no-op, not a duplicate insert or an error - two

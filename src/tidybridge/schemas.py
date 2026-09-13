@@ -5,7 +5,7 @@ these describe what the API actually exposes."""
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -119,6 +119,27 @@ class IngestionRunsPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class DailySuccessRatePoint(BaseModel):
+    """One day of GET /stats/delivery-success - attempts/successes as
+    counted that day, success_rate as their ratio, rolling_7d_rate as the
+    average success_rate over this day and up to 6 preceding days that
+    had any attempts (a genuine window function, not a simple average -
+    see main.py)."""
+
+    day: date
+    attempts: int
+    successes: int
+    success_rate: float
+    rolling_7d_rate: float
+
+
+class DeliverySuccessStats(BaseModel):
+    channel: str
+    date_from: date
+    date_to: date
+    points: list[DailySuccessRatePoint]
 
 
 class RecordsPage(BaseModel):
