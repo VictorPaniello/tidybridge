@@ -142,17 +142,19 @@ class UserUpdate(BaseUserUpdate):
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
-    # Used to sign the (separate, short-lived) tokens for password-reset
-    # emails - reusing jwt_secret is fine, this is a different token
-    # audience than the login JWT (fastapi-users encodes that as the
-    # "aud" claim) so one being compromised doesn't hand over the other,
-    # and there's no operational reason to manage a second secret.
-    # verification_token_secret is required by BaseUserManager even
-    # though this project doesn't send verification emails (see README's
-    # "doesn't do yet" - real delivery to anyone but the Resend account
-    # owner needs a verified domain this project doesn't have).
-    reset_password_token_secret = settings.jwt_secret
-    verification_token_secret = settings.jwt_secret
+    # Signs the (separate, short-lived) tokens for password-reset emails -
+    # its own secret, not jwt_secret, so a leak of one doesn't also hand
+    # over the other (found via a follow-up security review; the "aud"
+    # claim fastapi-users adds to each token type stops a leaked token
+    # itself being replayed as the other type, but doesn't help if the
+    # secret used to sign it leaks). verification_token_secret is required
+    # by BaseUserManager even though this project doesn't send
+    # verification emails (see README's "doesn't do yet" - real delivery
+    # to anyone but the Resend account owner needs a verified domain this
+    # project doesn't have) - reusing password_reset_secret for it is fine
+    # since it's unused, no need for a third secret.
+    reset_password_token_secret = settings.password_reset_secret
+    verification_token_secret = settings.password_reset_secret
 
     async def create(
         self,
