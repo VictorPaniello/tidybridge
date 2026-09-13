@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>tidybridge</title>
+    <script>
+      // Blocking, runs before first paint - avoids a flash of the wrong
+      // theme. Same localStorage key ThemeToggle.tsx reads/writes. Copied
+      // from frontend/index.html - this site and the app are different
+      // origins, so the two never share this localStorage value, only
+      // the same logic for using it.
+      (function () {
+        var stored = localStorage.getItem("theme");
+        var dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
