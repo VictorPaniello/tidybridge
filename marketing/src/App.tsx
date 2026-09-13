@@ -49,6 +49,17 @@ export default function App() {
           <div className="mt-8 flex items-center justify-center gap-4">
             <a
               href="https://app.tidybridge.dev/register"
+              onClick={(e) => {
+                // Hands off the current theme so the app doesn't flash to
+                // the wrong one on arrival - localStorage can't do this,
+                // tidybridge.dev and app.tidybridge.dev are different
+                // origins. The app's own blocking script (frontend/index.html)
+                // reads this once, persists it to its own localStorage, and
+                // strips it from the URL.
+                e.preventDefault();
+                const dark = document.documentElement.classList.contains("dark");
+                window.location.href = `https://app.tidybridge.dev/register?theme=${dark ? "dark" : "light"}`;
+              }}
               className="rounded-md bg-primary text-primary-foreground px-5 py-2.5 font-medium hover:opacity-90 transition"
             >
               Get started
