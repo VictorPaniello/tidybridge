@@ -388,6 +388,49 @@ Building the URL from Postgres's individual `PGUSER`/`PGPASSWORD`/`PGHOST`/
 `PGPORT`/`PGDATABASE` variables instead resolved correctly:
 `postgresql+psycopg://${{Postgres.PGUSER}}:${{Postgres.PGPASSWORD}}@${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}`
 
+None of the three services actually connect this way any more, though -
+see "Least-privilege database role" below for why.
+
+### Least-privilege database role
+
+None of the three services that talk to Postgres (this API, the backup
+service, the retention service) connect as `postgres` - Railway's default
+superuser for the plugin - any more. Each instead uses a dedicated
+`tidybridge_app` role, created directly against the database (Railway's
+Postgres "Data" tab has a SQL query console) rather than through any
+project code:
+
+```sql
+CREATE ROLE tidybridge_app WITH LOGIN PASSWORD '<generated>';
+ALTER DATABASE railway OWNER TO tidybridge_app;
+-- then ALTER TABLE/ALTER SEQUENCE ... OWNER TO tidybridge_app for every
+-- existing table and integer-PK sequence (REASSIGN OWNED BY postgres
+-- fails - see below), plus GRANT ALL ON SCHEMA public TO tidybridge_app.
+```
+
+`tidybridge_app` owns the database and every table in it, so it still has
+full DDL rights for `alembic upgrade head` on every deploy - it's just not
+a cluster-wide superuser any more. That's the actual gap closed: no
+`CREATE ROLE`, no reading other databases on the same Postgres instance, no
+superuser-only functions - the blast radius of a compromised app connection
+drops from "the whole Postgres cluster" to "this one database."
+
+`REASSIGN OWNED BY postgres TO tidybridge_app` looks like the obvious way
+to hand over every existing object at once, but fails outright
+(`cannot reassign ownership of objects owned by role postgres because they
+are required by the database system`) - `postgres` also owns pinned
+bootstrap objects (e.g. the `plpgsql` language) that can never change
+owner, and the statement aborts before touching anything if any single
+object in scope is pinned. Explicit `ALTER TABLE`/`ALTER SEQUENCE ...
+OWNER TO` statements per object side-step it.
+
+Each service's `DATABASE_URL` is the same `${{Postgres.PGHOST}}`/`PGPORT`/
+`PGDATABASE` reference pattern above, just with `tidybridge_app` and its
+own generated password substituted in literally for the
+`${{Postgres.PGUSER}}`/`${{Postgres.PGPASSWORD}}` portion - Railway has no
+concept of "connect as a different role" for a referenced variable, only
+the plugin's own admin credentials.
+
 ## Backups
 
 Client data lives in Postgres, so a mistake or corruption there shouldn't be
