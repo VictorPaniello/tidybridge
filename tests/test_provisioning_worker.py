@@ -40,7 +40,9 @@ def test_enqueue_provisioning_creates_a_pending_job(db: Session, monkeypatch):
     import tidybridge.provisioning as provisioning_module
 
     monkeypatch.setattr(provisioning_module.settings, "provisioning_url", "http://127.0.0.1:1/Users")
-    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    record = ClientRecord(
+        source_file="test.csv", fields={"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    )
     db.add(record)
     db.flush()
 
@@ -69,7 +71,9 @@ def test_deliver_provisioning_attempt_records_a_connection_failure(db: Session, 
     import tidybridge.provisioning as provisioning_module
 
     monkeypatch.setattr(provisioning_module.settings, "provisioning_url", "http://127.0.0.1:1/Users")
-    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    record = ClientRecord(
+        source_file="test.csv", fields={"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    )
     db.add(record)
     db.flush()
 
@@ -113,7 +117,9 @@ def test_deliver_provisioning_attempt_rejects_an_oversized_response(db: Session,
 
     monkeypatch.setattr(provisioning_module, "_MAX_PROVISIONING_RESPONSE_BYTES", 100)
     monkeypatch.setattr(provisioning_module.settings, "provisioning_url", f"http://127.0.0.1:{port}/Users")
-    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    record = ClientRecord(
+        source_file="test.csv", fields={"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    )
     db.add(record)
     db.flush()
 
@@ -135,7 +141,9 @@ def test_process_due_provisioning_jobs_marks_a_job_dead_after_max_attempts(
     monkeypatch.setattr(provisioning_module.settings, "webhook_max_attempts", 2)
     monkeypatch.setattr(provisioning_module.settings, "webhook_retry_backoff_seconds", 0.01)
 
-    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    record = ClientRecord(
+        source_file="test.csv", fields={"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    )
     db.add(record)
     db.flush()
     job = enqueue_provisioning(db, record)
@@ -173,7 +181,9 @@ def test_process_due_provisioning_jobs_treats_a_409_as_skipped_exists(db: Sessio
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     monkeypatch.setattr(provisioning_module.settings, "provisioning_url", f"http://127.0.0.1:{port}/Users")
-    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    record = ClientRecord(
+        source_file="test.csv", fields={"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    )
     db.add(record)
     db.flush()
     job = enqueue_provisioning(db, record)
@@ -214,7 +224,9 @@ def test_process_due_provisioning_jobs_succeeds_and_captures_remote_id(db: Sessi
     threading.Thread(target=server.serve_forever, daemon=True).start()
 
     monkeypatch.setattr(provisioning_module.settings, "provisioning_url", f"http://127.0.0.1:{port}/Users")
-    record = ClientRecord(source_file="test.csv", full_name="Ada Lovelace", email="ada@example.com")
+    record = ClientRecord(
+        source_file="test.csv", fields={"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    )
     db.add(record)
     db.flush()
     job = enqueue_provisioning(db, record)
