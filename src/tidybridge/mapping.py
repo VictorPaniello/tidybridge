@@ -64,6 +64,20 @@ def default_resolution(raw_headers: list[str], reference_schema: Schema) -> list
     return resolution
 
 
+def default_dedup_key_fields(resolution: list[dict]) -> list[str]:
+    """The engineer's data already tells us the natural identity when a
+    column alias-matched to email - default to that, the same identity
+    tidybridge always assumed before dynamic mapping existed, so
+    re-uploading an unchanged file stays a no-op with zero configuration.
+    No default otherwise: nothing else is safe to assume as an identity
+    key, and a wrong guess would silently under-insert real, distinct
+    rows instead of just failing to dedup them."""
+    for entry in resolution:
+        if entry["target_field"] == "email" and entry["type"] == "email":
+            return ["email"]
+    return []
+
+
 def build_schema(resolution: list[dict]) -> Schema:
     """One FieldSpec per distinct non-null target_field - entries sharing
     one collapse into a single field (see apply_mapping). required=False

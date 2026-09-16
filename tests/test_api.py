@@ -23,8 +23,12 @@ def test_upload_cleans_and_persists_records(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert body["rows_total"] == 5
-    assert body["rows_clean"] == 2
-    assert body["rows_flagged"] == 3
+    # messy_clients.csv's blank-Customer row no longer counts as flagged:
+    # nothing is required any more (dynamic schema mapping), so a missing
+    # full_name is just absent, not a validation issue - only the
+    # invalid-email and invalid-date rows are genuine value problems.
+    assert body["rows_clean"] == 3
+    assert body["rows_flagged"] == 2
     assert len(body["records"]) == 5
 
 
@@ -68,10 +72,12 @@ def test_list_records_filters_by_has_issues(client: TestClient):
     _upload(client)
     flagged = client.get("/records", params={"has_issues": True}).json()
     clean = client.get("/records", params={"has_issues": False}).json()
-    assert len(flagged["items"]) == 3
-    assert flagged["total"] == 3
-    assert len(clean["items"]) == 2
-    assert clean["total"] == 2
+    # See test_upload_cleans_and_persists_records - a missing full_name
+    # is no longer a validation issue now that nothing is required.
+    assert len(flagged["items"]) == 2
+    assert flagged["total"] == 2
+    assert len(clean["items"]) == 3
+    assert clean["total"] == 3
 
 
 def test_list_records_is_paginated(client: TestClient):

@@ -329,7 +329,9 @@ async def upload_records(
     # run_in_threadpool moves it off the loop, the same mechanism FastAPI
     # itself uses for sync routes. Found via a deliberate scalability/
     # performance review, not a user report.
-    inserted, run = await run_in_threadpool(
+    # mapping_is_default threaded into IngestResult properly in Task 7 -
+    # this call site just needs to match ingest_file's real return shape.
+    inserted, run, _mapping_is_default = await run_in_threadpool(
         ingest_file, db, file.filename or "upload.csv", content, schema, user.id
     )
     return IngestResult(

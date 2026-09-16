@@ -11,6 +11,7 @@ from tidybridge.mapping import (
     apply_mapping,
     build_schema,
     compute_fingerprint,
+    default_dedup_key_fields,
     default_resolution,
     validate_resolution,
 )
@@ -79,3 +80,13 @@ def test_validate_resolution_rejects_bad_field_name():
     resolution = [{"raw_column": "Name", "target_field": "1bad name", "type": "string"}]
     with pytest.raises(ValueError, match="target_field"):
         validate_resolution(resolution, dedup_key_fields=[])
+
+
+def test_default_dedup_key_fields_uses_alias_matched_email():
+    resolution = default_resolution(["Full Name", "E-mail"], REFERENCE_SCHEMA)
+    assert default_dedup_key_fields(resolution) == ["email"]
+
+
+def test_default_dedup_key_fields_empty_when_no_email_present():
+    resolution = default_resolution(["Full Name", "Age"], REFERENCE_SCHEMA)
+    assert default_dedup_key_fields(resolution) == []
