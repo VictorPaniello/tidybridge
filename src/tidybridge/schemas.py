@@ -105,6 +105,9 @@ class IngestResult(BaseModel):
     # exactly one of these four, never silently unaccounted.
     rows_skipped_existing: int
     mapping_is_default: bool
+    # This upload's header shape - what GET/PUT /column-mappings/{fingerprint}
+    # takes, so a "review this mapping?" affordance has something to link to.
+    fingerprint: str
     records: list[ClientRecordOut]
 
 

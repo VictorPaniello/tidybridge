@@ -54,7 +54,7 @@ def load_schema() -> Schema:
 
 def ingest_file(
     db: Session, filename: str, content: bytes, schema: Schema, owner_id: uuid.UUID
-) -> tuple[list[ClientRecord], IngestionRun, bool]:
+) -> tuple[list[ClientRecord], IngestionRun, bool, str]:
     # Generated here, up front, rather than left to IngestionRun's own
     # id default at flush() below - this is the correlation_id logged
     # against *every* stage of this upload (received, failed if it never
@@ -228,4 +228,4 @@ def ingest_file(
             "rows_skipped_existing": run.rows_skipped_existing,
         },
     )
-    return inserted, run, mapping_is_default
+    return inserted, run, mapping_is_default, fingerprint

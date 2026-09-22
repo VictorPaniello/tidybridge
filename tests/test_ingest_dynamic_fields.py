@@ -22,7 +22,7 @@ def _owner_id(client: TestClient) -> uuid.UUID:
 def test_unseen_shape_uses_default_and_ingests_immediately(client: TestClient, db):
     owner_id = _owner_id(client)
     content = _content("Full Name,E-mail\nJane Doe,jane@example.com\n")
-    records, run, mapping_is_default = ingest_file(
+    records, run, mapping_is_default, _fingerprint = ingest_file(
         db, "test.csv", content, load_schema(), owner_id
     )
     assert mapping_is_default is True
@@ -33,7 +33,7 @@ def test_unseen_shape_uses_default_and_ingests_immediately(client: TestClient, d
 def test_unrecognized_column_becomes_its_own_field(client: TestClient, db):
     owner_id = _owner_id(client)
     content = _content("Full Name,Age\nJane Doe,30\n")
-    records, _run, _ = ingest_file(db, "test.csv", content, load_schema(), owner_id)
+    records, _run, _, _fp = ingest_file(db, "test.csv", content, load_schema(), owner_id)
     assert records[0].fields == {"full_name": "Jane Doe", "age": "30"}
 
 
@@ -54,7 +54,7 @@ def test_saved_mapping_applies_silently_on_next_upload(client: TestClient, db):
     )
     db.commit()
 
-    records, _run, mapping_is_default = ingest_file(
+    records, _run, mapping_is_default, _fp = ingest_file(
         db, "test.csv", content, load_schema(), owner_id
     )
     assert mapping_is_default is False
@@ -79,7 +79,7 @@ def test_dedup_key_skips_already_ingested_rows_across_uploads(client: TestClient
     db.commit()
 
     ingest_file(db, "test.csv", content, load_schema(), owner_id)
-    _records, run2, _ = ingest_file(db, "test.csv", content, load_schema(), owner_id)
+    _records, run2, _, _fp = ingest_file(db, "test.csv", content, load_schema(), owner_id)
     assert run2.rows_skipped_existing == 1
 
 
@@ -90,7 +90,7 @@ def test_default_resolution_auto_dedups_by_email_with_zero_config(client: TestCl
     owner_id = _owner_id(client)
     content = _content("Full Name,E-mail\nJane Doe,jane@example.com\n")
     ingest_file(db, "test.csv", content, load_schema(), owner_id)
-    _records, run2, _ = ingest_file(db, "test.csv", content, load_schema(), owner_id)
+    _records, run2, _, _fp = ingest_file(db, "test.csv", content, load_schema(), owner_id)
     assert run2.rows_skipped_existing == 1
 
 
@@ -100,5 +100,5 @@ def test_no_dedup_key_means_every_row_inserts(client: TestClient, db):
     owner_id = _owner_id(client)
     content = _content("Full Name,Age\nJane Doe,30\n")
     ingest_file(db, "test.csv", content, load_schema(), owner_id)
-    _records, run2, _ = ingest_file(db, "test.csv", content, load_schema(), owner_id)
+    _records, run2, _, _fp = ingest_file(db, "test.csv", content, load_schema(), owner_id)
     assert run2.rows_skipped_existing == 0

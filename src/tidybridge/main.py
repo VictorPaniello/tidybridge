@@ -333,7 +333,7 @@ async def upload_records(
     # run_in_threadpool moves it off the loop, the same mechanism FastAPI
     # itself uses for sync routes. Found via a deliberate scalability/
     # performance review, not a user report.
-    inserted, run, mapping_is_default = await run_in_threadpool(
+    inserted, run, mapping_is_default, fingerprint = await run_in_threadpool(
         ingest_file, db, file.filename or "upload.csv", content, schema, user.id
     )
     return IngestResult(
@@ -344,6 +344,7 @@ async def upload_records(
         rows_dropped_duplicates=run.rows_dropped_duplicates,
         rows_skipped_existing=run.rows_skipped_existing,
         mapping_is_default=mapping_is_default,
+        fingerprint=fingerprint,
         records=[ClientRecordOut.model_validate(r) for r in inserted],
     )
 

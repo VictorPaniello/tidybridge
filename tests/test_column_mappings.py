@@ -24,6 +24,16 @@ def test_get_unsaved_fingerprint_returns_404(client: TestClient):
     assert resp.status_code == 404
 
 
+def test_upload_response_carries_the_fingerprint_for_its_own_shape(client: TestClient):
+    # So the frontend's "review this mapping?" affordance (shown when
+    # mapping_is_default is true) has something to GET/PUT against -
+    # the backend already computes this per-upload, just wasn't exposed.
+    from tidybridge.mapping import compute_fingerprint
+
+    resp = _upload(client)
+    assert resp.json()["fingerprint"] == compute_fingerprint(["Full Name", "E-mail"])
+
+
 def test_put_saves_a_resolution_applied_on_next_upload(client: TestClient):
     from tidybridge.mapping import compute_fingerprint
 
