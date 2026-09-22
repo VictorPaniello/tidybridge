@@ -27,10 +27,20 @@ import type { ColumnMapping } from "./api/types";
 function ColumnMappingReviewRoute() {
   const { fingerprint } = useParams<{ fingerprint: string }>();
   const location = useLocation();
-  const initialResolution = (location.state as { initialResolution?: ColumnMapping } | null)
-    ?.initialResolution;
+  const state = location.state as {
+    initialResolution?: ColumnMapping;
+    ingestionRunId?: string;
+  } | null;
+  const initialResolution = state?.initialResolution;
+  const ingestionRunId = state?.ingestionRunId;
   if (!fingerprint) return <Navigate to="/" replace />;
-  return <ColumnMappingReviewPage fingerprint={fingerprint} initialResolution={initialResolution} />;
+  return (
+    <ColumnMappingReviewPage
+      fingerprint={fingerprint}
+      initialResolution={initialResolution}
+      ingestionRunId={ingestionRunId}
+    />
+  );
 }
 
 export default function App() {

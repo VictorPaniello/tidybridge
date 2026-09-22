@@ -1,31 +1,52 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, getColumnMapping, saveColumnMapping } from "../api/client";
-import type { ColumnMapping, FieldResolution } from "../api/types";
+import type { ColumnMapping, FieldResolution, IngestResult } from "../api/types";
 
 interface Props {
   fingerprint: string;
-  // The resolution actually used by the upload that got you here (see
-  // IngestResult.field_resolutions) - the *only* fallback available when
-  // GET 404s, which it always does for a shape nothing's been saved for
-  // yet (main.py's get_column_mapping can't reconstruct raw headers from
-  // a bare fingerprint). Without this, that 404 - the common case, since
-  // it's exactly what mapping_is_default=true means - left the table
-  // silently empty instead of showing anything to review.
   initialResolution?: ColumnMapping;
+  ingestionRunId?: string;
 }
 
 const FIELD_TYPES = ["string", "email", "date", "currency", "integer", "phone"];
 
-// The entirely optional, prospective-only mapping review step - editing
-// here only affects the *next* upload of this exact header shape (see
-// GET/PUT /column-mappings/{fingerprint}), never records already ingested.
-export function ColumnMappingReviewPage({ fingerprint, initialResolution }: Props) {
+export function ColumnMappingReviewPage({
+  fingerprint,
+  initialResolution,
+  ingestionRunId,
+}: Props) {
   const [resolutions, setResolutions] = useState<FieldResolution[]>([]);
   const [dedupKeyFields, setDedupKeyFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const storedResult: IngestResult | null = useMemo(() => {
+    try {
+      const raw = sessionStorage.getItem("tidybridge_last_ingest_result");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as IngestResult;
+      return parsed.fingerprint === fingerprint ? parsed : null;
+    } catch {
+      return null;
+    }
+  }, [fingerprint]);
+
+  const effectiveInitialResolution = useMemo(
+    () =>
+      initialResolution ??
+      (storedResult
+        ? {
+            field_resolutions: storedResult.field_resolutions,
+            dedup_key_fields: storedResult.dedup_key_fields,
+          }
+        : undefined),
+    [initialResolution, storedResult],
+  );
+
+  const effectiveRunId = ingestionRunId ?? storedResult?.ingestion_run_id;
 
   useEffect(() => {
     setLoading(true);
@@ -36,9 +57,9 @@ export function ColumnMappingReviewPage({ fingerprint, initialResolution }: Prop
         setDedupKeyFields(mapping.dedup_key_fields);
       })
       .catch((err) => {
-        if (err instanceof ApiError && err.status === 404 && initialResolution) {
-          setResolutions(initialResolution.field_resolutions);
-          setDedupKeyFields(initialResolution.dedup_key_fields);
+        if (err instanceof ApiError && err.status === 404 && effectiveInitialResolution) {
+          setResolutions(effectiveInitialResolution.field_resolutions);
+          setDedupKeyFields(effectiveInitialResolution.dedup_key_fields);
           return;
         }
         setLoadError(
@@ -48,7 +69,7 @@ export function ColumnMappingReviewPage({ fingerprint, initialResolution }: Prop
         );
       })
       .finally(() => setLoading(false));
-  }, [fingerprint, initialResolution]);
+  }, [fingerprint, effectiveInitialResolution]);
 
   function updateTargetField(index: number, value: string) {
     setResolutions((prev) =>
@@ -73,8 +94,55 @@ export function ColumnMappingReviewPage({ fingerprint, initialResolution }: Prop
       await saveColumnMapping(fingerprint, {
         field_resolutions: resolutions,
         dedup_key_fields: dedupKeyFields,
+        apply_to_run_id: effectiveRunId,
+        old_resolutions: effectiveInitialResolution?.field_resolutions,
       });
       setSaved(true);
+
+      const rawStored = sessionStorage.getItem("tidybridge_last_ingest_result");
+      if (rawStored) {
+        try {
+          const stored = JSON.parse(rawStored) as IngestResult;
+          if (stored.fingerprint === fingerprint) {
+            const oldByRaw = new Map(
+              (effectiveInitialResolution?.field_resolutions ?? []).map((e) => [
+                e.raw_column,
+                e.target_field,
+              ]),
+            );
+            const renameMap: Record<string, string> = {};
+            const dropFields = new Set<string>();
+            for (const res of resolutions) {
+              const oldT = oldByRaw.get(res.raw_column);
+              if (oldT && oldT !== res.target_field) {
+                if (res.target_field === null) {
+                  dropFields.add(oldT);
+                } else {
+                  renameMap[oldT] = res.target_field;
+                }
+              }
+            }
+            stored.records = stored.records.map((r) => {
+              const updated = { ...r.fields };
+              for (const [oldK, newK] of Object.entries(renameMap)) {
+                if (oldK in updated) {
+                  updated[newK] = updated[oldK];
+                  delete updated[oldK];
+                }
+              }
+              for (const dropK of dropFields) {
+                delete updated[dropK];
+              }
+              return { ...r, fields: updated };
+            });
+            stored.field_resolutions = resolutions;
+            stored.dedup_key_fields = dedupKeyFields;
+            sessionStorage.setItem("tidybridge_last_ingest_result", JSON.stringify(stored));
+          }
+        } catch {
+          // ignore
+        }
+      }
     } finally {
       setSaving(false);
     }
@@ -85,10 +153,12 @@ export function ColumnMappingReviewPage({ fingerprint, initialResolution }: Prop
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight mb-1">Review column mapping</h1>
+      <Link to="/" className="text-sm text-ring hover:underline">
+        ← Back to records
+      </Link>
+      <h1 className="text-2xl font-semibold tracking-tight mt-4 mb-1">Review column mapping</h1>
       <p className="text-sm text-muted-foreground mb-4">
-        Applies to the next upload with this exact set of columns - never changes records already
-        ingested.
+        Applies to this upload and future uploads with this exact set of columns.
       </p>
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-sm">

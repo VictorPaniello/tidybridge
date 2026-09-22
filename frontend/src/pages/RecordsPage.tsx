@@ -16,14 +16,12 @@ type Filter = "all" | "clean" | "flagged";
 // order); amount sorts numerically; has_issues (Status) sorts by its
 // Clean/Flagged label, alphabetically - Clean before Flagged ascending,
 // same string-comparator behavior as the other non-numeric columns.
-type SortKey = "full_name" | "email" | "signup_date" | "amount" | "has_issues";
+type SortKey = string;
 type SortDirection = "asc" | "desc";
 interface SortState {
   key: SortKey;
   direction: SortDirection;
 }
-
-const NUMERIC_SORT_KEYS: SortKey[] = ["amount"];
 
 function sortValue(record: ClientRecord, key: SortKey): string | number | null {
   if (key === "has_issues") return record.has_issues ? "Flagged" : "Clean";
@@ -39,9 +37,12 @@ function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): numb
   if (av == null) return 1;
   if (bv == null) return -1;
 
-  const cmp = NUMERIC_SORT_KEYS.includes(sort.key)
-    ? parseFloat(av as string) - parseFloat(bv as string)
-    : (av as string).localeCompare(bv as string);
+  const aNum = Number(av);
+  const bNum = Number(bv);
+  const isNumeric =
+    !isNaN(aNum) && !isNaN(bNum) && String(av).trim() !== "" && String(bv).trim() !== "";
+
+  const cmp = isNumeric ? aNum - bNum : String(av).localeCompare(String(bv));
 
   return sort.direction === "asc" ? cmp : -cmp;
 }
@@ -121,7 +122,14 @@ export function RecordsPage() {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<IngestResult | null>(null);
+  const [lastResult, setLastResult] = useState<IngestResult | null>(() => {
+    try {
+      const saved = sessionStorage.getItem("tidybridge_last_ingest_result");
+      return saved ? (JSON.parse(saved) as IngestResult) : null;
+    } catch {
+      return null;
+    }
+  });
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -162,13 +170,24 @@ export function RecordsPage() {
       if (filter === "clean" && r.has_issues) return false;
       if (filter === "flagged" && !r.has_issues) return false;
       if (query) {
-        const matchesName = r.fields.full_name?.toLowerCase().includes(query);
-        const matchesEmail = r.fields.email?.toLowerCase().includes(query);
-        if (!matchesName && !matchesEmail) return false;
+        const matchesField = Object.values(r.fields).some(
+          (val) => val != null && String(val).toLowerCase().includes(query),
+        );
+        if (!matchesField) return false;
       }
       return true;
     });
   }, [records, filter, search]);
+
+  const fieldNames = useMemo(() => {
+    const names: string[] = [];
+    for (const r of records) {
+      for (const k of Object.keys(r.fields)) {
+        if (!names.includes(k)) names.push(k);
+      }
+    }
+    return names;
+  }, [records]);
 
   const sortedRecords = useMemo(() => {
     if (!sort) return filteredRecords;
@@ -192,9 +211,11 @@ export function RecordsPage() {
     setUploading(true);
     setUploadError(null);
     setLastResult(null);
+    sessionStorage.removeItem("tidybridge_last_ingest_result");
     try {
       const result = await api.uploadFile(file);
       setLastResult(result);
+      sessionStorage.setItem("tidybridge_last_ingest_result", JSON.stringify(result));
       await load();
     } catch (err) {
       setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
@@ -313,7 +334,10 @@ export function RecordsPage() {
             </p>
             <button
               type="button"
-              onClick={() => setLastResult(null)}
+              onClick={() => {
+                setLastResult(null);
+                sessionStorage.removeItem("tidybridge_last_ingest_result");
+              }}
               aria-label="Dismiss"
               className="shrink-0 text-muted-foreground hover:text-foreground transition"
             >
@@ -333,6 +357,7 @@ export function RecordsPage() {
                         field_resolutions: lastResult.field_resolutions,
                         dedup_key_fields: lastResult.dedup_key_fields,
                       },
+                      ingestionRunId: lastResult.ingestion_run_id,
                     },
                   })
                 }
@@ -402,15 +427,15 @@ export function RecordsPage() {
           <table className="w-full text-sm">
             <thead className="bg-secondary text-left text-muted-foreground">
               <tr>
-                <SortableHeader label="Name" sortKey="full_name" sort={sort} onSort={handleSort} />
-                <SortableHeader label="Email" sortKey="email" sort={sort} onSort={handleSort} />
-                <SortableHeader
-                  label="Signup date"
-                  sortKey="signup_date"
-                  sort={sort}
-                  onSort={handleSort}
-                />
-                <SortableHeader label="Amount" sortKey="amount" sort={sort} onSort={handleSort} />
+                {fieldNames.map((name) => (
+                  <SortableHeader
+                    key={name}
+                    label={name}
+                    sortKey={name}
+                    sort={sort}
+                    onSort={handleSort}
+                  />
+                ))}
                 <SortableHeader
                   label="Status"
                   sortKey="has_issues"
@@ -423,14 +448,24 @@ export function RecordsPage() {
             <tbody>
               {sortedRecords.map((r) => (
                 <tr key={r.id} className="border-t border-border hover:bg-secondary/50">
-                  <td className="px-4 py-2">
-                    <Link to={`/records/${r.id}`} className="hover:underline">
-                      {r.fields.full_name ?? "—"}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.fields.email ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.fields.signup_date ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.fields.amount ?? "—"}</td>
+                  {fieldNames.map((name, index) => {
+                    const val = r.fields[name];
+                    const isLink = index === 0 || name === "full_name";
+                    return (
+                      <td
+                        key={name}
+                        className={`px-4 py-2 ${!isLink ? "text-muted-foreground" : ""}`}
+                      >
+                        {isLink ? (
+                          <Link to={`/records/${r.id}`} className="hover:underline font-medium">
+                            {val ?? "—"}
+                          </Link>
+                        ) : (
+                          val ?? "—"
+                        )}
+                      </td>
+                    );
+                  })}
                   <td className="px-4 py-2">
                     {r.has_issues ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">

@@ -1,6 +1,7 @@
 import type {
   ClientRecord,
   ColumnMapping,
+  ColumnMappingIn,
   CurrentUser,
   IngestionRun,
   IngestionRunsPage,
@@ -260,7 +261,7 @@ export async function getColumnMapping(fingerprint: string): Promise<ColumnMappi
 
 export async function saveColumnMapping(
   fingerprint: string,
-  body: ColumnMapping,
+  body: ColumnMappingIn,
 ): Promise<ColumnMapping> {
   return request<ColumnMapping>(`/column-mappings/${fingerprint}`, {
     method: "PUT",

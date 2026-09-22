@@ -127,3 +127,36 @@ def test_column_mappings_endpoints_require_auth():
         ).status_code
         == 401
     )
+
+
+def test_put_updates_uploaded_records_when_apply_to_run_id_specified(client: TestClient):
+    upload = client.post(
+        "/records/upload",
+        files={
+            "file": ("test.csv", b"Client Name,E-mail\nJane Doe,jane@example.com\n", "text/csv")
+        },
+    )
+    body = upload.json()
+    run_id = body["ingestion_run_id"]
+    fingerprint = body["fingerprint"]
+    assert body["records"][0]["fields"]["client_name"] == "Jane Doe"
+
+    put_resp = client.put(
+        f"/column-mappings/{fingerprint}",
+        json={
+            "field_resolutions": [
+                {"raw_column": "Client Name", "target_field": "full_name", "type": "string"},
+                {"raw_column": "E-mail", "target_field": "email", "type": "email"},
+            ],
+            "dedup_key_fields": ["email"],
+            "apply_to_run_id": run_id,
+            "old_resolutions": body["field_resolutions"],
+        },
+    )
+    assert put_resp.status_code == 200
+
+    records_resp = client.get("/records")
+    rec = records_resp.json()["items"][0]
+    assert rec["fields"]["full_name"] == "Jane Doe"
+    assert "client_name" not in rec["fields"]
+
