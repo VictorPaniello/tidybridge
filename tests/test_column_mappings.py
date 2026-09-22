@@ -52,7 +52,9 @@ def test_put_saves_a_resolution_applied_on_next_upload(client: TestClient):
 
     upload = client.post(
         "/records/upload",
-        files={"file": ("test.csv", b"Client Name,E-mail\nJane Doe,jane@example.com\n", "text/csv")},
+        files={
+            "file": ("test.csv", b"Client Name,E-mail\nJane Doe,jane@example.com\n", "text/csv")
+        },
     )
     assert upload.json()["records"][0]["fields"]["full_name"] == "Jane Doe"
 
@@ -90,7 +92,9 @@ def test_mapping_is_owner_scoped(client: TestClient, other_client: TestClient):
     )
     other_upload = other_client.post(
         "/records/upload",
-        files={"file": ("test.csv", b"Client Name,E-mail\nJane Doe,jane@example.com\n", "text/csv")},
+        files={
+            "file": ("test.csv", b"Client Name,E-mail\nJane Doe,jane@example.com\n", "text/csv")
+        },
     )
     # other_client never saved a mapping for this shape - "Client Name" has no
     # alias, so without client's mapping it falls back to the default

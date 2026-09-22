@@ -57,7 +57,9 @@ def default_resolution(raw_headers: list[str], reference_schema: Schema) -> list
         else:
             seen[target] = 1
 
-        field_type = type_by_name.get(canonical, FieldType.STRING) if canonical else FieldType.STRING
+        field_type = (
+            type_by_name.get(canonical, FieldType.STRING) if canonical else FieldType.STRING
+        )
         resolution.append(
             {"raw_column": header, "target_field": target, "type": field_type.value}
         )
@@ -127,7 +129,11 @@ def validate_resolution(resolution: list[dict], dedup_key_fields: list[str]) -> 
     target_fields = {entry["target_field"] for entry in resolution if entry["target_field"]}
     for target in target_fields:
         if not _FIELD_NAME_RE.match(target):
-            raise ValueError(f"invalid target_field {target!r}: must match {_FIELD_NAME_RE.pattern}")
+            raise ValueError(
+                f"invalid target_field {target!r}: must match {_FIELD_NAME_RE.pattern}"
+            )
     for key in dedup_key_fields:
         if key not in target_fields:
-            raise ValueError(f"dedup_key_fields entry {key!r} is not a target_field in this resolution")
+            raise ValueError(
+                f"dedup_key_fields entry {key!r} is not a target_field in this resolution"
+            )
