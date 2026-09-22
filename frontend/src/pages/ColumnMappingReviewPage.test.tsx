@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import * as client from "../api/client";
 import { ApiError } from "../api/client";
@@ -15,7 +16,11 @@ describe("ColumnMappingReviewPage", () => {
       dedup_key_fields: [],
     });
 
-    render(<ColumnMappingReviewPage fingerprint="abc123" />);
+    render(
+      <MemoryRouter>
+        <ColumnMappingReviewPage fingerprint="abc123" />
+      </MemoryRouter>,
+    );
     await screen.findByDisplayValue("full_name");
 
     fireEvent.change(screen.getByDisplayValue("full_name"), { target: { value: "name" } });
@@ -41,18 +46,21 @@ describe("ColumnMappingReviewPage", () => {
     );
 
     render(
-      <ColumnMappingReviewPage
-        fingerprint="abc123"
-        initialResolution={{
-          field_resolutions: [
-            { raw_column: "Customer", target_field: "full_name", type: "string" },
-          ],
-          dedup_key_fields: ["email"],
-        }}
-      />,
+      <MemoryRouter>
+        <ColumnMappingReviewPage
+          fingerprint="abc123"
+          initialResolution={{
+            field_resolutions: [
+              { raw_column: "Customer", target_field: "full_name", type: "string" },
+            ],
+            dedup_key_fields: ["email"],
+          }}
+        />
+      </MemoryRouter>,
     );
 
     await screen.findByDisplayValue("full_name");
     expect(screen.getByText("Customer")).toBeInTheDocument();
+    expect(screen.getByText("← Back to records")).toBeInTheDocument();
   });
 });

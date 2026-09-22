@@ -27,6 +27,13 @@ export interface ColumnMapping {
   dedup_key_fields: string[];
 }
 
+export interface ColumnMappingIn {
+  field_resolutions: FieldResolution[];
+  dedup_key_fields: string[];
+  apply_to_run_id?: string;
+  old_resolutions?: FieldResolution[];
+}
+
 export interface WebhookDelivery {
   id: number;
   record_id: string;

@@ -30,7 +30,9 @@ class FieldResolutionIn(BaseModel):
 
 class ColumnMappingIn(BaseModel):
     field_resolutions: list[FieldResolutionIn]
-    dedup_key_fields: list[str]
+    dedup_key_fields: list[str] = []
+    apply_to_run_id: uuid.UUID | None = None
+    old_resolutions: list[FieldResolutionIn] | None = None
 
 
 class ColumnMappingOut(BaseModel):

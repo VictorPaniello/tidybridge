@@ -18,6 +18,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy import Date, Float, cast, delete, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from starlette.concurrency import run_in_threadpool
 
 # Registers users/oauth_account on Base.metadata - not used directly here,
@@ -402,6 +403,48 @@ def put_column_mapping(
                 dedup_key_fields=body.dedup_key_fields,
             )
         )
+
+    target_run_id = body.apply_to_run_id
+    if not target_run_id and body.old_resolutions:
+        latest_run = db.execute(
+            select(IngestionRun)
+            .where(IngestionRun.owner_id == user.id)
+            .order_by(IngestionRun.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if latest_run is not None:
+            target_run_id = latest_run.id
+
+    if target_run_id and body.old_resolutions:
+        old_by_raw = {e.raw_column: e.target_field for e in body.old_resolutions}
+        new_by_raw = {e.raw_column: e.target_field for e in body.field_resolutions}
+        rename_map: dict[str, str] = {}
+        drop_fields: set[str] = set()
+        for raw_col, new_target in new_by_raw.items():
+            old_target = old_by_raw.get(raw_col)
+            if old_target and old_target != new_target:
+                if new_target is None:
+                    drop_fields.add(old_target)
+                else:
+                    rename_map[old_target] = new_target
+
+        if rename_map or drop_fields:
+            run_records = db.execute(
+                select(ClientRecord).where(
+                    ClientRecord.ingestion_run_id == target_run_id,
+                    ClientRecord.owner_id == user.id,
+                )
+            ).scalars().all()
+            for rec in run_records:
+                updated_fields = dict(rec.fields)
+                for old_k, new_k in rename_map.items():
+                    if old_k in updated_fields:
+                        updated_fields[new_k] = updated_fields.pop(old_k)
+                for drop_k in drop_fields:
+                    updated_fields.pop(drop_k, None)
+                rec.fields = updated_fields
+                flag_modified(rec, "fields")
+
     db.commit()
     return ColumnMappingOut(field_resolutions=resolution, dedup_key_fields=body.dedup_key_fields)
 
