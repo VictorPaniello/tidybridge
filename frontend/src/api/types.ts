@@ -59,6 +59,12 @@ export interface IngestResult {
   // This upload's header shape - what GET/PUT /column-mappings/{fingerprint}
   // takes, so a "review this mapping?" prompt has something to link to.
   fingerprint: string;
+  // The resolution actually used for *this* upload - GET
+  // /column-mappings/{fingerprint} 404s until something's been explicitly
+  // saved for this shape, so when mapping_is_default is true this is the
+  // only place the mapping-review screen can get an initial value from.
+  field_resolutions: FieldResolution[];
+  dedup_key_fields: string[];
   records: ClientRecord[];
 }
 

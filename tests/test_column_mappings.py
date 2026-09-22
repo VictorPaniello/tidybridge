@@ -34,6 +34,19 @@ def test_upload_response_carries_the_fingerprint_for_its_own_shape(client: TestC
     assert resp.json()["fingerprint"] == compute_fingerprint(["Full Name", "E-mail"])
 
 
+def test_upload_response_carries_the_resolution_actually_used(client: TestClient):
+    # The mapping review screen needs this for a shape that's never been
+    # saved (the exact case mapping_is_default=true covers) - GET
+    # /column-mappings/{fingerprint} genuinely 404s then (see the test
+    # above this file's docstring), so the *upload* response is the only
+    # place that ever has the raw headers to compute a default from.
+    resp = _upload(client)
+    body = resp.json()
+    targets = {e["raw_column"]: e["target_field"] for e in body["field_resolutions"]}
+    assert targets == {"Full Name": "full_name", "E-mail": "email"}
+    assert body["dedup_key_fields"] == ["email"]
+
+
 def test_put_saves_a_resolution_applied_on_next_upload(client: TestClient):
     from tidybridge.mapping import compute_fingerprint
 

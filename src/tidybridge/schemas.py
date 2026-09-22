@@ -108,6 +108,13 @@ class IngestResult(BaseModel):
     # This upload's header shape - what GET/PUT /column-mappings/{fingerprint}
     # takes, so a "review this mapping?" affordance has something to link to.
     fingerprint: str
+    # The resolution actually used for *this* upload (saved, or freshly
+    # computed) - GET /column-mappings/{fingerprint} 404s until something's
+    # been explicitly saved for this shape, so when mapping_is_default is
+    # true this is the only place the mapping-review screen can get an
+    # initial value from at all (nothing else ever has the raw headers).
+    field_resolutions: list[FieldResolutionIn]
+    dedup_key_fields: list[str]
     records: list[ClientRecordOut]
 
 
