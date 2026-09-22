@@ -124,10 +124,10 @@ def build_scim_payload(record: ClientRecord, mapping: dict[str, str]) -> dict:
         elif source == "false":
             value = False
         elif path == "name.givenName":
-            first, _, _rest = getattr(record, source).partition(" ")
+            first, _, _rest = (getattr(record, source) or "").partition(" ")
             value = first
         elif path == "name.familyName":
-            _first, _, rest = getattr(record, source).partition(" ")
+            _first, _, rest = (getattr(record, source) or "").partition(" ")
             value = rest or _first
         else:
             value = getattr(record, source)

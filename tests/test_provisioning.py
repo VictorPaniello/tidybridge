@@ -67,6 +67,17 @@ def test_build_scim_payload_splits_a_single_word_name_on_both_parts():
     assert payload["name"] == {"givenName": "Cher", "familyName": "Cher"}
 
 
+def test_build_scim_payload_handles_missing_full_name_gracefully():
+    # Under dynamic fields, full_name can genuinely be absent (not just
+    # blank) - .partition(None) must not crash.
+    record = ClientRecord(id=uuid.uuid4(), source_file="test.csv", fields={})
+    mapping = {"name.givenName": "full_name", "name.familyName": "full_name"}
+
+    payload = build_scim_payload(record, mapping)
+
+    assert payload == {"name": {"givenName": "", "familyName": ""}}
+
+
 def test_upload_enqueues_a_provisioning_job_when_a_url_is_configured(
     client: TestClient, db: Session, monkeypatch
 ):
