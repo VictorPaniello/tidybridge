@@ -115,7 +115,7 @@ export function RecordDetailPage() {
 
       <div className="mt-4 flex items-start justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {record.full_name ?? "Unnamed record"}
+          {record.fields.full_name ?? "Unnamed record"}
         </h1>
         <button
           onClick={() => setConfirmingDelete(true)}
@@ -126,10 +126,7 @@ export function RecordDetailPage() {
       </div>
 
       <dl className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-        <Field label="Email" value={record.email} />
-        <Field label="Phone" value={record.phone} />
-        <Field label="Signup date" value={record.signup_date} />
-        <Field label="Amount" value={record.amount} />
+        <RecordFieldsList fields={record.fields} />
         <Field label="Source file" value={record.source_file} />
         <Field label="Ingested" value={new Date(record.created_at).toLocaleString()} />
       </dl>
@@ -297,6 +294,24 @@ function Field({ label, value }: { label: string; value: string | null }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium">{value ?? "—"}</dd>
     </div>
+  );
+}
+
+// Every key in fields, not a fixed set - the whole point of dynamic
+// schema mapping is that a shape can have any columns at all. Rendered
+// as plain divs (not its own <dl>) so it drops straight into the page's
+// existing grid <dl> alongside Field above, rather than nesting one dl
+// inside another.
+export function RecordFieldsList({ fields }: { fields: Record<string, string | null> }) {
+  return (
+    <>
+      {Object.entries(fields).map(([key, value]) => (
+        <div key={key}>
+          <dt className="text-muted-foreground">{key}</dt>
+          <dd className="font-medium">{value ?? "—"}</dd>
+        </div>
+      ))}
+    </>
   );
 }
 

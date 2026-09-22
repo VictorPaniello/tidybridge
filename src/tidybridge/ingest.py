@@ -11,7 +11,15 @@ specific row of `clean_df` programmatically. This service does need that
 alignment (to know which persisted record `has_issues`), so it calls
 `coerce_and_validate` and `flag_duplicates` directly instead of `clean()`:
 `flag_duplicates` does not reset the index, so the surviving rows keep their
-original position and can be matched against `issues` directly."""
+original position and can be matched against `issues` directly.
+
+Note on the schema passed in vs. the schema actually used: `schema` (loaded
+once from examples/schema.yaml by load_schema()) is now only the *reference*
+mapping.py's default_resolution() consults for alias/type hints - it's no
+longer passed to coerce_and_validate()/flag_duplicates() directly. Each
+upload builds its own dynamic Schema from that shape's resolution (saved, or
+computed fresh) - see
+docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md."""
 
 from __future__ import annotations
 
@@ -26,7 +34,14 @@ from tidycsv.cleaner import coerce_and_validate, flag_duplicates, load_input, ma
 from tidycsv.schema import Schema
 
 from tidybridge.config import settings
-from tidybridge.models import ClientRecord, IngestionRun
+from tidybridge.mapping import (
+    apply_mapping,
+    build_schema,
+    compute_fingerprint,
+    default_dedup_key_fields,
+    default_resolution,
+)
+from tidybridge.models import ClientRecord, ColumnMapping, IngestionRun
 from tidybridge.provisioning import enqueue_provisioning
 from tidybridge.webhooks import enqueue_delivery
 
@@ -39,7 +54,7 @@ def load_schema() -> Schema:
 
 def ingest_file(
     db: Session, filename: str, content: bytes, schema: Schema, owner_id: uuid.UUID
-) -> tuple[list[ClientRecord], IngestionRun]:
+) -> tuple[list[ClientRecord], IngestionRun, bool, str]:
     # Generated here, up front, rather than left to IngestionRun's own
     # id default at flush() below - this is the correlation_id logged
     # against *every* stage of this upload (received, failed if it never
@@ -64,11 +79,41 @@ def ingest_file(
 
         try:
             raw = load_input(tmp_path)
-            mapped = map_columns(raw, schema)
-            coerced, issues = coerce_and_validate(mapped, schema)
-            deduped, dropped = flag_duplicates(coerced, schema.key_columns)
         finally:
             tmp_path.unlink(missing_ok=True)
+
+        fingerprint = compute_fingerprint(list(raw.columns))
+        saved = db.execute(
+            select(ColumnMapping).where(
+                ColumnMapping.owner_id == owner_id,
+                ColumnMapping.header_fingerprint == fingerprint,
+            )
+        ).scalar_one_or_none()
+
+        mapping_is_default = saved is None
+        if saved is not None:
+            resolution = saved.field_resolutions
+            dedup_key_fields = saved.dedup_key_fields
+        else:
+            resolution = default_resolution(list(raw.columns), schema)
+            # Not blank by default: when the shape includes an
+            # alias-matched email column, that's the same identity
+            # tidybridge always assumed before dynamic mapping existed -
+            # re-uploading an unchanged file stays a no-op with zero
+            # configuration. Only a genuinely novel shape with nothing
+            # email-like gets no default (see default_dedup_key_fields).
+            dedup_key_fields = default_dedup_key_fields(resolution)
+
+        dynamic_schema = build_schema(resolution)
+        # apply_mapping()'s output already has exactly dynamic_schema's
+        # field names - map_columns() here is a defensive no-op in terms
+        # of content (each name self-matches its own trivial alias), but
+        # it's still the real tidycsv pipeline stage, not skipped: it
+        # normalizes column order to dynamic_schema.fields and guards
+        # against apply_mapping ever producing an unexpected extra column.
+        mapped = map_columns(apply_mapping(raw, resolution), dynamic_schema)
+        coerced, issues = coerce_and_validate(mapped, dynamic_schema)
+        deduped, dropped = flag_duplicates(coerced, dedup_key_fields)
 
         issue_map: dict[int, list[dict]] = {}
         for issue in issues:
@@ -95,44 +140,41 @@ def ingest_file(
         inserted: list[ClientRecord] = []
         skipped_existing = 0
         for idx in deduped.index:
-            # Column-wise .at[] access, not deduped.iterrows(): iterrows()
-            # builds a fresh per-row Series spanning every column, and
+            # Column-wise .at[] access, not deduped.iterrows()/.to_dict():
+            # both build a fresh per-row Series spanning every column, and
             # pandas infers a single dtype for that Series just like it
             # does for a column - so a correctly-None cell comes back as
             # float NaN yet again once it's inside a row-Series, even
             # though the source column holds it fine. Same root cause as
             # the fix upstream in tidycsv, different call site.
             row_issues = issue_map.get(idx)
-            email = deduped.at[idx, "email"]
-            if email:
+            field_values = {col: deduped.at[idx, col] for col in deduped.columns}
+
+            existing = None
+            if dedup_key_fields:
                 # Scoped to this owner: two different engineers uploading
-                # a client with the same email are two separate records,
-                # not a duplicate of each other's - each engineer's dedup
-                # is their own.
-                existing = db.execute(
-                    select(ClientRecord).where(
-                        ClientRecord.email == email, ClientRecord.owner_id == owner_id
-                    )
-                ).scalar_one_or_none()
-                if existing:
-                    # Already ingested - re-uploading the same list is a
-                    # no-op, not an error. Counted, not just skipped
-                    # silently: without this, rows_total stops summing to
-                    # rows_clean + rows_flagged + rows_dropped_duplicates
-                    # on a re-upload, and the run's own numbers no longer
-                    # account for every row.
-                    skipped_existing += 1
-                    continue
+                # a client with the same key values are two separate
+                # records, not a duplicate of each other's - each
+                # engineer's dedup is their own.
+                conditions = [ClientRecord.owner_id == owner_id]
+                for key in dedup_key_fields:
+                    conditions.append(ClientRecord.fields[key].astext == str(field_values.get(key)))
+                existing = db.execute(select(ClientRecord).where(*conditions)).scalars().first()
+            if existing:
+                # Already ingested - re-uploading the same list is a
+                # no-op, not an error. Counted, not just skipped
+                # silently: without this, rows_total stops summing to
+                # rows_clean + rows_flagged + rows_dropped_duplicates
+                # on a re-upload, and the run's own numbers no longer
+                # account for every row.
+                skipped_existing += 1
+                continue
 
             record = ClientRecord(
                 owner_id=owner_id,
                 ingestion_run_id=run.id,
                 source_file=filename,
-                full_name=deduped.at[idx, "full_name"],
-                email=email,
-                signup_date=deduped.at[idx, "signup_date"],
-                amount=deduped.at[idx, "amount"],
-                phone=deduped.at[idx, "phone"],
+                fields=field_values,
                 has_issues=row_issues is not None,
                 issues=row_issues,
             )
@@ -186,4 +228,4 @@ def ingest_file(
             "rows_skipped_existing": run.rows_skipped_existing,
         },
     )
-    return inserted, run
+    return inserted, run, mapping_is_default, fingerprint

@@ -23,8 +23,12 @@ def test_upload_cleans_and_persists_records(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert body["rows_total"] == 5
-    assert body["rows_clean"] == 2
-    assert body["rows_flagged"] == 3
+    # messy_clients.csv's blank-Customer row no longer counts as flagged:
+    # nothing is required any more (dynamic schema mapping), so a missing
+    # full_name is just absent, not a validation issue - only the
+    # invalid-email and invalid-date rows are genuine value problems.
+    assert body["rows_clean"] == 3
+    assert body["rows_flagged"] == 2
     assert len(body["records"]) == 5
 
 
@@ -35,20 +39,20 @@ def test_missing_optional_field_is_null_not_the_string_nan(client: TestClient):
     # that bug looked like from the API's side.
     response = _upload(client)
     records = response.json()["records"]
-    no_name_record = next(r for r in records if r["email"] == "noemail@shop.com")
-    assert no_name_record["full_name"] is None
-    assert no_name_record["phone"] is None
+    no_name_record = next(r for r in records if r["fields"]["email"] == "noemail@shop.com")
+    assert no_name_record["fields"]["full_name"] is None
+    assert no_name_record["fields"]["phone"] is None
 
 
 def test_flagged_issues_are_attached_to_the_correct_record(client: TestClient):
     records = _upload(client).json()["records"]
-    invalid_email_record = next(r for r in records if r["email"] == "not-an-email")
+    invalid_email_record = next(r for r in records if r["fields"]["email"] == "not-an-email")
     assert invalid_email_record["has_issues"] is True
     assert invalid_email_record["issues"] == [
         {"field": "email", "issue": "invalid email format"}
     ]
 
-    bad_date_record = next(r for r in records if r["full_name"] == "Marco Rossi")
+    bad_date_record = next(r for r in records if r["fields"]["full_name"] == "Marco Rossi")
     assert bad_date_record["issues"] == [{"field": "signup_date", "issue": "unparseable date"}]
 
 
@@ -68,10 +72,12 @@ def test_list_records_filters_by_has_issues(client: TestClient):
     _upload(client)
     flagged = client.get("/records", params={"has_issues": True}).json()
     clean = client.get("/records", params={"has_issues": False}).json()
-    assert len(flagged["items"]) == 3
-    assert flagged["total"] == 3
-    assert len(clean["items"]) == 2
-    assert clean["total"] == 2
+    # See test_upload_cleans_and_persists_records - a missing full_name
+    # is no longer a validation issue now that nothing is required.
+    assert len(flagged["items"]) == 2
+    assert flagged["total"] == 2
+    assert len(clean["items"]) == 3
+    assert clean["total"] == 3
 
 
 def test_list_records_is_paginated(client: TestClient):

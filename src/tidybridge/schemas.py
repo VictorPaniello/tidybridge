@@ -16,14 +16,26 @@ class ClientRecordOut(BaseModel):
     id: uuid.UUID
     ingestion_run_id: uuid.UUID | None
     source_file: str
-    full_name: str | None
-    email: str | None
-    signup_date: str | None
-    amount: str | None
-    phone: str | None
+    fields: dict
     has_issues: bool
     issues: list[dict] | None
     created_at: datetime
+
+
+class FieldResolutionIn(BaseModel):
+    raw_column: str
+    target_field: str | None
+    type: str | None
+
+
+class ColumnMappingIn(BaseModel):
+    field_resolutions: list[FieldResolutionIn]
+    dedup_key_fields: list[str]
+
+
+class ColumnMappingOut(BaseModel):
+    field_resolutions: list[FieldResolutionIn]
+    dedup_key_fields: list[str]
 
 
 class WebhookDeliveryOut(BaseModel):
@@ -92,6 +104,10 @@ class IngestResult(BaseModel):
     # rows_skipped_existing always holds - every row is accounted for as
     # exactly one of these four, never silently unaccounted.
     rows_skipped_existing: int
+    mapping_is_default: bool
+    # This upload's header shape - what GET/PUT /column-mappings/{fingerprint}
+    # takes, so a "review this mapping?" affordance has something to link to.
+    fingerprint: str
     records: list[ClientRecordOut]
 
 

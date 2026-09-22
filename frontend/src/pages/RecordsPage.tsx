@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import { ApiError } from "../api/client";
 import type { ClientRecord, IngestResult } from "../api/types";
@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
+import { UploadResultsTable } from "../components/UploadResultsTable";
 
 type Filter = "all" | "clean" | "flagged";
 
@@ -26,7 +27,7 @@ const NUMERIC_SORT_KEYS: SortKey[] = ["amount"];
 
 function sortValue(record: ClientRecord, key: SortKey): string | number | null {
   if (key === "has_issues") return record.has_issues ? "Flagged" : "Clean";
-  return record[key];
+  return record.fields[key];
 }
 
 function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): number {
@@ -109,6 +110,7 @@ function StatCard({
 
 export function RecordsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const ingestionRunId = searchParams.get("ingestion_run_id");
   const [records, setRecords] = useState<ClientRecord[]>([]);
@@ -160,8 +162,8 @@ export function RecordsPage() {
       if (filter === "clean" && r.has_issues) return false;
       if (filter === "flagged" && !r.has_issues) return false;
       if (query) {
-        const matchesName = r.full_name?.toLowerCase().includes(query);
-        const matchesEmail = r.email?.toLowerCase().includes(query);
+        const matchesName = r.fields.full_name?.toLowerCase().includes(query);
+        const matchesEmail = r.fields.email?.toLowerCase().includes(query);
         if (!matchesName && !matchesEmail) return false;
       }
       return true;
@@ -293,29 +295,41 @@ export function RecordsPage() {
       )}
 
       {lastResult && (
-        <div className="mb-6 flex items-start justify-between gap-3 rounded-md border border-border px-4 py-3 text-sm">
-          <p>
-            <span className="font-medium">{lastResult.rows_total}</span> rows processed —{" "}
-            <span className="text-primary">{lastResult.rows_clean} clean</span>,{" "}
-            <span className="text-amber-700 dark:text-amber-400">
-              {lastResult.rows_flagged} flagged
-            </span>
-            , {lastResult.rows_dropped_duplicates} duplicate(s) skipped
-            {lastResult.rows_skipped_existing > 0 &&
-              `, ${lastResult.rows_skipped_existing} already ingested`}
-            .{" "}
-            <Link to={`/uploads`} className="text-ring hover:underline">
-              View full history
-            </Link>
-          </p>
-          <button
-            type="button"
-            onClick={() => setLastResult(null)}
-            aria-label="Dismiss"
-            className="shrink-0 text-muted-foreground hover:text-foreground transition"
-          >
-            ✕
-          </button>
+        <div className="mb-6 rounded-md border border-border px-4 py-3 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <p>
+              <span className="font-medium">{lastResult.rows_total}</span> rows processed —{" "}
+              <span className="text-primary">{lastResult.rows_clean} clean</span>,{" "}
+              <span className="text-amber-700 dark:text-amber-400">
+                {lastResult.rows_flagged} flagged
+              </span>
+              , {lastResult.rows_dropped_duplicates} duplicate(s) skipped
+              {lastResult.rows_skipped_existing > 0 &&
+                `, ${lastResult.rows_skipped_existing} already ingested`}
+              .{" "}
+              <Link to={`/uploads`} className="text-ring hover:underline">
+                View full history
+              </Link>
+            </p>
+            <button
+              type="button"
+              onClick={() => setLastResult(null)}
+              aria-label="Dismiss"
+              className="shrink-0 text-muted-foreground hover:text-foreground transition"
+            >
+              ✕
+            </button>
+          </div>
+          {lastResult.records.length > 0 && (
+            <div className="mt-3">
+              <UploadResultsTable
+                records={lastResult.records}
+                mappingIsDefault={lastResult.mapping_is_default}
+                fingerprint={lastResult.fingerprint}
+                onReviewMapping={() => navigate(`/column-mappings/${lastResult.fingerprint}`)}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -402,12 +416,12 @@ export function RecordsPage() {
                 <tr key={r.id} className="border-t border-border hover:bg-secondary/50">
                   <td className="px-4 py-2">
                     <Link to={`/records/${r.id}`} className="hover:underline">
-                      {r.full_name ?? "—"}
+                      {r.fields.full_name ?? "—"}
                     </Link>
                   </td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.email ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.signup_date ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.amount ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{r.fields.email ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{r.fields.signup_date ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{r.fields.amount ?? "—"}</td>
                   <td className="px-4 py-2">
                     {r.has_issues ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">

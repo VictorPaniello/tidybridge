@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -12,8 +12,18 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { RecordsPage } from "./pages/RecordsPage";
 import { RecordDetailPage } from "./pages/RecordDetailPage";
 import { IngestionRunsPage } from "./pages/IngestionRunsPage";
+import { ColumnMappingReviewPage } from "./pages/ColumnMappingReviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { TermsPage } from "./pages/TermsPage";
+
+// The route wrapper is here (not inside ColumnMappingReviewPage itself)
+// so the page component keeps taking `fingerprint` as a plain prop -
+// simpler to test (see its .test.tsx) than reading useParams internally.
+function ColumnMappingReviewRoute() {
+  const { fingerprint } = useParams<{ fingerprint: string }>();
+  if (!fingerprint) return <Navigate to="/" replace />;
+  return <ColumnMappingReviewPage fingerprint={fingerprint} />;
+}
 
 export default function App() {
   return (
@@ -89,6 +99,16 @@ export default function App() {
               <ProtectedRoute>
                 <Layout>
                   <RecordDetailPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/column-mappings/:fingerprint"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ColumnMappingReviewRoute />
                 </Layout>
               </ProtectedRoute>
             }

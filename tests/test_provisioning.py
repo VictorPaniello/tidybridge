@@ -40,8 +40,7 @@ def test_build_scim_payload_maps_fields_into_the_documented_shape():
     record = ClientRecord(
         id=uuid.uuid4(),
         source_file="test.csv",
-        full_name="Grace Hopper",
-        email="grace@example.com",
+        fields={"full_name": "Grace Hopper", "email": "grace@example.com"},
     )
     mapping = _load_mapping()
 
@@ -59,13 +58,24 @@ def test_build_scim_payload_splits_a_single_word_name_on_both_parts():
     # "documented limitation" (spec) - a name with no space has nothing
     # to put in familyName, so it repeats into both.
     record = ClientRecord(
-        id=uuid.uuid4(), source_file="test.csv", full_name="Cher", email="c@e.com"
+        id=uuid.uuid4(), source_file="test.csv", fields={"full_name": "Cher", "email": "c@e.com"}
     )
     mapping = _load_mapping()
 
     payload = build_scim_payload(record, mapping)
 
     assert payload["name"] == {"givenName": "Cher", "familyName": "Cher"}
+
+
+def test_build_scim_payload_handles_missing_full_name_gracefully():
+    # Under dynamic fields, full_name can genuinely be absent (not just
+    # blank) - .partition(None) must not crash.
+    record = ClientRecord(id=uuid.uuid4(), source_file="test.csv", fields={})
+    mapping = {"name.givenName": "full_name", "name.familyName": "full_name"}
+
+    payload = build_scim_payload(record, mapping)
+
+    assert payload == {"name": {"givenName": "", "familyName": ""}}
 
 
 def test_upload_enqueues_a_provisioning_job_when_a_url_is_configured(

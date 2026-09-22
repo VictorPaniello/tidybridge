@@ -41,8 +41,10 @@ from tidybridge.config import settings
 from tidybridge.db import get_db
 from tidybridge.ingest import ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
+from tidybridge.mapping import validate_resolution
 from tidybridge.models import (
     ClientRecord,
+    ColumnMapping,
     IngestionRun,
     ProvisioningAttempt,
     ProvisioningJob,
@@ -52,6 +54,8 @@ from tidybridge.models import (
 from tidybridge.provisioning import replay_provisioning
 from tidybridge.schemas import (
     ClientRecordOut,
+    ColumnMappingIn,
+    ColumnMappingOut,
     DailySuccessRatePoint,
     DeliverySuccessStats,
     IngestionRunOut,
@@ -329,7 +333,7 @@ async def upload_records(
     # run_in_threadpool moves it off the loop, the same mechanism FastAPI
     # itself uses for sync routes. Found via a deliberate scalability/
     # performance review, not a user report.
-    inserted, run = await run_in_threadpool(
+    inserted, run, mapping_is_default, fingerprint = await run_in_threadpool(
         ingest_file, db, file.filename or "upload.csv", content, schema, user.id
     )
     return IngestResult(
@@ -339,8 +343,64 @@ async def upload_records(
         rows_flagged=run.rows_flagged,
         rows_dropped_duplicates=run.rows_dropped_duplicates,
         rows_skipped_existing=run.rows_skipped_existing,
+        mapping_is_default=mapping_is_default,
+        fingerprint=fingerprint,
         records=[ClientRecordOut.model_validate(r) for r in inserted],
     )
+
+
+@app.get("/column-mappings/{fingerprint}", response_model=ColumnMappingOut)
+def get_column_mapping(
+    fingerprint: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ColumnMappingOut:
+    saved = db.execute(
+        select(ColumnMapping).where(
+            ColumnMapping.owner_id == user.id, ColumnMapping.header_fingerprint == fingerprint
+        )
+    ).scalar_one_or_none()
+    if saved is not None:
+        return ColumnMappingOut(
+            field_resolutions=saved.field_resolutions, dedup_key_fields=saved.dedup_key_fields
+        )
+    # No saved mapping - fingerprint alone can't reconstruct raw headers,
+    # so there's nothing meaningful to default to without a real upload.
+    raise HTTPException(status_code=404, detail="No saved mapping for this shape yet")
+
+
+@app.put("/column-mappings/{fingerprint}", response_model=ColumnMappingOut)
+def put_column_mapping(
+    fingerprint: str,
+    body: ColumnMappingIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ColumnMappingOut:
+    resolution = [entry.model_dump() for entry in body.field_resolutions]
+    try:
+        validate_resolution(resolution, body.dedup_key_fields)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    existing = db.execute(
+        select(ColumnMapping).where(
+            ColumnMapping.owner_id == user.id, ColumnMapping.header_fingerprint == fingerprint
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.field_resolutions = resolution
+        existing.dedup_key_fields = body.dedup_key_fields
+    else:
+        db.add(
+            ColumnMapping(
+                owner_id=user.id,
+                header_fingerprint=fingerprint,
+                field_resolutions=resolution,
+                dedup_key_fields=body.dedup_key_fields,
+            )
+        )
+    db.commit()
+    return ColumnMappingOut(field_resolutions=resolution, dedup_key_fields=body.dedup_key_fields)
 
 
 @app.get("/ingestion-runs", response_model=IngestionRunsPage)

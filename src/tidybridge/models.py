@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from tidybridge.db import Base
@@ -57,6 +57,25 @@ class IngestionRun(Base):
     records: Mapped[list[ClientRecord]] = relationship(back_populates="ingestion_run")
 
 
+class ColumnMapping(Base):
+    """One row per (owner, header shape) an owner has explicitly saved a
+    resolution for - looked up by header_fingerprint on every upload. A
+    shape with no row here just uses the computed default (mapping.py's
+    default_resolution()) - this table only exists for shapes an
+    engineer has chosen to name/retype/combine/set a dedup key for."""
+
+    __tablename__ = "column_mappings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False, index=True
+    )
+    header_fingerprint: Mapped[str] = mapped_column(String, nullable=False)
+    field_resolutions: Mapped[list[dict]] = mapped_column(JSON, nullable=False)
+    dedup_key_fields: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class ClientRecord(Base):
     __tablename__ = "client_records"
 
@@ -89,14 +108,38 @@ class ClientRecord(Base):
     deletion happens to take first."""
     ingestion_run: Mapped[IngestionRun | None] = relationship(back_populates="records")
     source_file: Mapped[str] = mapped_column(String, nullable=False)
-    full_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    email: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
-    signup_date: Mapped[str | None] = mapped_column(String, nullable=True)
-    amount: Mapped[str | None] = mapped_column(String, nullable=True)
-    phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    fields: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    """Whatever this upload's shape resolved to - see
+    docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md.
+    No fixed keys; a given record might have "full_name"/"email" (the
+    common case, via alias-matching) or something else entirely."""
     has_issues: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     issues: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def full_name(self) -> str | None:
+        """Backward-compatible accessor - webhooks.py, provisioning.py,
+        schemas.py's ClientRecordOut, and main.py's export_records all
+        read this as a plain attribute and none of them need to change:
+        None (not a KeyError) when this record's fields never had it."""
+        return self.fields.get("full_name")
+
+    @property
+    def email(self) -> str | None:
+        return self.fields.get("email")
+
+    @property
+    def signup_date(self) -> str | None:
+        return self.fields.get("signup_date")
+
+    @property
+    def amount(self) -> str | None:
+        return self.fields.get("amount")
+
+    @property
+    def phone(self) -> str | None:
+        return self.fields.get("phone")
 
     webhook_deliveries: Mapped[list[WebhookDelivery]] = relationship(
         back_populates="record", passive_deletes=True
