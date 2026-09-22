@@ -16,11 +16,7 @@ class ClientRecordOut(BaseModel):
     id: uuid.UUID
     ingestion_run_id: uuid.UUID | None
     source_file: str
-    full_name: str | None
-    email: str | None
-    signup_date: str | None
-    amount: str | None
-    phone: str | None
+    fields: dict
     has_issues: bool
     issues: list[dict] | None
     created_at: datetime
@@ -108,6 +104,7 @@ class IngestResult(BaseModel):
     # rows_skipped_existing always holds - every row is accounted for as
     # exactly one of these four, never silently unaccounted.
     rows_skipped_existing: int
+    mapping_is_default: bool
     records: list[ClientRecordOut]
 
 

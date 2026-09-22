@@ -1,9 +1,7 @@
 """GET/PUT /column-mappings/{fingerprint} - the entirely optional,
 prospective-only review step.
 
-Note: the PUT test below asserts against ClientRecordOut's current
-full_name field (not a dynamic `fields` dict) - that schema change is
-Task 7's job, not yet done. It uses "Client Name" (not "Full Name") as the raw
+Note: the PUT test below uses "Client Name" (not "Full Name") as the raw
 header precisely because "Full Name" already alias-matches full_name by
 default - "Client Name" doesn't, so a passing assertion actually proves the
 saved mapping got applied, not just that the default would have worked
@@ -46,7 +44,7 @@ def test_put_saves_a_resolution_applied_on_next_upload(client: TestClient):
         "/records/upload",
         files={"file": ("test.csv", b"Client Name,E-mail\nJane Doe,jane@example.com\n", "text/csv")},
     )
-    assert upload.json()["records"][0]["full_name"] == "Jane Doe"
+    assert upload.json()["records"][0]["fields"]["full_name"] == "Jane Doe"
 
     get_resp = client.get(f"/column-mappings/{fingerprint}")
     assert get_resp.status_code == 200
@@ -87,7 +85,7 @@ def test_mapping_is_owner_scoped(client: TestClient, other_client: TestClient):
     # other_client never saved a mapping for this shape - "Client Name" has no
     # alias, so without client's mapping it falls back to the default
     # (target_field "client_name", not "full_name").
-    assert other_upload.json()["records"][0]["full_name"] is None
+    assert other_upload.json()["records"][0]["fields"].get("full_name") is None
 
 
 def test_column_mappings_endpoints_require_auth():

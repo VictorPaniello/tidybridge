@@ -39,20 +39,20 @@ def test_missing_optional_field_is_null_not_the_string_nan(client: TestClient):
     # that bug looked like from the API's side.
     response = _upload(client)
     records = response.json()["records"]
-    no_name_record = next(r for r in records if r["email"] == "noemail@shop.com")
-    assert no_name_record["full_name"] is None
-    assert no_name_record["phone"] is None
+    no_name_record = next(r for r in records if r["fields"]["email"] == "noemail@shop.com")
+    assert no_name_record["fields"]["full_name"] is None
+    assert no_name_record["fields"]["phone"] is None
 
 
 def test_flagged_issues_are_attached_to_the_correct_record(client: TestClient):
     records = _upload(client).json()["records"]
-    invalid_email_record = next(r for r in records if r["email"] == "not-an-email")
+    invalid_email_record = next(r for r in records if r["fields"]["email"] == "not-an-email")
     assert invalid_email_record["has_issues"] is True
     assert invalid_email_record["issues"] == [
         {"field": "email", "issue": "invalid email format"}
     ]
 
-    bad_date_record = next(r for r in records if r["full_name"] == "Marco Rossi")
+    bad_date_record = next(r for r in records if r["fields"]["full_name"] == "Marco Rossi")
     assert bad_date_record["issues"] == [{"field": "signup_date", "issue": "unparseable date"}]
 
 
