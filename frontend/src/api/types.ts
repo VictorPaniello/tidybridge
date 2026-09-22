@@ -56,6 +56,9 @@ export interface IngestResult {
   // alias-matched/normalized-header default was used - a hint the
   // frontend can use to prompt an engineer to review it.
   mapping_is_default: boolean;
+  // This upload's header shape - what GET/PUT /column-mappings/{fingerprint}
+  // takes, so a "review this mapping?" prompt has something to link to.
+  fingerprint: string;
   records: ClientRecord[];
 }
 
