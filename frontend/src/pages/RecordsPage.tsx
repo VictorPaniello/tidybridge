@@ -326,7 +326,16 @@ export function RecordsPage() {
                 records={lastResult.records}
                 mappingIsDefault={lastResult.mapping_is_default}
                 fingerprint={lastResult.fingerprint}
-                onReviewMapping={() => navigate(`/column-mappings/${lastResult.fingerprint}`)}
+                onReviewMapping={() =>
+                  navigate(`/column-mappings/${lastResult.fingerprint}`, {
+                    state: {
+                      initialResolution: {
+                        field_resolutions: lastResult.field_resolutions,
+                        dedup_key_fields: lastResult.dedup_key_fields,
+                      },
+                    },
+                  })
+                }
               />
             </div>
           )}

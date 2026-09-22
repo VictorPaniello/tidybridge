@@ -27,6 +27,7 @@ import logging
 import tempfile
 import uuid
 from pathlib import Path
+from typing import NamedTuple
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -52,9 +53,22 @@ def load_schema() -> Schema:
     return Schema.load(Path(settings.schema_path))
 
 
+class IngestOutcome(NamedTuple):
+    records: list[ClientRecord]
+    run: IngestionRun
+    mapping_is_default: bool
+    fingerprint: str
+    # The resolution actually used for this upload (saved, or freshly
+    # computed) - callers still unpack this positionally too, same as
+    # before, but adding another field here no longer means renumbering
+    # every unpack site's trailing underscores.
+    field_resolutions: list[dict]
+    dedup_key_fields: list[str]
+
+
 def ingest_file(
     db: Session, filename: str, content: bytes, schema: Schema, owner_id: uuid.UUID
-) -> tuple[list[ClientRecord], IngestionRun, bool, str]:
+) -> IngestOutcome:
     # Generated here, up front, rather than left to IngestionRun's own
     # id default at flush() below - this is the correlation_id logged
     # against *every* stage of this upload (received, failed if it never
@@ -228,4 +242,6 @@ def ingest_file(
             "rows_skipped_existing": run.rows_skipped_existing,
         },
     )
-    return inserted, run, mapping_is_default, fingerprint
+    return IngestOutcome(
+        inserted, run, mapping_is_default, fingerprint, resolution, dedup_key_fields
+    )

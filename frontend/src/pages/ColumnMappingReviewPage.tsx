@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
-import { getColumnMapping, saveColumnMapping } from "../api/client";
-import type { FieldResolution } from "../api/types";
+import { ApiError, getColumnMapping, saveColumnMapping } from "../api/client";
+import type { ColumnMapping, FieldResolution } from "../api/types";
 
 interface Props {
   fingerprint: string;
+  // The resolution actually used by the upload that got you here (see
+  // IngestResult.field_resolutions) - the *only* fallback available when
+  // GET 404s, which it always does for a shape nothing's been saved for
+  // yet (main.py's get_column_mapping can't reconstruct raw headers from
+  // a bare fingerprint). Without this, that 404 - the common case, since
+  // it's exactly what mapping_is_default=true means - left the table
+  // silently empty instead of showing anything to review.
+  initialResolution?: ColumnMapping;
 }
 
 const FIELD_TYPES = ["string", "email", "date", "currency", "integer", "phone"];
@@ -11,22 +19,36 @@ const FIELD_TYPES = ["string", "email", "date", "currency", "integer", "phone"];
 // The entirely optional, prospective-only mapping review step - editing
 // here only affects the *next* upload of this exact header shape (see
 // GET/PUT /column-mappings/{fingerprint}), never records already ingested.
-export function ColumnMappingReviewPage({ fingerprint }: Props) {
+export function ColumnMappingReviewPage({ fingerprint, initialResolution }: Props) {
   const [resolutions, setResolutions] = useState<FieldResolution[]>([]);
   const [dedupKeyFields, setDedupKeyFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
     getColumnMapping(fingerprint)
       .then((mapping) => {
         setResolutions(mapping.field_resolutions);
         setDedupKeyFields(mapping.dedup_key_fields);
       })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 404 && initialResolution) {
+          setResolutions(initialResolution.field_resolutions);
+          setDedupKeyFields(initialResolution.dedup_key_fields);
+          return;
+        }
+        setLoadError(
+          err instanceof ApiError && err.status === 404
+            ? "Nothing to review yet - upload this shape once more to pick up its mapping."
+            : "Couldn't load this mapping.",
+        );
+      })
       .finally(() => setLoading(false));
-  }, [fingerprint]);
+  }, [fingerprint, initialResolution]);
 
   function updateTargetField(index: number, value: string) {
     setResolutions((prev) =>
@@ -59,6 +81,7 @@ export function ColumnMappingReviewPage({ fingerprint }: Props) {
   }
 
   if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (loadError) return <p className="text-red-600 text-sm">{loadError}</p>;
 
   return (
     <div>
