@@ -26,6 +26,22 @@ class ClientRecordOut(BaseModel):
     created_at: datetime
 
 
+class FieldResolutionIn(BaseModel):
+    raw_column: str
+    target_field: str | None
+    type: str | None
+
+
+class ColumnMappingIn(BaseModel):
+    field_resolutions: list[FieldResolutionIn]
+    dedup_key_fields: list[str]
+
+
+class ColumnMappingOut(BaseModel):
+    field_resolutions: list[FieldResolutionIn]
+    dedup_key_fields: list[str]
+
+
 class WebhookDeliveryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
