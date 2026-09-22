@@ -26,7 +26,7 @@ const NUMERIC_SORT_KEYS: SortKey[] = ["amount"];
 
 function sortValue(record: ClientRecord, key: SortKey): string | number | null {
   if (key === "has_issues") return record.has_issues ? "Flagged" : "Clean";
-  return record[key];
+  return record.fields[key];
 }
 
 function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): number {
@@ -160,8 +160,8 @@ export function RecordsPage() {
       if (filter === "clean" && r.has_issues) return false;
       if (filter === "flagged" && !r.has_issues) return false;
       if (query) {
-        const matchesName = r.full_name?.toLowerCase().includes(query);
-        const matchesEmail = r.email?.toLowerCase().includes(query);
+        const matchesName = r.fields.full_name?.toLowerCase().includes(query);
+        const matchesEmail = r.fields.email?.toLowerCase().includes(query);
         if (!matchesName && !matchesEmail) return false;
       }
       return true;
@@ -402,12 +402,12 @@ export function RecordsPage() {
                 <tr key={r.id} className="border-t border-border hover:bg-secondary/50">
                   <td className="px-4 py-2">
                     <Link to={`/records/${r.id}`} className="hover:underline">
-                      {r.full_name ?? "—"}
+                      {r.fields.full_name ?? "—"}
                     </Link>
                   </td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.email ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.signup_date ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{r.amount ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{r.fields.email ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{r.fields.signup_date ?? "—"}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{r.fields.amount ?? "—"}</td>
                   <td className="px-4 py-2">
                     {r.has_issues ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">

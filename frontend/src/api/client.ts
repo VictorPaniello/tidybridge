@@ -1,5 +1,6 @@
 import type {
   ClientRecord,
+  ColumnMapping,
   CurrentUser,
   IngestionRun,
   IngestionRunsPage,
@@ -247,6 +248,25 @@ export async function uploadFile(file: File): Promise<IngestResult> {
   const formData = new FormData();
   formData.append("file", file);
   return request<IngestResult>("/records/upload", { method: "POST", body: formData });
+}
+
+// The entirely optional, prospective-only mapping review step - see
+// GET/PUT /column-mappings/{fingerprint} in main.py. 404 (no saved
+// mapping yet for this shape) surfaces as an ApiError the caller decides
+// how to handle (e.g. falling back to the computed default).
+export async function getColumnMapping(fingerprint: string): Promise<ColumnMapping> {
+  return request<ColumnMapping>(`/column-mappings/${fingerprint}`);
+}
+
+export async function saveColumnMapping(
+  fingerprint: string,
+  body: ColumnMapping,
+): Promise<ColumnMapping> {
+  return request<ColumnMapping>(`/column-mappings/${fingerprint}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 }
 
 // Same walk-every-page approach as listRecords() below, for the same
