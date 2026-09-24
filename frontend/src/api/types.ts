@@ -20,6 +20,10 @@ export interface FieldResolution {
   raw_column: string;
   target_field: string | null;
   type: string | null;
+  // Whether a blank value in this field should be flagged as an issue
+  // rather than silently coerced to null - opt-in, defaults false. See
+  // tidybridge/mapping.py's build_schema().
+  required?: boolean;
 }
 
 export interface ColumnMapping {

@@ -23,12 +23,13 @@ def test_upload_cleans_and_persists_records(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert body["rows_total"] == 5
-    # messy_clients.csv's blank-Customer row no longer counts as flagged:
-    # nothing is required any more (dynamic schema mapping), so a missing
-    # full_name is just absent, not a validation issue - only the
-    # invalid-email and invalid-date rows are genuine value problems.
-    assert body["rows_clean"] == 3
-    assert body["rows_flagged"] == 2
+    # messy_clients.csv's blank-Customer row counts as flagged: "Customer"
+    # alias-matches full_name, which is required=True in schema.yaml, and
+    # default_resolution() now carries that required flag into the
+    # per-upload dynamic schema (see mapping.py) - so a missing full_name
+    # is a validation issue again, same as invalid-email and invalid-date.
+    assert body["rows_clean"] == 2
+    assert body["rows_flagged"] == 3
     assert len(body["records"]) == 5
 
 
@@ -72,12 +73,13 @@ def test_list_records_filters_by_has_issues(client: TestClient):
     _upload(client)
     flagged = client.get("/records", params={"has_issues": True}).json()
     clean = client.get("/records", params={"has_issues": False}).json()
-    # See test_upload_cleans_and_persists_records - a missing full_name
-    # is no longer a validation issue now that nothing is required.
-    assert len(flagged["items"]) == 2
-    assert flagged["total"] == 2
-    assert len(clean["items"]) == 3
-    assert clean["total"] == 3
+    # See test_upload_cleans_and_persists_records - a missing full_name is
+    # a validation issue again now that default_resolution() carries the
+    # required flag through.
+    assert len(flagged["items"]) == 3
+    assert flagged["total"] == 3
+    assert len(clean["items"]) == 2
+    assert clean["total"] == 2
 
 
 def test_list_records_is_paginated(client: TestClient):

@@ -64,10 +64,34 @@ def test_apply_mapping_combines_columns_sharing_a_target_field():
     assert mapped["full_name"].iloc[0] == "Jane Doe"
 
 
-def test_build_schema_has_no_required_fields():
-    resolution = default_resolution(["Full Name", "Email"], REFERENCE_SCHEMA)
+def test_default_resolution_inherits_required_from_alias_matched_field():
+    # full_name/email are required=True in examples/schema.yaml - an
+    # alias-matched column defaults to that, restoring the same
+    # "blank name/email gets flagged" behavior that existed before
+    # dynamic mapping made every field required=False unconditionally.
+    resolution = default_resolution(["Full Name", "Email", "Age"], REFERENCE_SCHEMA)
+    by_raw = {r["raw_column"]: r for r in resolution}
+    assert by_raw["Full Name"]["required"] is True
+    assert by_raw["Email"]["required"] is True
+    assert by_raw["Age"]["required"] is False
+
+
+def test_build_schema_honors_required_flag_from_resolution():
+    resolution = default_resolution(["Full Name", "Email", "Age"], REFERENCE_SCHEMA)
     schema = build_schema(resolution)
-    assert all(f.required is False for f in schema.fields)
+    required_by_name = {f.name: f.required for f in schema.fields}
+    assert required_by_name["full_name"] is True
+    assert required_by_name["email"] is True
+    assert required_by_name["age"] is False
+
+
+def test_build_schema_defaults_required_false_when_missing_from_entry():
+    # apply_mapping()/build_schema() also run on hand-written resolution
+    # dicts (existing tests, and the "combine two raw columns" path) that
+    # never set "required" at all - must not KeyError.
+    resolution = [{"raw_column": "First", "target_field": "full_name", "type": "string"}]
+    schema = build_schema(resolution)
+    assert schema.fields[0].required is False
 
 
 def test_validate_resolution_rejects_dedup_key_not_in_resolution():

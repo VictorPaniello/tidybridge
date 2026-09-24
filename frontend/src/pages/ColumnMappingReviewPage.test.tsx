@@ -70,6 +70,64 @@ describe("ColumnMappingReviewPage", () => {
     );
   });
 
+  it("toggling required reports the change in the save summary", async () => {
+    vi.spyOn(client, "getColumnMapping").mockResolvedValue({
+      field_resolutions: [
+        { raw_column: "Full Name", target_field: "full_name", type: "string", required: false },
+      ],
+      dedup_key_fields: [],
+    });
+    const save = vi.spyOn(client, "saveColumnMapping").mockResolvedValue({
+      field_resolutions: [
+        { raw_column: "Full Name", target_field: "full_name", type: "string", required: true },
+      ],
+      dedup_key_fields: [],
+    });
+
+    render(
+      <MemoryRouter>
+        <ColumnMappingReviewPage
+          fingerprint="abc123"
+          initialResolution={{
+            field_resolutions: [
+              { raw_column: "Full Name", target_field: "full_name", type: "string", required: false },
+            ],
+            dedup_key_fields: [],
+          }}
+        />
+      </MemoryRouter>,
+    );
+    await screen.findByDisplayValue("full_name");
+
+    // Required is the first of the two checkboxes in this row (Required,
+    // then Dedup key) - see the table header order.
+    fireEvent.click(screen.getAllByRole("checkbox")[0]);
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        "abc123",
+        expect.objectContaining({
+          field_resolutions: [
+            { raw_column: "Full Name", target_field: "full_name", type: "string", required: true },
+          ],
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith(
+        "/",
+        expect.objectContaining({
+          state: {
+            mappingSaveSummary: [
+              '"full_name" is now required - a blank value will be flagged',
+            ],
+          },
+        }),
+      ),
+    );
+  });
+
   it("shows an error and does not navigate away when saving fails", async () => {
     vi.spyOn(client, "getColumnMapping").mockResolvedValue({
       field_resolutions: [{ raw_column: "Full Name", target_field: "full_name", type: "string" }],

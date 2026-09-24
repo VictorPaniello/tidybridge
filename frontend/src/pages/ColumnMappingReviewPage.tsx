@@ -34,6 +34,12 @@ function summarizeChanges(
       );
     } else if (old.type !== entry.type) {
       changes.push(`"${entry.target_field}" type changed from ${old.type} to ${entry.type}`);
+    } else if (Boolean(old.required) !== Boolean(entry.required)) {
+      changes.push(
+        entry.required
+          ? `"${entry.target_field}" is now required - a blank value will be flagged`
+          : `"${entry.target_field}" is no longer required`,
+      );
     }
   }
 
@@ -124,6 +130,12 @@ export function ColumnMappingReviewPage({
   function toggleDedupKey(field: string) {
     setDedupKeyFields((prev) =>
       prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field],
+    );
+  }
+
+  function toggleRequired(index: number) {
+    setResolutions((prev) =>
+      prev.map((entry, i) => (i === index ? { ...entry, required: !entry.required } : entry)),
     );
   }
 
@@ -220,6 +232,7 @@ export function ColumnMappingReviewPage({
               <th className="px-4 py-2 font-medium">Raw column</th>
               <th className="px-4 py-2 font-medium">Field name</th>
               <th className="px-4 py-2 font-medium">Type</th>
+              <th className="px-4 py-2 font-medium">Required</th>
               <th className="px-4 py-2 font-medium">Dedup key</th>
             </tr>
           </thead>
@@ -246,6 +259,15 @@ export function ColumnMappingReviewPage({
                       </option>
                     ))}
                   </select>
+                </td>
+                <td className="px-4 py-2">
+                  {entry.target_field && (
+                    <input
+                      type="checkbox"
+                      checked={Boolean(entry.required)}
+                      onChange={() => toggleRequired(index)}
+                    />
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   {entry.target_field && (
