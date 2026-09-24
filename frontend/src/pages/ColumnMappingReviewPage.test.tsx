@@ -156,6 +156,31 @@ describe("ColumnMappingReviewPage", () => {
     await screen.findByText("e.g. Sofia Reyes, Tom O'Brien");
   });
 
+  it("flags an invalid field name inline and disables Save before hitting the API", async () => {
+    vi.spyOn(client, "getColumnMapping").mockResolvedValue({
+      field_resolutions: [{ raw_column: "Full Name", target_field: "full_name", type: "string" }],
+      dedup_key_fields: [],
+    });
+    const save = vi.spyOn(client, "saveColumnMapping");
+
+    render(
+      <MemoryRouter>
+        <ColumnMappingReviewPage fingerprint="abc123" />
+      </MemoryRouter>,
+    );
+    await screen.findByDisplayValue("full_name");
+
+    fireEvent.change(screen.getByDisplayValue("full_name"), { target: { value: "1bad name" } });
+
+    await screen.findByText(
+      "Lowercase letters, numbers, underscores only - must start with a letter",
+    );
+    expect(screen.getByText("Save")).toBeDisabled();
+
+    fireEvent.click(screen.getByText("Save"));
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it("shows an error and does not navigate away when saving fails", async () => {
     vi.spyOn(client, "getColumnMapping").mockResolvedValue({
       field_resolutions: [{ raw_column: "Full Name", target_field: "full_name", type: "string" }],
