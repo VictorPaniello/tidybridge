@@ -11,6 +11,16 @@ interface Props {
 
 const FIELD_TYPES = ["string", "email", "date", "currency", "integer", "phone"];
 
+// Mirrors validate_resolution()'s target_field check in mapping.py - shown
+// inline as soon as it's typed rather than only after a failed Save.
+const FIELD_NAME_RE = /^[a-z][a-z0-9_]{0,99}$/;
+function fieldNameError(name: string | null): string | null {
+  if (!name) return null; // empty means "drop this column" - not an error
+  return FIELD_NAME_RE.test(name)
+    ? null
+    : "Lowercase letters, numbers, underscores only - must start with a letter";
+}
+
 // Human-readable diff between what was there before this edit and what's
 // about to be saved - shown to the engineer on the records page after
 // save, since "Saved." alone doesn't tell them what actually changed.
@@ -96,6 +106,9 @@ export function ColumnMappingReviewPage({
   // Only available right after an upload (sessionStorage, same fingerprint)
   // - a saved mapping revisited later has no raw file to sample from.
   const sampleValues = storedResult?.sample_values ?? {};
+  const hasInvalidFieldName = resolutions.some(
+    (entry) => fieldNameError(entry.target_field) !== null,
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -241,7 +254,10 @@ export function ColumnMappingReviewPage({
           </thead>
           <tbody>
             {resolutions.map((entry, index) => (
-              <tr key={entry.raw_column} className="border-t border-border">
+              <tr
+                key={entry.raw_column}
+                className="border-t border-border hover:bg-secondary/50 transition"
+              >
                 <td className="px-4 py-2 text-muted-foreground">
                   {entry.raw_column}
                   {sampleValues[entry.raw_column]?.length > 0 && (
@@ -254,8 +270,16 @@ export function ColumnMappingReviewPage({
                   <input
                     value={entry.target_field ?? ""}
                     onChange={(e) => updateTargetField(index, e.target.value)}
-                    className="w-full rounded-md border border-input bg-transparent px-2 py-1 outline-none focus:ring-2 focus:ring-ring"
+                    aria-invalid={fieldNameError(entry.target_field) !== null}
+                    className={`w-full rounded-md border bg-transparent px-2 py-1 outline-none focus:ring-2 transition ${
+                      fieldNameError(entry.target_field)
+                        ? "border-red-400 dark:border-red-800 focus:ring-red-400"
+                        : "border-input focus:ring-ring"
+                    }`}
                   />
+                  {fieldNameError(entry.target_field) && (
+                    <p className="mt-1 text-xs text-red-600">{fieldNameError(entry.target_field)}</p>
+                  )}
                 </td>
                 <td className="px-4 py-2">
                   <select
@@ -297,12 +321,15 @@ export function ColumnMappingReviewPage({
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
-          className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+          disabled={saving || hasInvalidFieldName}
+          className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50 disabled:hover:opacity-50"
         >
           {saving ? "Saving…" : "Save"}
         </button>
         {saveError && <span className="text-sm text-red-600">{saveError}</span>}
+        {!saveError && hasInvalidFieldName && (
+          <span className="text-sm text-red-600">Fix the field name errors above before saving.</span>
+        )}
       </div>
     </div>
   );

@@ -64,7 +64,7 @@ export function IngestionRunsPage() {
             </thead>
             <tbody>
               {runs.map((run) => (
-                <tr key={run.id} className="border-t border-border">
+                <tr key={run.id} className="border-t border-border hover:bg-secondary/50 transition">
                   <td className="px-4 py-2 font-medium">{run.source_file}</td>
                   <td className="px-4 py-2 text-muted-foreground">
                     {new Date(run.created_at).toLocaleString()}
