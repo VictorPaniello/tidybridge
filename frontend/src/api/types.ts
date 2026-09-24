@@ -77,6 +77,10 @@ export interface IngestResult {
   field_resolutions: FieldResolution[];
   dedup_key_fields: string[];
   records: ClientRecord[];
+  // A few real, pre-cleaning values per raw column, keyed by raw_column -
+  // the only place the mapping review screen can show an engineer what a
+  // column actually contained, since nothing else keeps the raw headers.
+  sample_values: Record<string, string[]>;
 }
 
 // The persisted counterpart of IngestResult (GET /ingestion-runs and

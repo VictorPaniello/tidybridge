@@ -350,6 +350,7 @@ async def upload_records(
         field_resolutions=outcome.field_resolutions,
         dedup_key_fields=outcome.dedup_key_fields,
         records=[ClientRecordOut.model_validate(r) for r in outcome.records],
+        sample_values=outcome.sample_values,
     )
 
 

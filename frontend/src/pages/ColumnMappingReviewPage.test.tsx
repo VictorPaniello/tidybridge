@@ -14,6 +14,7 @@ vi.mock("react-router-dom", async () => {
 describe("ColumnMappingReviewPage", () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    sessionStorage.clear();
   });
 
   it("loads the current resolution and saves edits", async () => {
@@ -126,6 +127,33 @@ describe("ColumnMappingReviewPage", () => {
         }),
       ),
     );
+  });
+
+  it("shows raw sample values from the just-completed upload next to each column", async () => {
+    vi.spyOn(client, "getColumnMapping").mockResolvedValue({
+      field_resolutions: [{ raw_column: "Customer", target_field: "full_name", type: "string" }],
+      dedup_key_fields: [],
+    });
+    sessionStorage.setItem(
+      "tidybridge_last_ingest_result",
+      JSON.stringify({
+        fingerprint: "abc123",
+        field_resolutions: [
+          { raw_column: "Customer", target_field: "full_name", type: "string" },
+        ],
+        dedup_key_fields: [],
+        records: [],
+        sample_values: { Customer: ["Sofia Reyes", "Tom O'Brien"] },
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <ColumnMappingReviewPage fingerprint="abc123" />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("e.g. Sofia Reyes, Tom O'Brien");
   });
 
   it("shows an error and does not navigate away when saving fails", async () => {
