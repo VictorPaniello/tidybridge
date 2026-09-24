@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError, getColumnMapping, saveColumnMapping } from "../api/client";
 import type { ColumnMapping, FieldResolution, IngestResult } from "../api/types";
 
@@ -11,17 +11,57 @@ interface Props {
 
 const FIELD_TYPES = ["string", "email", "date", "currency", "integer", "phone"];
 
+// Human-readable diff between what was there before this edit and what's
+// about to be saved - shown to the engineer on the records page after
+// save, since "Saved." alone doesn't tell them what actually changed.
+function summarizeChanges(
+  oldResolutions: FieldResolution[],
+  newResolutions: FieldResolution[],
+  oldDedupKeyFields: string[],
+  newDedupKeyFields: string[],
+): string[] {
+  const oldByRaw = new Map(oldResolutions.map((e) => [e.raw_column, e]));
+  const changes: string[] = [];
+
+  for (const entry of newResolutions) {
+    const old = oldByRaw.get(entry.raw_column);
+    if (!old) continue;
+    if (old.target_field !== entry.target_field) {
+      changes.push(
+        entry.target_field
+          ? `"${entry.raw_column}" now maps to "${entry.target_field}" (was "${old.target_field ?? "unmapped"}")`
+          : `"${entry.raw_column}" is no longer mapped to any field (dropped "${old.target_field}")`,
+      );
+    } else if (old.type !== entry.type) {
+      changes.push(`"${entry.target_field}" type changed from ${old.type} to ${entry.type}`);
+    }
+  }
+
+  const oldSet = new Set(oldDedupKeyFields);
+  const newSet = new Set(newDedupKeyFields);
+  if (oldSet.size !== newSet.size || [...oldSet].some((f) => !newSet.has(f))) {
+    changes.push(
+      newDedupKeyFields.length
+        ? `Duplicate detection now keys on: ${newDedupKeyFields.join(", ")}`
+        : "Duplicate detection is now off (no dedup key fields)",
+    );
+  }
+
+  return changes;
+}
+
 export function ColumnMappingReviewPage({
   fingerprint,
   initialResolution,
   ingestionRunId,
 }: Props) {
+  const navigate = useNavigate();
   const [resolutions, setResolutions] = useState<FieldResolution[]>([]);
   const [dedupKeyFields, setDedupKeyFields] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const storedResult: IngestResult | null = useMemo(() => {
     try {
@@ -89,7 +129,7 @@ export function ColumnMappingReviewPage({
 
   async function handleSave() {
     setSaving(true);
-    setSaved(false);
+    setSaveError(null);
     try {
       await saveColumnMapping(fingerprint, {
         field_resolutions: resolutions,
@@ -97,7 +137,6 @@ export function ColumnMappingReviewPage({
         apply_to_run_id: effectiveRunId,
         old_resolutions: effectiveInitialResolution?.field_resolutions,
       });
-      setSaved(true);
 
       const rawStored = sessionStorage.getItem("tidybridge_last_ingest_result");
       if (rawStored) {
@@ -143,6 +182,20 @@ export function ColumnMappingReviewPage({
           // ignore
         }
       }
+
+      const changes = summarizeChanges(
+        effectiveInitialResolution?.field_resolutions ?? [],
+        resolutions,
+        effectiveInitialResolution?.dedup_key_fields ?? [],
+        dedupKeyFields,
+      );
+      navigate(effectiveRunId ? `/?ingestion_run_id=${effectiveRunId}` : "/", {
+        state: { mappingSaveSummary: changes },
+      });
+    } catch (err) {
+      setSaveError(
+        err instanceof ApiError ? err.message : "Couldn't save this mapping - try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -217,7 +270,7 @@ export function ColumnMappingReviewPage({
         >
           {saving ? "Saving…" : "Save"}
         </button>
-        {saved && <span className="text-sm text-primary">Saved.</span>}
+        {saveError && <span className="text-sm text-red-600">{saveError}</span>}
       </div>
     </div>
   );
