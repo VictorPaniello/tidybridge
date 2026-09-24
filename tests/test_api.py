@@ -33,6 +33,22 @@ def test_upload_cleans_and_persists_records(client: TestClient):
     assert len(body["records"]) == 5
 
 
+def test_upload_returns_raw_sample_values_per_column(client: TestClient):
+    # The mapping review screen shows these next to "Raw column" so an
+    # engineer isn't renaming/typing a column blind - must be the raw
+    # file's own values, not anything map_columns/coerce_and_validate
+    # already touched (e.g. "SOFIA.REYES@shop.com", not lowercased).
+    body = _upload(client).json()
+    assert body["sample_values"]["Customer"] == [
+        "Sofia Reyes",
+        "Tom O'Brien",
+        "Léa Dubois",
+    ]
+    assert body["sample_values"]["Contact Email"][0] == "SOFIA.REYES@shop.com"
+    # The blank-Customer row's empty value is skipped, not returned as "".
+    assert "" not in body["sample_values"]["Customer"]
+
+
 def test_missing_optional_field_is_null_not_the_string_nan(client: TestClient):
     # Regression coverage for the None -> NaN pandas bug found while building
     # this project (fixed both upstream in tidycsv and here in ingest.py's

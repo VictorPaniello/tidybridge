@@ -93,6 +93,9 @@ export function ColumnMappingReviewPage({
   );
 
   const effectiveRunId = ingestionRunId ?? storedResult?.ingestion_run_id;
+  // Only available right after an upload (sessionStorage, same fingerprint)
+  // - a saved mapping revisited later has no raw file to sample from.
+  const sampleValues = storedResult?.sample_values ?? {};
 
   useEffect(() => {
     setLoading(true);
@@ -239,7 +242,14 @@ export function ColumnMappingReviewPage({
           <tbody>
             {resolutions.map((entry, index) => (
               <tr key={entry.raw_column} className="border-t border-border">
-                <td className="px-4 py-2 text-muted-foreground">{entry.raw_column}</td>
+                <td className="px-4 py-2 text-muted-foreground">
+                  {entry.raw_column}
+                  {sampleValues[entry.raw_column]?.length > 0 && (
+                    <div className="text-xs italic truncate max-w-[16rem]">
+                      e.g. {sampleValues[entry.raw_column].join(", ")}
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-2">
                   <input
                     value={entry.target_field ?? ""}

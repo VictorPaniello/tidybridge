@@ -124,6 +124,12 @@ class IngestResult(BaseModel):
     field_resolutions: list[FieldResolutionIn]
     dedup_key_fields: list[str]
     records: list[ClientRecordOut]
+    # A few real, pre-cleaning values per raw column - the same "nothing
+    # else ever has the raw headers" reasoning as field_resolutions above
+    # applies here too: this is the only place the mapping review screen
+    # can show an engineer what a column actually contained, so they're
+    # not renaming/typing it blind.
+    sample_values: dict[str, list[str]]
 
 
 class IngestionRunOut(BaseModel):

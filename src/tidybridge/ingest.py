@@ -29,6 +29,7 @@ import uuid
 from pathlib import Path
 from typing import NamedTuple
 
+import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from tidycsv.cleaner import coerce_and_validate, flag_duplicates, load_input, map_columns
@@ -64,6 +65,29 @@ class IngestOutcome(NamedTuple):
     # every unpack site's trailing underscores.
     field_resolutions: list[dict]
     dedup_key_fields: list[str]
+    sample_values: dict[str, list[str]]
+
+
+_SAMPLE_VALUES_PER_COLUMN = 3
+
+
+def _sample_raw_values(raw: pd.DataFrame) -> dict[str, list[str]]:
+    """Up to a few distinct, non-blank values per raw column, in file
+    order - shown on the mapping review screen so an engineer can see
+    what a column actually contains instead of renaming/typing it blind.
+    Taken from `raw` itself (before map_columns/coerce_and_validate), so
+    it's exactly what the source file had, not the cleaned result."""
+    samples: dict[str, list[str]] = {}
+    for col in raw.columns:
+        seen: list[str] = []
+        for value in raw[col]:
+            text = str(value).strip()
+            if text and text not in seen:
+                seen.append(text)
+            if len(seen) == _SAMPLE_VALUES_PER_COLUMN:
+                break
+        samples[str(col)] = seen
+    return samples
 
 
 def ingest_file(
@@ -97,6 +121,7 @@ def ingest_file(
             tmp_path.unlink(missing_ok=True)
 
         fingerprint = compute_fingerprint(list(raw.columns))
+        sample_values = _sample_raw_values(raw)
         saved = db.execute(
             select(ColumnMapping).where(
                 ColumnMapping.owner_id == owner_id,
@@ -243,5 +268,5 @@ def ingest_file(
         },
     )
     return IngestOutcome(
-        inserted, run, mapping_is_default, fingerprint, resolution, dedup_key_fields
+        inserted, run, mapping_is_default, fingerprint, resolution, dedup_key_fields, sample_values
     )
