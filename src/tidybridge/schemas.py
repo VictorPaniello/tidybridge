@@ -26,6 +26,12 @@ class FieldResolutionIn(BaseModel):
     raw_column: str
     target_field: str | None
     type: str | None
+    # Whether a blank value in this column should be flagged as an issue
+    # (has_issues=True) rather than silently coerced to None - opt-in per
+    # field, per upload shape, defaulting False so unmapped/new columns
+    # never block or flag anything until an engineer explicitly asks for
+    # it. See build_schema() in mapping.py.
+    required: bool = False
 
 
 class ColumnMappingIn(BaseModel):

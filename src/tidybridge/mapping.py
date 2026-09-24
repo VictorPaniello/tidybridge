@@ -43,6 +43,7 @@ def default_resolution(raw_headers: list[str], reference_schema: Schema) -> list
     second (and third, etc.) rather than silently colliding."""
     alias_lookup = reference_schema.alias_lookup()  # normalized alias -> canonical name
     type_by_name = {f.name: f.type for f in reference_schema.fields}
+    required_by_name = {f.name: f.required for f in reference_schema.fields}
 
     seen: dict[str, int] = {}
     resolution: list[dict] = []
@@ -60,8 +61,18 @@ def default_resolution(raw_headers: list[str], reference_schema: Schema) -> list
         field_type = (
             type_by_name.get(canonical, FieldType.STRING) if canonical else FieldType.STRING
         )
+        # An alias-matched column inherits schema.yaml's required flag (so
+        # full_name/email default to flagging a blank the same way they
+        # always did before dynamic mapping existed) - a brand-new column
+        # defaults to not required, same as its type defaults to string.
+        required = required_by_name.get(canonical, False) if canonical else False
         resolution.append(
-            {"raw_column": header, "target_field": target, "type": field_type.value}
+            {
+                "raw_column": header,
+                "target_field": target,
+                "type": field_type.value,
+                "required": required,
+            }
         )
     return resolution
 
@@ -82,18 +93,24 @@ def default_dedup_key_fields(resolution: list[dict]) -> list[str]:
 
 def build_schema(resolution: list[dict]) -> Schema:
     """One FieldSpec per distinct non-null target_field - entries sharing
-    one collapse into a single field (see apply_mapping). required=False
-    on every field: nothing is ever required at the tidycsv level."""
-    seen_targets: dict[str, FieldType] = {}
+    one collapse into a single field (see apply_mapping). A field is
+    required only if the engineer opted it in via the resolution's own
+    "required" flag (defaults False) - tidycsv's coerce_and_validate never
+    blocks ingest on a required-empty value, it only flags the row, so
+    this can't reintroduce the blocking friction dynamic mapping was
+    built to remove."""
+    seen_targets: dict[str, tuple[FieldType, bool]] = {}
     for entry in resolution:
         target = entry["target_field"]
         if target is None:
             continue
-        seen_targets.setdefault(target, FieldType(entry["type"] or "string"))
+        seen_targets.setdefault(
+            target, (FieldType(entry["type"] or "string"), bool(entry.get("required", False)))
+        )
 
     fields = [
-        FieldSpec(name=name, type=field_type, required=False)
-        for name, field_type in seen_targets.items()
+        FieldSpec(name=name, type=field_type, required=required)
+        for name, (field_type, required) in seen_targets.items()
     ]
     return Schema(fields=fields, key_columns=[])
 
