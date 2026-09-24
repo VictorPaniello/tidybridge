@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import { ApiError } from "../api/client";
 import type { ClientRecord, IngestResult } from "../api/types";
@@ -112,6 +112,8 @@ function StatCard({
 export function RecordsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mappingSaveSummary, setMappingSaveSummary] = useState<string[] | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const ingestionRunId = searchParams.get("ingestion_run_id");
   const [records, setRecords] = useState<ClientRecord[]>([]);
@@ -134,6 +136,19 @@ export function RecordsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // The mapping review page hands its change summary back via router
+  // state (set on the navigate() that lands here after a save) rather
+  // than sessionStorage - it's one-shot, not meant to survive a refresh.
+  // Consumed into local state, then stripped from history immediately
+  // (replace, no state) so it doesn't reappear on a back-navigation.
+  useEffect(() => {
+    const state = location.state as { mappingSaveSummary?: string[] } | null;
+    if (state?.mappingSaveSummary) {
+      setMappingSaveSummary(state.mappingSaveSummary);
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }
+  }, [location, navigate]);
 
   // Fetched once, unfiltered (beyond an optional ?ingestion_run_id= from
   // the URL - see the "Upload history" page's "View records" links) -
@@ -312,6 +327,33 @@ export function RecordsPage() {
       {uploadError && (
         <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {uploadError}
+        </div>
+      )}
+
+      {mappingSaveSummary && (
+        <div className="mb-4 rounded-md border border-border bg-secondary/50 px-4 py-3 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-medium text-primary mb-1">Mapping saved.</p>
+              {mappingSaveSummary.length > 0 ? (
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {mappingSaveSummary.map((line, i) => (
+                    <li key={i}>{line}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-muted-foreground">No changes.</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setMappingSaveSummary(null)}
+              aria-label="Dismiss"
+              className="shrink-0 text-muted-foreground hover:text-foreground transition"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
