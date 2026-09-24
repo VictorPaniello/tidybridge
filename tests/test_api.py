@@ -49,6 +49,18 @@ def test_upload_returns_raw_sample_values_per_column(client: TestClient):
     assert "" not in body["sample_values"]["Customer"]
 
 
+def test_unreadable_file_returns_a_specific_400_not_a_bare_500(client: TestClient):
+    # An empty file makes pandas raise EmptyDataError deep inside
+    # load_input - before this was caught, that propagated as an
+    # unhandled exception (a bare 500 with no detail, so an engineer got
+    # no indication of what was actually wrong with their upload).
+    response = client.post(
+        "/records/upload", files={"file": ("empty.csv", b"", "text/csv")}
+    )
+    assert response.status_code == 400
+    assert "empty.csv" in response.json()["detail"]
+
+
 def test_missing_optional_field_is_null_not_the_string_nan(client: TestClient):
     # Regression coverage for the None -> NaN pandas bug found while building
     # this project (fixed both upstream in tidycsv and here in ingest.py's
