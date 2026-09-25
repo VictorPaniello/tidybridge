@@ -204,6 +204,11 @@ export function ColumnMappingReviewPage({
             });
             stored.field_resolutions = resolutions;
             stored.dedup_key_fields = dedupKeyFields;
+            // Otherwise "New shape - review the field names/types we
+            // picked?" keeps showing on the records page even after
+            // this exact save reviewed and picked them - mapping_is_default
+            // was never flipped here, only field_resolutions/dedup_key_fields.
+            stored.mapping_is_default = false;
             sessionStorage.setItem("tidybridge_last_ingest_result", JSON.stringify(stored));
           }
         } catch {

@@ -71,6 +71,45 @@ describe("ColumnMappingReviewPage", () => {
     );
   });
 
+  it("clears mapping_is_default in the stored ingest result on save", async () => {
+    // Otherwise the records page's "New shape - review the field
+    // names/types we picked?" prompt keeps showing after this exact
+    // save already reviewed and picked them.
+    vi.spyOn(client, "getColumnMapping").mockResolvedValue({
+      field_resolutions: [{ raw_column: "Full Name", target_field: "full_name", type: "string" }],
+      dedup_key_fields: [],
+    });
+    vi.spyOn(client, "saveColumnMapping").mockResolvedValue({
+      field_resolutions: [{ raw_column: "Full Name", target_field: "full_name", type: "string" }],
+      dedup_key_fields: [],
+    });
+    sessionStorage.setItem(
+      "tidybridge_last_ingest_result",
+      JSON.stringify({
+        fingerprint: "abc123",
+        mapping_is_default: true,
+        field_resolutions: [
+          { raw_column: "Full Name", target_field: "full_name", type: "string" },
+        ],
+        dedup_key_fields: [],
+        records: [],
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <ColumnMappingReviewPage fingerprint="abc123" />
+      </MemoryRouter>,
+    );
+    await screen.findByDisplayValue("full_name");
+
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalled());
+    const stored = JSON.parse(sessionStorage.getItem("tidybridge_last_ingest_result")!);
+    expect(stored.mapping_is_default).toBe(false);
+  });
+
   it("toggling required reports the change in the save summary", async () => {
     vi.spyOn(client, "getColumnMapping").mockResolvedValue({
       field_resolutions: [

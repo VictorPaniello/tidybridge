@@ -449,20 +449,33 @@ export function RecordsPage() {
       {lastResult && (
         <div className="mb-6 rounded-md border border-border px-4 py-3 text-sm">
           <div className="flex items-start justify-between gap-3">
-            <p>
-              <span className="font-medium">{lastResult.rows_total}</span> rows processed —{" "}
-              <span className="text-primary">{lastResult.rows_clean} clean</span>,{" "}
-              <span className="text-amber-700 dark:text-amber-400">
-                {lastResult.rows_flagged} flagged
-              </span>
-              , {lastResult.rows_dropped_duplicates} duplicate(s) skipped
-              {lastResult.rows_skipped_existing > 0 &&
-                `, ${lastResult.rows_skipped_existing} already ingested`}
-              .{" "}
-              <Link to={`/uploads`} className="text-ring hover:underline">
-                View full history
-              </Link>
-            </p>
+            <div>
+              <p className="font-medium mb-1">{lastResult.rows_total} rows processed</p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
+                <span>
+                  <span className="font-medium text-primary">{lastResult.rows_clean}</span> clean
+                </span>
+                <span>
+                  <span className="font-medium text-amber-700 dark:text-amber-400">
+                    {lastResult.rows_flagged}
+                  </span>{" "}
+                  flagged
+                </span>
+                <span>
+                  <span className="font-medium">{lastResult.rows_dropped_duplicates}</span>{" "}
+                  duplicate{lastResult.rows_dropped_duplicates === 1 ? "" : "s"} skipped
+                </span>
+                {lastResult.rows_skipped_existing > 0 && (
+                  <span>
+                    <span className="font-medium">{lastResult.rows_skipped_existing}</span>{" "}
+                    already ingested
+                  </span>
+                )}
+                <Link to={`/uploads`} className="text-ring hover:underline">
+                  View full history
+                </Link>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -590,7 +603,17 @@ export function RecordsPage() {
                       type="button"
                       onClick={() => setPendingBulkDelete(true)}
                       disabled={bulkDeleting}
-                      className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
+                      // h-5 + inline-flex instead of this button having its
+                      // own vertical padding (py-1) - the th's py-2 already
+                      // matches the sibling SortableHeader cells' height;
+                      // stacking the button's own padding on top of that
+                      // made this one cell (and so the whole header row,
+                      // and everything below it) grow ~6px taller the
+                      // moment a selection existed, then shrink back to
+                      // normal on deselect - a visible jump on every
+                      // checkbox click that had nothing to do with an
+                      // actual data change.
+                      className="inline-flex items-center h-5 rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
                     >
                       {bulkDeleting ? "Deleting…" : `Delete (${selectedIds.size})`}
                     </button>
