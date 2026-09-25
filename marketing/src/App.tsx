@@ -61,7 +61,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-border">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
           <span className="font-semibold tracking-tight">
             tidy<span className="text-ring">bridge</span>
