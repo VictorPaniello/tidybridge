@@ -416,9 +416,31 @@ export function RecordsPage() {
               type="button"
               onClick={() => setMappingSaveSummary(null)}
               aria-label="Dismiss"
-              className="shrink-0 text-muted-foreground hover:text-foreground transition"
+              className="relative shrink-0 grid place-items-center w-6 h-6 text-muted-foreground hover:text-foreground transition"
             >
-              ✕
+              {/* Matches the 6s auto-dismiss timer below - purely
+                  decorative (aria-hidden), the button's own label
+                  already says what clicking it does. */}
+              <svg
+                aria-hidden="true"
+                className="absolute inset-0 -rotate-90"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-20" />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="9"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeDasharray={56.5487}
+                  style={{ animation: "toast-countdown 6s linear forwards" }}
+                />
+              </svg>
+              <span className="relative">✕</span>
             </button>
           </div>
         </div>
