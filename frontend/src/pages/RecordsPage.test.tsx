@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api/client";
@@ -103,5 +103,84 @@ describe("RecordsPage", () => {
     expect(screen.getByRole("button", { name: /status/i })).toBeInTheDocument();
     expect(screen.getByText("5000")).toBeInTheDocument();
     expect(screen.getByText("Special")).toBeInTheDocument();
+  });
+
+  it("selects records via checkboxes and bulk-deletes them", async () => {
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      {
+        id: "rec-1",
+        ingestion_run_id: "run-1",
+        source_file: "test.csv",
+        has_issues: false,
+        issues: [],
+        created_at: new Date().toISOString(),
+        fields: { full_name: "Jane Doe" },
+      },
+      {
+        id: "rec-2",
+        ingestion_run_id: "run-1",
+        source_file: "test.csv",
+        has_issues: false,
+        issues: [],
+        created_at: new Date().toISOString(),
+        fields: { full_name: "John Smith" },
+      },
+    ]);
+    const bulkDelete = vi
+      .spyOn(api, "bulkDeleteRecords")
+      .mockResolvedValue({ deleted_count: 1 });
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Jane Doe");
+
+    fireEvent.click(screen.getByLabelText("Select record rec-1"));
+    expect(screen.getByText("Delete (1)")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Delete (1)"));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Delete" }));
+
+    await screen.findByText("John Smith"); // still there
+    expect(screen.queryByText("Jane Doe")).not.toBeInTheDocument();
+    expect(bulkDelete).toHaveBeenCalledWith(["rec-1"]);
+  });
+
+  it("select-all toggles every currently visible record", async () => {
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      {
+        id: "rec-1",
+        ingestion_run_id: "run-1",
+        source_file: "test.csv",
+        has_issues: false,
+        issues: [],
+        created_at: new Date().toISOString(),
+        fields: { full_name: "Jane Doe" },
+      },
+      {
+        id: "rec-2",
+        ingestion_run_id: "run-1",
+        source_file: "test.csv",
+        has_issues: false,
+        issues: [],
+        created_at: new Date().toISOString(),
+        fields: { full_name: "John Smith" },
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Jane Doe");
+
+    fireEvent.click(screen.getByLabelText("Select all"));
+    expect(screen.getByText("Delete (2)")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("Select all"));
+    expect(screen.queryByText(/^Delete \(/)).not.toBeInTheDocument();
   });
 });

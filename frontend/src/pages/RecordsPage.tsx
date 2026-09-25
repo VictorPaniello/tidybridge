@@ -133,6 +133,10 @@ export function RecordsPage() {
     }
   });
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -258,8 +262,55 @@ export function RecordsPage() {
     try {
       await api.deleteRecord(id);
       setRecords((prev) => prev.filter((r) => r.id !== id));
+      setSelectedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch (err) {
       alert(err instanceof ApiError ? err.message : "Couldn't delete this record.");
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAllVisible() {
+    const visibleIds = sortedRecords.map((r) => r.id);
+    const allSelected = visibleIds.every((id) => selectedIds.has(id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of visibleIds) {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function confirmBulkDelete() {
+    setPendingBulkDelete(false);
+    setBulkDeleting(true);
+    setBulkDeleteError(null);
+    const ids = [...selectedIds];
+    try {
+      await api.bulkDeleteRecords(ids);
+      const deleted = new Set(ids);
+      setRecords((prev) => prev.filter((r) => !deleted.has(r.id)));
+      setSelectedIds(new Set());
+    } catch (err) {
+      setBulkDeleteError(
+        err instanceof ApiError ? err.message : "Couldn't delete the selected records.",
+      );
+    } finally {
+      setBulkDeleting(false);
     }
   }
 
@@ -303,6 +354,12 @@ export function RecordsPage() {
       {exportError && (
         <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {exportError}
+        </div>
+      )}
+
+      {bulkDeleteError && (
+        <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {bulkDeleteError}
         </div>
       )}
 
@@ -469,6 +526,17 @@ export function RecordsPage() {
           <table className="w-full text-sm">
             <thead className="bg-secondary text-left text-muted-foreground">
               <tr>
+                <th className="px-4 py-2 font-medium w-8">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all"
+                    checked={
+                      sortedRecords.length > 0 &&
+                      sortedRecords.every((r) => selectedIds.has(r.id))
+                    }
+                    onChange={toggleSelectAllVisible}
+                  />
+                </th>
                 {fieldNames.map((name) => (
                   <SortableHeader
                     key={name}
@@ -484,12 +552,31 @@ export function RecordsPage() {
                   sort={sort}
                   onSort={handleSort}
                 />
-                <th className="px-4 py-2 font-medium" />
+                <th className="px-4 py-2 font-medium text-right">
+                  {selectedIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPendingBulkDelete(true)}
+                      disabled={bulkDeleting}
+                      className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
+                    >
+                      {bulkDeleting ? "Deleting…" : `Delete (${selectedIds.size})`}
+                    </button>
+                  )}
+                </th>
               </tr>
             </thead>
             <tbody>
               {sortedRecords.map((r) => (
                 <tr key={r.id} className="border-t border-border hover:bg-secondary/50">
+                  <td className="px-4 py-2">
+                    <input
+                      type="checkbox"
+                      aria-label={`Select record ${r.id}`}
+                      checked={selectedIds.has(r.id)}
+                      onChange={() => toggleSelected(r.id)}
+                    />
+                  </td>
                   {fieldNames.map((name, index) => {
                     const val = r.fields[name];
                     const isLink = index === 0 || name === "full_name";
@@ -540,6 +627,13 @@ export function RecordsPage() {
         message="This permanently deletes the record and its webhook delivery history. This cannot be undone."
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
+      />
+      <ConfirmDialog
+        open={pendingBulkDelete}
+        title={`Delete ${selectedIds.size} record${selectedIds.size === 1 ? "" : "s"}?`}
+        message="This permanently deletes the selected records and their webhook delivery history. This cannot be undone."
+        onConfirm={confirmBulkDelete}
+        onCancel={() => setPendingBulkDelete(false)}
       />
     </div>
   );
