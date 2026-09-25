@@ -54,6 +54,14 @@ def load_schema() -> Schema:
     return Schema.load(Path(settings.schema_path))
 
 
+class UnreadableFileError(ValueError):
+    """The uploaded file itself couldn't be parsed (empty, corrupted,
+    wrong format for its extension) - distinct from a plain ValueError so
+    upload_records (main.py) can turn *this* into a 400 without also
+    catching an unrelated ValueError raised somewhere else in the ingest
+    pipeline and misreporting it as a bad-file problem."""
+
+
 class IngestOutcome(NamedTuple):
     records: list[ClientRecord]
     run: IngestionRun
@@ -117,6 +125,19 @@ def ingest_file(
 
         try:
             raw = load_input(tmp_path)
+        except Exception as exc:
+            # Anything load_input can throw here means the file itself is
+            # unreadable (empty, corrupted, wrong format for its
+            # extension, wrong extension for its actual content) - before
+            # this point nothing's touched the DB, so it's safe to catch
+            # broadly and turn it into a specific, actionable message
+            # instead of the generic 500 an unhandled exception would
+            # otherwise produce (see upload_records' ValueError -> 400).
+            raise UnreadableFileError(
+                f"Couldn't read {filename!r} as a CSV or Excel file - make sure it's not "
+                f"empty or corrupted, and that its extension matches its actual format "
+                f"({type(exc).__name__}: {exc})"
+            ) from exc
         finally:
             tmp_path.unlink(missing_ok=True)
 
