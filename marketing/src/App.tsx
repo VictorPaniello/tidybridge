@@ -1,6 +1,23 @@
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import { ThemeToggle } from "./components/ThemeToggle";
 
+const PIPELINE = [
+  {
+    title: "Upload",
+    description: "Drop in a CSV or Excel export, wherever the client's data started out.",
+  },
+  {
+    title: "Clean & validate",
+    description:
+      "tidycsv normalizes types and collapses stray whitespace, flagging anything it can't parse instead of dropping it.",
+  },
+  {
+    title: "Deliver",
+    description:
+      "Each new record fires a webhook and a SCIM POST /Users downstream, with retries and a full audit trail.",
+  },
+];
+
 const CAPABILITIES = [
   {
     icon: BroomIcon,
@@ -61,8 +78,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
+        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           <span className="font-semibold tracking-tight">
             tidy<span className="text-ring">bridge</span>
           </span>
@@ -70,7 +87,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4">
+      <main className="flex-1 mx-auto w-full max-w-6xl px-4">
         <motion.section
           initial={reduce ? false : "hidden"}
           animate="show"
@@ -132,7 +149,30 @@ export default function App() {
         </motion.section>
 
         <section className="py-12 sm:py-16 border-t border-border">
-          <ul className="divide-y divide-border">
+          <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
+          <div className="mt-8 grid gap-8 sm:grid-cols-3">
+            {PIPELINE.map((step, i) => (
+              <motion.div
+                key={step.title}
+                initial={reduce ? false : { opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.4 }}
+                transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                className="sm:border-l sm:border-border sm:pl-6 first:border-l-0 first:pl-0"
+              >
+                <span className="font-mono text-sm text-muted-foreground">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <h3 className="mt-2 font-semibold">{step.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+
+        <section className="py-12 sm:py-16 border-t border-border">
+          <h2 className="text-2xl font-semibold tracking-tight">What it does</h2>
+          <ul className="mt-8 divide-y divide-border">
             {CAPABILITIES.map((c, i) => (
               <motion.li
                 key={c.title}
@@ -154,7 +194,7 @@ export default function App() {
       </main>
 
       <footer className="border-t border-border">
-        <div className="mx-auto max-w-5xl px-4 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <div className="mx-auto max-w-6xl px-4 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>© {new Date().getFullYear()} Victor Paniello</span>
           <a
             href="https://github.com/VictorPaniello/tidybridge"
