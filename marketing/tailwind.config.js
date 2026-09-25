@@ -4,6 +4,10 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Geist Variable", "system-ui", "sans-serif"],
+        mono: ["Geist Mono Variable", "ui-monospace", "monospace"],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
