@@ -9,6 +9,7 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 
+import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -20,6 +21,7 @@ from sqlalchemy import Date, Float, cast, delete, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 from starlette.concurrency import run_in_threadpool
+from tidycsv.cleaner import coerce_and_validate, map_columns
 
 # Registers users/oauth_account on Base.metadata - not used directly here,
 # but tests' create_all() (see conftest.py) needs every table module
@@ -42,7 +44,7 @@ from tidybridge.config import settings
 from tidybridge.db import get_db
 from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
-from tidybridge.mapping import validate_resolution
+from tidybridge.mapping import build_schema, validate_resolution
 from tidybridge.models import (
     ClientRecord,
     ColumnMapping,
@@ -442,8 +444,8 @@ def put_column_mapping(
         if latest_run is not None:
             target_run_id = latest_run.id
 
-    if target_run_id and body.old_resolutions:
-        old_by_raw = {e.raw_column: e.target_field for e in body.old_resolutions}
+    if target_run_id:
+        old_by_raw = {e.raw_column: e.target_field for e in (body.old_resolutions or [])}
         new_by_raw = {e.raw_column: e.target_field for e in body.field_resolutions}
         rename_map: dict[str, str] = {}
         drop_fields: set[str] = set()
@@ -455,13 +457,14 @@ def put_column_mapping(
                 else:
                     rename_map[old_target] = new_target
 
-        if rename_map or drop_fields:
-            run_records = db.execute(
-                select(ClientRecord).where(
-                    ClientRecord.ingestion_run_id == target_run_id,
-                    ClientRecord.owner_id == user.id,
-                )
-            ).scalars().all()
+        run_records = db.execute(
+            select(ClientRecord).where(
+                ClientRecord.ingestion_run_id == target_run_id,
+                ClientRecord.owner_id == user.id,
+            )
+        ).scalars().all()
+
+        if run_records:
             for rec in run_records:
                 updated_fields = dict(rec.fields)
                 for old_k, new_k in rename_map.items():
@@ -470,7 +473,36 @@ def put_column_mapping(
                 for drop_k in drop_fields:
                     updated_fields.pop(drop_k, None)
                 rec.fields = updated_fields
+
+            # Renaming/dropping only relabels a record's own fields dict -
+            # it never re-runs the actual type/required validation, so a
+            # field whose type changed on review (e.g. a "joined" column
+            # picked up as "string" by default, then corrected to "date")
+            # stayed marked Clean forever on rows already ingested before
+            # the fix, even though the same value would now be flagged.
+            # Re-coercing here is safe/idempotent: every stored value is
+            # already the *cleaned* output of its old type's coercer, and
+            # every coercer here treats already-clean input as a no-op.
+            dynamic_schema = build_schema(resolution)
+            frame = pd.DataFrame([rec.fields for rec in run_records])
+            frame = map_columns(frame, dynamic_schema)
+            coerced, issues = coerce_and_validate(frame, dynamic_schema)
+            issue_map: dict[int, list[dict]] = {}
+            for issue in issues:
+                issue_map.setdefault(issue.row_index, []).append(
+                    {"field": issue.field, "issue": issue.issue}
+                )
+            for pos, rec in enumerate(run_records):
+                rec.fields = {col: coerced.at[pos, col] for col in coerced.columns}
                 flag_modified(rec, "fields")
+                row_issues = issue_map.get(pos)
+                rec.has_issues = row_issues is not None
+                rec.issues = row_issues
+
+            run = db.get(IngestionRun, target_run_id)
+            if run is not None:
+                run.rows_flagged = sum(1 for r in run_records if r.has_issues)
+                run.rows_clean = len(run_records) - run.rows_flagged
 
     db.commit()
     return ColumnMappingOut(field_resolutions=resolution, dedup_key_fields=body.dedup_key_fields)

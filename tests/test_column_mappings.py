@@ -160,3 +160,48 @@ def test_put_updates_uploaded_records_when_apply_to_run_id_specified(client: Tes
     assert rec["fields"]["full_name"] == "Jane Doe"
     assert "client_name" not in rec["fields"]
 
+
+def test_put_reflags_uploaded_records_when_a_field_type_changes(client: TestClient):
+    """A header with no built-in alias (e.g. "Joined") defaults to type
+    "string" on upload - reviewing the mapping and picking "date" instead
+    must re-validate the already-ingested rows against the new type, not
+    just leave a bad value like "not-a-date" marked clean forever."""
+    upload = client.post(
+        "/records/upload",
+        files={
+            "file": (
+                "test.csv",
+                b"Full Name,E-mail,Joined\nJane Doe,jane@example.com,not-a-date\n",
+                "text/csv",
+            )
+        },
+    )
+    body = upload.json()
+    run_id = body["ingestion_run_id"]
+    fingerprint = body["fingerprint"]
+    assert body["records"][0]["has_issues"] is False
+
+    put_resp = client.put(
+        f"/column-mappings/{fingerprint}",
+        json={
+            "field_resolutions": [
+                {"raw_column": "Full Name", "target_field": "full_name", "type": "string"},
+                {"raw_column": "E-mail", "target_field": "email", "type": "email"},
+                {"raw_column": "Joined", "target_field": "joined", "type": "date"},
+            ],
+            "dedup_key_fields": [],
+            "apply_to_run_id": run_id,
+            "old_resolutions": body["field_resolutions"],
+        },
+    )
+    assert put_resp.status_code == 200
+
+    records_resp = client.get("/records")
+    rec = records_resp.json()["items"][0]
+    assert rec["has_issues"] is True
+    assert rec["issues"] == [{"field": "joined", "issue": "unparseable date"}]
+
+    run_resp = client.get(f"/ingestion-runs/{run_id}")
+    assert run_resp.json()["rows_flagged"] == 1
+    assert run_resp.json()["rows_clean"] == 0
+
