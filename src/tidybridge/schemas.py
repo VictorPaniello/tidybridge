@@ -22,6 +22,18 @@ class ClientRecordOut(BaseModel):
     created_at: datetime
 
 
+class BulkDeleteRecordsIn(BaseModel):
+    record_ids: list[uuid.UUID]
+
+
+class BulkDeleteRecordsOut(BaseModel):
+    # Not necessarily len(record_ids) - an id already deleted (a second
+    # click, another tab) or belonging to someone else's records just
+    # matches nothing rather than erroring, so this is what an engineer
+    # should actually trust happened.
+    deleted_count: int
+
+
 class FieldResolutionIn(BaseModel):
     raw_column: str
     target_field: str | None

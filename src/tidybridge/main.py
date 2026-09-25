@@ -54,6 +54,8 @@ from tidybridge.models import (
 )
 from tidybridge.provisioning import replay_provisioning
 from tidybridge.schemas import (
+    BulkDeleteRecordsIn,
+    BulkDeleteRecordsOut,
     ClientRecordOut,
     ColumnMappingIn,
     ColumnMappingOut,
@@ -836,6 +838,33 @@ def replay_provisioning_endpoint(
         available_at=job.available_at,
         remote_id=job.remote_id,
     )
+
+
+@app.post("/records/bulk-delete", response_model=BulkDeleteRecordsOut)
+def bulk_delete_records(
+    body: BulkDeleteRecordsIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> BulkDeleteRecordsOut:
+    """Same real-deletion semantics as delete_record below, just for a
+    whole selection in one request/transaction instead of one round-trip
+    per row - the "select all" checkbox on the records table could
+    otherwise mean dozens of individual DELETE calls landing inside the
+    same rate-limit window. POST, not DELETE-with-a-body: some HTTP
+    clients/proxies drop a body on DELETE, and this is already not
+    idempotent in the way DELETE implies (a second identical call
+    deletes nothing more, which is fine, but the id list itself isn't a
+    resource being removed)."""
+    if not body.record_ids:
+        return BulkDeleteRecordsOut(deleted_count=0)
+    result = db.execute(
+        delete(ClientRecord).where(
+            ClientRecord.owner_id == user.id,
+            ClientRecord.id.in_(body.record_ids),
+        )
+    )
+    db.commit()
+    return BulkDeleteRecordsOut(deleted_count=result.rowcount)
 
 
 @app.delete("/records/{record_id}", status_code=204)

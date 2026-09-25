@@ -250,6 +250,45 @@ def test_delete_record_cascades_to_its_webhook_deliveries(client: TestClient, db
     assert remaining == []
 
 
+def test_bulk_delete_removes_exactly_the_given_records(client: TestClient):
+    records = _upload(client).json()["records"]
+    to_delete = [records[0]["id"], records[1]["id"]]
+    keep = records[2]["id"]
+
+    response = client.post("/records/bulk-delete", json={"record_ids": to_delete})
+    assert response.status_code == 200
+    assert response.json()["deleted_count"] == 2
+
+    remaining_ids = {r["id"] for r in client.get("/records").json()["items"]}
+    assert keep in remaining_ids
+    assert not any(rid in remaining_ids for rid in to_delete)
+
+
+def test_bulk_delete_skips_ids_that_do_not_belong_to_this_owner(
+    client: TestClient, other_client: TestClient
+):
+    my_record_id = _upload(client).json()["records"][0]["id"]
+    their_record_id = _upload(other_client).json()["records"][0]["id"]
+
+    response = client.post(
+        "/records/bulk-delete", json={"record_ids": [my_record_id, their_record_id]}
+    )
+    assert response.status_code == 200
+    # Only the caller's own record counts - someone else's id in the same
+    # request just matches nothing, it doesn't error the whole request.
+    assert response.json()["deleted_count"] == 1
+    assert client.get(f"/records/{my_record_id}").status_code == 404
+    assert other_client.get(f"/records/{their_record_id}").status_code == 200
+
+
+def test_bulk_delete_with_no_ids_deletes_nothing(client: TestClient):
+    _upload(client)
+    response = client.post("/records/bulk-delete", json={"record_ids": []})
+    assert response.status_code == 200
+    assert response.json()["deleted_count"] == 0
+    assert client.get("/records").json()["total"] == 5
+
+
 def test_engineer_cannot_delete_another_engineers_record(
     client: TestClient, other_client: TestClient
 ):

@@ -394,3 +394,11 @@ export async function replayProvisioning(id: string): Promise<ProvisioningJobSta
 export async function deleteRecord(id: string): Promise<void> {
   await request<void>(`/records/${id}`, { method: "DELETE" });
 }
+
+export async function bulkDeleteRecords(recordIds: string[]): Promise<{ deleted_count: number }> {
+  return request<{ deleted_count: number }>("/records/bulk-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ record_ids: recordIds }),
+  });
+}
