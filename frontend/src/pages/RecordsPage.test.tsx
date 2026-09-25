@@ -73,6 +73,47 @@ describe("RecordsPage", () => {
     expect(sessionStorage.getItem("tidybridge_last_ingest_result")).toBeNull();
   });
 
+  it("hides the upload preview table once the mapping is no longer default", async () => {
+    // The full records table is already right below this banner - once
+    // a mapping's been reviewed there's nothing left for this preview
+    // to add, just a second copy of the same rows.
+    sessionStorage.setItem(
+      "tidybridge_last_ingest_result",
+      JSON.stringify({
+        ingestion_run_id: "run-1",
+        rows_total: 1,
+        rows_clean: 1,
+        rows_flagged: 0,
+        rows_dropped_duplicates: 0,
+        rows_skipped_existing: 0,
+        mapping_is_default: false,
+        fingerprint: "fp123",
+        field_resolutions: [],
+        dedup_key_fields: [],
+        records: [
+          {
+            id: "rec-1",
+            source_file: "test.csv",
+            has_issues: false,
+            issues: [],
+            created_at: new Date().toISOString(),
+            fields: { full_name: "Jane Doe" },
+          },
+        ],
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/rows processed/i)).toBeInTheDocument();
+    expect(screen.queryByText("Review mapping")).not.toBeInTheDocument();
+    expect(screen.queryByText("Jane Doe")).not.toBeInTheDocument();
+  });
+
   it("renders dynamic column headers based on fields present in records", async () => {
     vi.spyOn(api, "listRecords").mockResolvedValue([
       {

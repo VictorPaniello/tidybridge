@@ -488,7 +488,7 @@ export function RecordsPage() {
               ✕
             </button>
           </div>
-          {lastResult.records.length > 0 && (
+          {lastResult.mapping_is_default && lastResult.records.length > 0 && (
             <div className="mt-3">
               <UploadResultsTable
                 records={lastResult.records}
