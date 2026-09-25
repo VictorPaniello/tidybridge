@@ -483,8 +483,14 @@ def put_column_mapping(
             # Re-coercing here is safe/idempotent: every stored value is
             # already the *cleaned* output of its old type's coercer, and
             # every coercer here treats already-clean input as a no-op.
+            # dtype=object, not a plain list-of-dicts construction: pandas'
+            # default "str" dtype (see ingest.py's own comment on this)
+            # silently turns a column's None values into float NaN here too
+            # - str(nan) is the literal text "nan", so an empty (and
+            # correctly unflagged-until-now) full_name would otherwise come
+            # back out as the field value "nan" instead of staying empty.
             dynamic_schema = build_schema(resolution)
-            frame = pd.DataFrame([rec.fields for rec in run_records])
+            frame = pd.DataFrame([rec.fields for rec in run_records], dtype=object)
             frame = map_columns(frame, dynamic_schema)
             coerced, issues = coerce_and_validate(frame, dynamic_schema)
             issue_map: dict[int, list[dict]] = {}

@@ -21,11 +21,11 @@ export function Layout({ children }: { children: ReactNode }) {
         Skip to content
       </a>
       <header className="sticky top-0 z-40 border-b border-border bg-background">
-        <div className="mx-auto max-w-[100rem] px-2 py-3 flex items-center justify-between">
+        <div className="mx-auto max-w-[100rem] px-2 py-3 flex flex-wrap items-center justify-between gap-y-2">
           <Link to="/" className="font-semibold tracking-tight">
             tidy<span className="text-ring">bridge</span>
           </Link>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2 sm:gap-4 text-sm">
             {user && (
               <Link to="/uploads" className="text-muted-foreground hover:text-foreground transition">
                 Upload history
