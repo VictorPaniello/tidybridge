@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api/client";
@@ -103,6 +103,30 @@ describe("RecordsPage", () => {
     expect(screen.getByRole("button", { name: /status/i })).toBeInTheDocument();
     expect(screen.getByText("5000")).toBeInTheDocument();
     expect(screen.getByText("Special")).toBeInTheDocument();
+  });
+
+  it("the mapping-saved banner disappears on its own after a few seconds", () => {
+    // Fake timers from before the initial render - the dismiss timer is
+    // scheduled during that render's effects, so it has to be fake from
+    // the start, not swapped in afterwards (a setTimeout already
+    // scheduled under real timers doesn't retroactively become fake).
+    vi.useFakeTimers();
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: "/", state: { mappingSaveSummary: ["renamed a field"] } }]}
+      >
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Mapping saved.")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+
+    expect(screen.queryByText("Mapping saved.")).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it("selects records via checkboxes and bulk-deletes them", async () => {
