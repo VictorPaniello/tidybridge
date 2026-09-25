@@ -171,11 +171,32 @@ async def add_security_headers(request: Request, call_next):
 # separate custom header sidesteps that entirely. Registered last (see
 # add_security_headers above for why that makes it outermost), so an
 # unauthorized caller is rejected before CORS or rate-limiting ever run.
+#
+# /auth/github/authorize and /auth/github/callback are exempt: both are
+# reached by a top-level browser navigation, never a fetch() the
+# frontend's request() helper could attach this header to - authorize
+# is where the app redirects the whole page (see githubAuthorizeUrl's
+# docstring, on the CSRF cookie needing a first-party navigation),
+# callback is where GitHub itself redirects the browser back, and
+# GitHub has no way to know about this header at all. Gating them was
+# never enforceable, only broke GitHub login on staging. The narrow
+# gap this opens - someone could reach these two routes without the
+# password and complete a GitHub login/registration - still leaves
+# them locked out of every other route without it, since those are all
+# fetch()'d with the header attached by the properly configured
+# frontend build.
+_STAGING_GATE_EXEMPT_PATHS = {"/auth/github/authorize", "/auth/github/callback"}
+
+
 @app.middleware("http")
 async def require_staging_gate_password(request: Request, call_next):
-    if settings.staging_gate_password is None or request.method == "OPTIONS":
+    if (
+        settings.staging_gate_password is None
+        or request.method == "OPTIONS"
         # CORS preflight never carries custom headers - rejecting it here
         # would break every real request before the browser even sends it.
+        or request.url.path in _STAGING_GATE_EXEMPT_PATHS
+    ):
         return await call_next(request)
     supplied = request.headers.get("x-staging-password", "")
     if not secrets.compare_digest(supplied, settings.staging_gate_password):
