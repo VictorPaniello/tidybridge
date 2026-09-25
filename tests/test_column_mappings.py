@@ -205,3 +205,54 @@ def test_put_reflags_uploaded_records_when_a_field_type_changes(client: TestClie
     assert run_resp.json()["rows_flagged"] == 1
     assert run_resp.json()["rows_clean"] == 0
 
+
+def test_put_reflagging_does_not_turn_a_blank_required_field_into_the_string_nan(
+    client: TestClient,
+):
+    """Re-coercing on save builds a fresh DataFrame from every record's
+    already-stored fields dict. Building it without dtype=object lets
+    pandas silently upcast a column's None values to float NaN (same
+    caveat tidycsv's own coerce_and_validate already works around) - so a
+    blank full_name (correctly flagged as "required field is empty") would
+    come back out of coerce_and_validate as the literal string "nan"
+    instead of staying empty, which also makes it stop being flagged."""
+    upload = client.post(
+        "/records/upload",
+        files={
+            "file": (
+                "test.csv",
+                b"Full Name,E-mail,Joined\n,jane@example.com,not-a-date\n",
+                "text/csv",
+            )
+        },
+    )
+    body = upload.json()
+    run_id = body["ingestion_run_id"]
+    fingerprint = body["fingerprint"]
+    assert body["records"][0]["has_issues"] is True
+
+    put_resp = client.put(
+        f"/column-mappings/{fingerprint}",
+        json={
+            "field_resolutions": [
+                {
+                    "raw_column": "Full Name",
+                    "target_field": "full_name",
+                    "type": "string",
+                    "required": True,
+                },
+                {"raw_column": "E-mail", "target_field": "email", "type": "email"},
+                {"raw_column": "Joined", "target_field": "joined", "type": "date"},
+            ],
+            "dedup_key_fields": [],
+            "apply_to_run_id": run_id,
+            "old_resolutions": body["field_resolutions"],
+        },
+    )
+    assert put_resp.status_code == 200
+
+    records_resp = client.get("/records")
+    rec = records_resp.json()["items"][0]
+    assert rec["fields"]["full_name"] is None
+    assert {"field": "full_name", "issue": "required field is empty"} in rec["issues"]
+
