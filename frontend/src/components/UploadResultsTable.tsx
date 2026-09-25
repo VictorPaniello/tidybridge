@@ -1,4 +1,5 @@
 import type { ClientRecord } from "../api/types";
+import { humanizeFieldName } from "../lib/fieldNames";
 
 interface Props {
   records: ClientRecord[];
@@ -31,7 +32,7 @@ export function UploadResultsTable({ records, mappingIsDefault, fingerprint, onR
               <tr>
                 {fieldNames.map((name) => (
                   <th key={name} className="px-4 py-2 font-medium">
-                    {name}
+                    {humanizeFieldName(name)}
                   </th>
                 ))}
               </tr>

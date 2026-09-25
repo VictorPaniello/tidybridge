@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import type { ClientRecord, IngestResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
+import { humanizeFieldName } from "../lib/fieldNames";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
 import { UploadResultsTable } from "../components/UploadResultsTable";
@@ -585,7 +586,7 @@ export function RecordsPage() {
                 {fieldNames.map((name) => (
                   <SortableHeader
                     key={name}
-                    label={name}
+                    label={humanizeFieldName(name)}
                     sortKey={name}
                     sort={sort}
                     onSort={handleSort}
