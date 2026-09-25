@@ -150,6 +150,16 @@ export function RecordsPage() {
     }
   }, [location, navigate]);
 
+  // Acts like a toast: goes away on its own rather than sitting there
+  // until someone notices the ✕. Re-arms whenever a new summary lands
+  // (e.g. saving a second mapping in the same visit) rather than only
+  // firing once per page load.
+  useEffect(() => {
+    if (!mappingSaveSummary) return;
+    const timer = setTimeout(() => setMappingSaveSummary(null), 6000);
+    return () => clearTimeout(timer);
+  }, [mappingSaveSummary]);
+
   // Fetched once, unfiltered (beyond an optional ?ingestion_run_id= from
   // the URL - see the "Upload history" page's "View records" links) -
   // filter/search/stats are all derived from this in-memory list below,

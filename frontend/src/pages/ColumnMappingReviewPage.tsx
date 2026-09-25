@@ -217,9 +217,7 @@ export function ColumnMappingReviewPage({
         effectiveInitialResolution?.dedup_key_fields ?? [],
         dedupKeyFields,
       );
-      navigate(effectiveRunId ? `/?ingestion_run_id=${effectiveRunId}` : "/", {
-        state: { mappingSaveSummary: changes },
-      });
+      navigate("/", { state: { mappingSaveSummary: changes } });
     } catch (err) {
       setSaveError(
         err instanceof ApiError ? err.message : "Couldn't save this mapping - try again.",
