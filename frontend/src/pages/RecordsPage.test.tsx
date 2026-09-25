@@ -138,9 +138,9 @@ describe("RecordsPage", () => {
     );
 
     await screen.findByText("Acme Corp");
-    expect(screen.getByRole("button", { name: /customer_name/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /deal_size/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /custom_field/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /customer name/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /deal size/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /custom field/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /status/i })).toBeInTheDocument();
     expect(screen.getByText("5000")).toBeInTheDocument();
     expect(screen.getByText("Special")).toBeInTheDocument();

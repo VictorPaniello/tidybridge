@@ -16,7 +16,7 @@ const record: ClientRecord = {
 describe("UploadResultsTable", () => {
   it("renders one column per distinct field across the upload's records", () => {
     render(<UploadResultsTable records={[record]} />);
-    expect(screen.getByText("full_name")).toBeInTheDocument();
+    expect(screen.getByText("Full Name")).toBeInTheDocument();
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
   });
 
