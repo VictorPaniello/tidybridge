@@ -59,3 +59,16 @@
 body {
   @apply bg-background text-foreground;
 }
+
+/* Toast auto-dismiss countdown ring (RecordsPage's "Mapping saved."
+   banner) - stroke-dashoffset animates from 0 (full ring) to the
+   circle's own circumference (empty), so it must match r=9's
+   2*PI*9 ≈ 56.5487 used inline as strokeDasharray. */
+@keyframes toast-countdown {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 56.5487;
+  }
+}
