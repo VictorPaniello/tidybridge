@@ -43,6 +43,22 @@ def test_gate_allows_the_right_password(monkeypatch):
     assert response.status_code == 200
 
 
+def test_gate_exempts_github_oauth_authorize_and_callback(monkeypatch):
+    """Both are reached by a top-level browser navigation (authorize by
+    this app's own redirect, callback by GitHub's), never a fetch() the
+    frontend could attach X-Staging-Password to - gating them only ever
+    broke GitHub login on staging, never actually enforced anything.
+    GitHub OAuth isn't configured in this test env (no
+    github_client_id/secret - see auth.py's get_github_oauth_client()),
+    so neither route exists here; asserting not-401 rather than a
+    specific success status still proves the *gate itself* let the
+    request through before routing ever got a chance to 404 it."""
+    monkeypatch.setattr(settings, "staging_gate_password", "correct-horse")
+    client = TestClient(app)
+    assert client.get("/auth/github/authorize").status_code != 401
+    assert client.get("/auth/github/callback").status_code != 401
+
+
 def test_gate_does_not_block_cors_preflight(monkeypatch):
     """A CORS preflight (OPTIONS) never carries custom headers - if this
     blocked it too, every real cross-origin request from the frontend
