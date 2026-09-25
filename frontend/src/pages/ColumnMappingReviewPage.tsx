@@ -288,10 +288,21 @@ export function ColumnMappingReviewPage({
                   <select
                     value={entry.type ?? "string"}
                     onChange={(e) => updateType(index, e.target.value)}
-                    className="rounded-md border border-input bg-transparent px-2 py-1 outline-none focus:ring-2 focus:ring-ring"
+                    // bg-background/text-foreground (not bg-transparent) here
+                    // because the dropdown's own open-list popup is native
+                    // chrome the page can't reach with Tailwind classes -
+                    // only color-scheme and an explicit background/color on
+                    // <option> (below) reliably keep it from falling back to
+                    // barely-readable default styling in dark mode - see
+                    // PhoneInput.tsx's country-code select for the same fix.
+                    className="rounded-md border border-input bg-background text-foreground px-2 py-1 outline-none focus:ring-2 focus:ring-ring"
                   >
                     {FIELD_TYPES.map((t) => (
-                      <option key={t} value={t}>
+                      <option
+                        key={t}
+                        value={t}
+                        style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
+                      >
                         {t}
                       </option>
                     ))}
