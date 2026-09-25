@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import { ApiError } from "../api/client";
@@ -118,6 +119,7 @@ export function RecordsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const ingestionRunId = searchParams.get("ingestion_run_id");
   const [records, setRecords] = useState<ClientRecord[]>([]);
+  const reduce = useReducedMotion();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortState | null>(null);
@@ -535,12 +537,19 @@ export function RecordsPage() {
               key={f}
               onClick={() => setFilter(f)}
               disabled={uploading}
-              className={`rounded-full px-3 py-1 border transition disabled:opacity-50 ${
+              className={`relative rounded-full px-3 py-1 border transition disabled:opacity-50 ${
                 filter === f
-                  ? "bg-primary text-primary-foreground border-primary"
+                  ? "border-transparent text-primary-foreground"
                   : "border-border hover:bg-secondary"
               }`}
             >
+              {filter === f && (
+                <motion.span
+                  layoutId="filter-pill"
+                  transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 35 }}
+                  className="absolute inset-0 rounded-full bg-primary -z-10"
+                />
+              )}
               {f === "all" ? "All" : f === "clean" ? "Clean" : "Flagged"}
             </button>
           ))}
@@ -599,32 +608,46 @@ export function RecordsPage() {
                   onSort={handleSort}
                 />
                 <th className="px-4 py-2 font-medium text-right">
-                  {selectedIds.size > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setPendingBulkDelete(true)}
-                      disabled={bulkDeleting}
-                      // h-5 + inline-flex instead of this button having its
-                      // own vertical padding (py-1) - the th's py-2 already
-                      // matches the sibling SortableHeader cells' height;
-                      // stacking the button's own padding on top of that
-                      // made this one cell (and so the whole header row,
-                      // and everything below it) grow ~6px taller the
-                      // moment a selection existed, then shrink back to
-                      // normal on deselect - a visible jump on every
-                      // checkbox click that had nothing to do with an
-                      // actual data change.
-                      className="inline-flex items-center h-5 rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
-                    >
-                      {bulkDeleting ? "Deleting…" : `Delete (${selectedIds.size})`}
-                    </button>
-                  )}
+                  <AnimatePresence>
+                    {selectedIds.size > 0 && (
+                      <motion.button
+                        type="button"
+                        onClick={() => setPendingBulkDelete(true)}
+                        disabled={bulkDeleting}
+                        initial={reduce ? false : { opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={reduce ? undefined : { opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.15 }}
+                        // h-5 + inline-flex instead of this button having its
+                        // own vertical padding (py-1) - the th's py-2 already
+                        // matches the sibling SortableHeader cells' height;
+                        // stacking the button's own padding on top of that
+                        // made this one cell (and so the whole header row,
+                        // and everything below it) grow ~6px taller the
+                        // moment a selection existed, then shrink back to
+                        // normal on deselect - a visible jump on every
+                        // checkbox click that had nothing to do with an
+                        // actual data change.
+                        className="inline-flex items-center h-5 rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
+                      >
+                        {bulkDeleting ? "Deleting…" : `Delete (${selectedIds.size})`}
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {sortedRecords.map((r) => (
-                <tr key={r.id} className="border-t border-border hover:bg-secondary/50">
+              <AnimatePresence initial={false}>
+                {sortedRecords.map((r) => (
+                <motion.tr
+                  key={r.id}
+                  layout={reduce ? false : "position"}
+                  initial={false}
+                  exit={reduce ? undefined : { opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className="border-t border-border hover:bg-secondary/50"
+                >
                   <td className="px-4 py-2">
                     <input
                       type="checkbox"
@@ -670,8 +693,9 @@ export function RecordsPage() {
                       Delete
                     </button>
                   </td>
-                </tr>
-              ))}
+                </motion.tr>
+                ))}
+              </AnimatePresence>
             </tbody>
           </table>
         </div>

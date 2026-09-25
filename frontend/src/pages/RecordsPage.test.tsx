@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitForElementToBeRemoved,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api/client";
@@ -246,6 +253,9 @@ describe("RecordsPage", () => {
     expect(screen.getByText("Delete (2)")).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("Select all"));
-    expect(screen.queryByText(/^Delete \(/)).not.toBeInTheDocument();
+    // The bulk-delete button exit-animates rather than unmounting
+    // instantly - wait for that transition instead of asserting absence
+    // synchronously.
+    await waitForElementToBeRemoved(() => screen.queryByText("Delete (2)"));
   });
 });
