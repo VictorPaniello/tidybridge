@@ -23,9 +23,42 @@ def test_upload_cleans_and_persists_records(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert body["rows_total"] == 5
+    # messy_clients.csv's blank-Customer row counts as flagged: "Customer"
+    # alias-matches full_name, which is required=True in schema.yaml, and
+    # default_resolution() now carries that required flag into the
+    # per-upload dynamic schema (see mapping.py) - so a missing full_name
+    # is a validation issue again, same as invalid-email and invalid-date.
     assert body["rows_clean"] == 2
     assert body["rows_flagged"] == 3
     assert len(body["records"]) == 5
+
+
+def test_upload_returns_raw_sample_values_per_column(client: TestClient):
+    # The mapping review screen shows these next to "Raw column" so an
+    # engineer isn't renaming/typing a column blind - must be the raw
+    # file's own values, not anything map_columns/coerce_and_validate
+    # already touched (e.g. "SOFIA.REYES@shop.com", not lowercased).
+    body = _upload(client).json()
+    assert body["sample_values"]["Customer"] == [
+        "Sofia Reyes",
+        "Tom O'Brien",
+        "Léa Dubois",
+    ]
+    assert body["sample_values"]["Contact Email"][0] == "SOFIA.REYES@shop.com"
+    # The blank-Customer row's empty value is skipped, not returned as "".
+    assert "" not in body["sample_values"]["Customer"]
+
+
+def test_unreadable_file_returns_a_specific_400_not_a_bare_500(client: TestClient):
+    # An empty file makes pandas raise EmptyDataError deep inside
+    # load_input - before this was caught, that propagated as an
+    # unhandled exception (a bare 500 with no detail, so an engineer got
+    # no indication of what was actually wrong with their upload).
+    response = client.post(
+        "/records/upload", files={"file": ("empty.csv", b"", "text/csv")}
+    )
+    assert response.status_code == 400
+    assert "empty.csv" in response.json()["detail"]
 
 
 def test_missing_optional_field_is_null_not_the_string_nan(client: TestClient):
@@ -35,20 +68,20 @@ def test_missing_optional_field_is_null_not_the_string_nan(client: TestClient):
     # that bug looked like from the API's side.
     response = _upload(client)
     records = response.json()["records"]
-    no_name_record = next(r for r in records if r["email"] == "noemail@shop.com")
-    assert no_name_record["full_name"] is None
-    assert no_name_record["phone"] is None
+    no_name_record = next(r for r in records if r["fields"]["email"] == "noemail@shop.com")
+    assert no_name_record["fields"]["full_name"] is None
+    assert no_name_record["fields"]["phone"] is None
 
 
 def test_flagged_issues_are_attached_to_the_correct_record(client: TestClient):
     records = _upload(client).json()["records"]
-    invalid_email_record = next(r for r in records if r["email"] == "not-an-email")
+    invalid_email_record = next(r for r in records if r["fields"]["email"] == "not-an-email")
     assert invalid_email_record["has_issues"] is True
     assert invalid_email_record["issues"] == [
         {"field": "email", "issue": "invalid email format"}
     ]
 
-    bad_date_record = next(r for r in records if r["full_name"] == "Marco Rossi")
+    bad_date_record = next(r for r in records if r["fields"]["full_name"] == "Marco Rossi")
     assert bad_date_record["issues"] == [{"field": "signup_date", "issue": "unparseable date"}]
 
 
@@ -68,6 +101,9 @@ def test_list_records_filters_by_has_issues(client: TestClient):
     _upload(client)
     flagged = client.get("/records", params={"has_issues": True}).json()
     clean = client.get("/records", params={"has_issues": False}).json()
+    # See test_upload_cleans_and_persists_records - a missing full_name is
+    # a validation issue again now that default_resolution() carries the
+    # required flag through.
     assert len(flagged["items"]) == 3
     assert flagged["total"] == 3
     assert len(clean["items"]) == 2
@@ -212,6 +248,45 @@ def test_delete_record_cascades_to_its_webhook_deliveries(client: TestClient, db
         select(WebhookDelivery).where(WebhookDelivery.record_id == record_id)
     ).scalars().all()
     assert remaining == []
+
+
+def test_bulk_delete_removes_exactly_the_given_records(client: TestClient):
+    records = _upload(client).json()["records"]
+    to_delete = [records[0]["id"], records[1]["id"]]
+    keep = records[2]["id"]
+
+    response = client.post("/records/bulk-delete", json={"record_ids": to_delete})
+    assert response.status_code == 200
+    assert response.json()["deleted_count"] == 2
+
+    remaining_ids = {r["id"] for r in client.get("/records").json()["items"]}
+    assert keep in remaining_ids
+    assert not any(rid in remaining_ids for rid in to_delete)
+
+
+def test_bulk_delete_skips_ids_that_do_not_belong_to_this_owner(
+    client: TestClient, other_client: TestClient
+):
+    my_record_id = _upload(client).json()["records"][0]["id"]
+    their_record_id = _upload(other_client).json()["records"][0]["id"]
+
+    response = client.post(
+        "/records/bulk-delete", json={"record_ids": [my_record_id, their_record_id]}
+    )
+    assert response.status_code == 200
+    # Only the caller's own record counts - someone else's id in the same
+    # request just matches nothing, it doesn't error the whole request.
+    assert response.json()["deleted_count"] == 1
+    assert client.get(f"/records/{my_record_id}").status_code == 404
+    assert other_client.get(f"/records/{their_record_id}").status_code == 200
+
+
+def test_bulk_delete_with_no_ids_deletes_nothing(client: TestClient):
+    _upload(client)
+    response = client.post("/records/bulk-delete", json={"record_ids": []})
+    assert response.status_code == 200
+    assert response.json()["deleted_count"] == 0
+    assert client.get("/records").json()["total"] == 5
 
 
 def test_engineer_cannot_delete_another_engineers_record(

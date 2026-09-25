@@ -9,6 +9,7 @@ import uuid
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 
+import pandas as pd
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,7 +19,9 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from sqlalchemy import Date, Float, cast, delete, func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from starlette.concurrency import run_in_threadpool
+from tidycsv.cleaner import coerce_and_validate, map_columns
 
 # Registers users/oauth_account on Base.metadata - not used directly here,
 # but tests' create_all() (see conftest.py) needs every table module
@@ -39,10 +42,12 @@ from tidybridge.auth import (
 from tidybridge.auth_models import User
 from tidybridge.config import settings
 from tidybridge.db import get_db
-from tidybridge.ingest import ingest_file, load_schema
+from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
+from tidybridge.mapping import build_schema, validate_resolution
 from tidybridge.models import (
     ClientRecord,
+    ColumnMapping,
     IngestionRun,
     ProvisioningAttempt,
     ProvisioningJob,
@@ -51,7 +56,11 @@ from tidybridge.models import (
 )
 from tidybridge.provisioning import replay_provisioning
 from tidybridge.schemas import (
+    BulkDeleteRecordsIn,
+    BulkDeleteRecordsOut,
     ClientRecordOut,
+    ColumnMappingIn,
+    ColumnMappingOut,
     DailySuccessRatePoint,
     DeliverySuccessStats,
     IngestionRunOut,
@@ -164,11 +173,32 @@ async def add_security_headers(request: Request, call_next):
 # separate custom header sidesteps that entirely. Registered last (see
 # add_security_headers above for why that makes it outermost), so an
 # unauthorized caller is rejected before CORS or rate-limiting ever run.
+#
+# /auth/github/authorize and /auth/github/callback are exempt: both are
+# reached by a top-level browser navigation, never a fetch() the
+# frontend's request() helper could attach this header to - authorize
+# is where the app redirects the whole page (see githubAuthorizeUrl's
+# docstring, on the CSRF cookie needing a first-party navigation),
+# callback is where GitHub itself redirects the browser back, and
+# GitHub has no way to know about this header at all. Gating them was
+# never enforceable, only broke GitHub login on staging. The narrow
+# gap this opens - someone could reach these two routes without the
+# password and complete a GitHub login/registration - still leaves
+# them locked out of every other route without it, since those are all
+# fetch()'d with the header attached by the properly configured
+# frontend build.
+_STAGING_GATE_EXEMPT_PATHS = {"/auth/github/authorize", "/auth/github/callback"}
+
+
 @app.middleware("http")
 async def require_staging_gate_password(request: Request, call_next):
-    if settings.staging_gate_password is None or request.method == "OPTIONS":
+    if (
+        settings.staging_gate_password is None
+        or request.method == "OPTIONS"
         # CORS preflight never carries custom headers - rejecting it here
         # would break every real request before the browser even sends it.
+        or request.url.path in _STAGING_GATE_EXEMPT_PATHS
+    ):
         return await call_next(request)
     supplied = request.headers.get("x-staging-password", "")
     if not secrets.compare_digest(supplied, settings.staging_gate_password):
@@ -329,9 +359,13 @@ async def upload_records(
     # run_in_threadpool moves it off the loop, the same mechanism FastAPI
     # itself uses for sync routes. Found via a deliberate scalability/
     # performance review, not a user report.
-    inserted, run = await run_in_threadpool(
-        ingest_file, db, file.filename or "upload.csv", content, schema, user.id
-    )
+    try:
+        outcome = await run_in_threadpool(
+            ingest_file, db, file.filename or "upload.csv", content, schema, user.id
+        )
+    except UnreadableFileError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    run = outcome.run
     return IngestResult(
         ingestion_run_id=run.id,
         rows_total=run.rows_total,
@@ -339,8 +373,139 @@ async def upload_records(
         rows_flagged=run.rows_flagged,
         rows_dropped_duplicates=run.rows_dropped_duplicates,
         rows_skipped_existing=run.rows_skipped_existing,
-        records=[ClientRecordOut.model_validate(r) for r in inserted],
+        mapping_is_default=outcome.mapping_is_default,
+        fingerprint=outcome.fingerprint,
+        field_resolutions=outcome.field_resolutions,
+        dedup_key_fields=outcome.dedup_key_fields,
+        records=[ClientRecordOut.model_validate(r) for r in outcome.records],
+        sample_values=outcome.sample_values,
     )
+
+
+@app.get("/column-mappings/{fingerprint}", response_model=ColumnMappingOut)
+def get_column_mapping(
+    fingerprint: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ColumnMappingOut:
+    saved = db.execute(
+        select(ColumnMapping).where(
+            ColumnMapping.owner_id == user.id, ColumnMapping.header_fingerprint == fingerprint
+        )
+    ).scalar_one_or_none()
+    if saved is not None:
+        return ColumnMappingOut(
+            field_resolutions=saved.field_resolutions, dedup_key_fields=saved.dedup_key_fields
+        )
+    # No saved mapping - fingerprint alone can't reconstruct raw headers,
+    # so there's nothing meaningful to default to without a real upload.
+    raise HTTPException(status_code=404, detail="No saved mapping for this shape yet")
+
+
+@app.put("/column-mappings/{fingerprint}", response_model=ColumnMappingOut)
+def put_column_mapping(
+    fingerprint: str,
+    body: ColumnMappingIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ColumnMappingOut:
+    resolution = [entry.model_dump() for entry in body.field_resolutions]
+    try:
+        validate_resolution(resolution, body.dedup_key_fields)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    existing = db.execute(
+        select(ColumnMapping).where(
+            ColumnMapping.owner_id == user.id, ColumnMapping.header_fingerprint == fingerprint
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.field_resolutions = resolution
+        existing.dedup_key_fields = body.dedup_key_fields
+    else:
+        db.add(
+            ColumnMapping(
+                owner_id=user.id,
+                header_fingerprint=fingerprint,
+                field_resolutions=resolution,
+                dedup_key_fields=body.dedup_key_fields,
+            )
+        )
+
+    target_run_id = body.apply_to_run_id
+    if not target_run_id and body.old_resolutions:
+        latest_run = db.execute(
+            select(IngestionRun)
+            .where(IngestionRun.owner_id == user.id)
+            .order_by(IngestionRun.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+        if latest_run is not None:
+            target_run_id = latest_run.id
+
+    if target_run_id:
+        old_by_raw = {e.raw_column: e.target_field for e in (body.old_resolutions or [])}
+        new_by_raw = {e.raw_column: e.target_field for e in body.field_resolutions}
+        rename_map: dict[str, str] = {}
+        drop_fields: set[str] = set()
+        for raw_col, new_target in new_by_raw.items():
+            old_target = old_by_raw.get(raw_col)
+            if old_target and old_target != new_target:
+                if new_target is None:
+                    drop_fields.add(old_target)
+                else:
+                    rename_map[old_target] = new_target
+
+        run_records = db.execute(
+            select(ClientRecord).where(
+                ClientRecord.ingestion_run_id == target_run_id,
+                ClientRecord.owner_id == user.id,
+            )
+        ).scalars().all()
+
+        if run_records:
+            for rec in run_records:
+                updated_fields = dict(rec.fields)
+                for old_k, new_k in rename_map.items():
+                    if old_k in updated_fields:
+                        updated_fields[new_k] = updated_fields.pop(old_k)
+                for drop_k in drop_fields:
+                    updated_fields.pop(drop_k, None)
+                rec.fields = updated_fields
+
+            # Renaming/dropping only relabels a record's own fields dict -
+            # it never re-runs the actual type/required validation, so a
+            # field whose type changed on review (e.g. a "joined" column
+            # picked up as "string" by default, then corrected to "date")
+            # stayed marked Clean forever on rows already ingested before
+            # the fix, even though the same value would now be flagged.
+            # Re-coercing here is safe/idempotent: every stored value is
+            # already the *cleaned* output of its old type's coercer, and
+            # every coercer here treats already-clean input as a no-op.
+            dynamic_schema = build_schema(resolution)
+            frame = pd.DataFrame([rec.fields for rec in run_records])
+            frame = map_columns(frame, dynamic_schema)
+            coerced, issues = coerce_and_validate(frame, dynamic_schema)
+            issue_map: dict[int, list[dict]] = {}
+            for issue in issues:
+                issue_map.setdefault(issue.row_index, []).append(
+                    {"field": issue.field, "issue": issue.issue}
+                )
+            for pos, rec in enumerate(run_records):
+                rec.fields = {col: coerced.at[pos, col] for col in coerced.columns}
+                flag_modified(rec, "fields")
+                row_issues = issue_map.get(pos)
+                rec.has_issues = row_issues is not None
+                rec.issues = row_issues
+
+            run = db.get(IngestionRun, target_run_id)
+            if run is not None:
+                run.rows_flagged = sum(1 for r in run_records if r.has_issues)
+                run.rows_clean = len(run_records) - run.rows_flagged
+
+    db.commit()
+    return ColumnMappingOut(field_resolutions=resolution, dedup_key_fields=body.dedup_key_fields)
 
 
 @app.get("/ingestion-runs", response_model=IngestionRunsPage)
@@ -726,6 +891,33 @@ def replay_provisioning_endpoint(
         available_at=job.available_at,
         remote_id=job.remote_id,
     )
+
+
+@app.post("/records/bulk-delete", response_model=BulkDeleteRecordsOut)
+def bulk_delete_records(
+    body: BulkDeleteRecordsIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> BulkDeleteRecordsOut:
+    """Same real-deletion semantics as delete_record below, just for a
+    whole selection in one request/transaction instead of one round-trip
+    per row - the "select all" checkbox on the records table could
+    otherwise mean dozens of individual DELETE calls landing inside the
+    same rate-limit window. POST, not DELETE-with-a-body: some HTTP
+    clients/proxies drop a body on DELETE, and this is already not
+    idempotent in the way DELETE implies (a second identical call
+    deletes nothing more, which is fine, but the id list itself isn't a
+    resource being removed)."""
+    if not body.record_ids:
+        return BulkDeleteRecordsOut(deleted_count=0)
+    result = db.execute(
+        delete(ClientRecord).where(
+            ClientRecord.owner_id == user.id,
+            ClientRecord.id.in_(body.record_ids),
+        )
+    )
+    db.commit()
+    return BulkDeleteRecordsOut(deleted_count=result.rowcount)
 
 
 @app.delete("/records/{record_id}", status_code=204)

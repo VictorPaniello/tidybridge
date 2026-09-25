@@ -8,14 +8,34 @@ export interface ClientRecord {
   // ingestion_run_id existed. See IngestionRun below.
   ingestion_run_id: string | null;
   source_file: string;
-  full_name: string | null;
-  email: string | null;
-  signup_date: string | null;
-  amount: string | null;
-  phone: string | null;
+  // Per-upload-shape dynamic fields (see column mapping) - full_name/email
+  // etc are just conventional keys within this now, not fixed columns.
+  fields: Record<string, string | null>;
   has_issues: boolean;
   issues: { field: string; issue: string }[] | null;
   created_at: string;
+}
+
+export interface FieldResolution {
+  raw_column: string;
+  target_field: string | null;
+  type: string | null;
+  // Whether a blank value in this field should be flagged as an issue
+  // rather than silently coerced to null - opt-in, defaults false. See
+  // tidybridge/mapping.py's build_schema().
+  required?: boolean;
+}
+
+export interface ColumnMapping {
+  field_resolutions: FieldResolution[];
+  dedup_key_fields: string[];
+}
+
+export interface ColumnMappingIn {
+  field_resolutions: FieldResolution[];
+  dedup_key_fields: string[];
+  apply_to_run_id?: string;
+  old_resolutions?: FieldResolution[];
 }
 
 export interface WebhookDelivery {
@@ -43,7 +63,24 @@ export interface IngestResult {
   // still need to be accounted for: rows_total always equals rows_clean +
   // rows_flagged + rows_dropped_duplicates + this field.
   rows_skipped_existing: number;
+  // True when this upload's column shape had no saved mapping, so the
+  // alias-matched/normalized-header default was used - a hint the
+  // frontend can use to prompt an engineer to review it.
+  mapping_is_default: boolean;
+  // This upload's header shape - what GET/PUT /column-mappings/{fingerprint}
+  // takes, so a "review this mapping?" prompt has something to link to.
+  fingerprint: string;
+  // The resolution actually used for *this* upload - GET
+  // /column-mappings/{fingerprint} 404s until something's been explicitly
+  // saved for this shape, so when mapping_is_default is true this is the
+  // only place the mapping-review screen can get an initial value from.
+  field_resolutions: FieldResolution[];
+  dedup_key_fields: string[];
   records: ClientRecord[];
+  // A few real, pre-cleaning values per raw column, keyed by raw_column -
+  // the only place the mapping review screen can show an engineer what a
+  // column actually contained, since nothing else keeps the raw headers.
+  sample_values: Record<string, string[]>;
 }
 
 // The persisted counterpart of IngestResult (GET /ingestion-runs and

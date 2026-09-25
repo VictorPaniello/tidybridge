@@ -20,8 +20,8 @@ export function Layout({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
-      <header className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+      <header className="sticky top-0 z-40 border-b border-border bg-background">
+        <div className="mx-auto max-w-[100rem] px-2 py-3 flex items-center justify-between">
           <Link to="/" className="font-semibold tracking-tight">
             tidy<span className="text-ring">bridge</span>
           </Link>
@@ -53,11 +53,11 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
-      <main id="main-content" tabIndex={-1} className="flex-1 mx-auto w-full max-w-5xl px-4 py-8">
+      <main id="main-content" tabIndex={-1} className="flex-1 mx-auto w-full max-w-[100rem] px-2 py-8">
         {children}
       </main>
-      <footer className="border-t border-border">
-        <div className="mx-auto max-w-5xl px-4 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+      <footer className="sticky bottom-0 z-40 border-t border-border bg-background">
+        <div className="mx-auto max-w-[100rem] px-2 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>© {new Date().getFullYear()} Victor Paniello</span>
           <div className="flex items-center gap-4">
             <Link to="/privacy" className="hover:text-foreground transition">

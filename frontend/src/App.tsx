@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -12,8 +12,36 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { RecordsPage } from "./pages/RecordsPage";
 import { RecordDetailPage } from "./pages/RecordDetailPage";
 import { IngestionRunsPage } from "./pages/IngestionRunsPage";
+import { ColumnMappingReviewPage } from "./pages/ColumnMappingReviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { TermsPage } from "./pages/TermsPage";
+import type { ColumnMapping } from "./api/types";
+
+// The route wrapper is here (not inside ColumnMappingReviewPage itself)
+// so the page component keeps taking `fingerprint` as a plain prop -
+// simpler to test (see its .test.tsx) than reading useParams internally.
+// initialResolution rides in via router state (set by RecordsPage's
+// "Review mapping" link) rather than the URL - it's the upload's own
+// field_resolutions/dedup_key_fields, the only fallback GET has for a
+// shape nothing's been saved for yet (see ColumnMappingReviewPage).
+function ColumnMappingReviewRoute() {
+  const { fingerprint } = useParams<{ fingerprint: string }>();
+  const location = useLocation();
+  const state = location.state as {
+    initialResolution?: ColumnMapping;
+    ingestionRunId?: string;
+  } | null;
+  const initialResolution = state?.initialResolution;
+  const ingestionRunId = state?.ingestionRunId;
+  if (!fingerprint) return <Navigate to="/" replace />;
+  return (
+    <ColumnMappingReviewPage
+      fingerprint={fingerprint}
+      initialResolution={initialResolution}
+      ingestionRunId={ingestionRunId}
+    />
+  );
+}
 
 export default function App() {
   return (
@@ -89,6 +117,16 @@ export default function App() {
               <ProtectedRoute>
                 <Layout>
                   <RecordDetailPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/column-mappings/:fingerprint"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ColumnMappingReviewRoute />
                 </Layout>
               </ProtectedRoute>
             }

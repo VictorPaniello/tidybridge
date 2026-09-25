@@ -67,8 +67,11 @@ def test_export_returns_csv_with_expected_columns_and_rows(client: TestClient):
 def test_export_includes_real_webhook_job_status(client: TestClient, db: Session):
     _upload_csv(client, CLEAN_AND_FLAGGED_CSV)
 
+    # full_name is a read-only Python property now, not a mapped column -
+    # not usable in a SQL WHERE clause. Query the underlying JSONB field
+    # directly instead (the same pattern ingest.py's dedup check uses).
     record = db.execute(
-        select(ClientRecord).where(ClientRecord.full_name == "Grace Hopper")
+        select(ClientRecord).where(ClientRecord.fields["full_name"].astext == "Grace Hopper")
     ).scalar_one()
     job = WebhookJob(record_id=record.id, status="dead", attempt_number=3)
     db.add(job)
