@@ -22,6 +22,14 @@ class ClientRecordOut(BaseModel):
     created_at: datetime
 
 
+class UpdateRecordFieldsIn(BaseModel):
+    # Partial: only the keys present are changed, everything else on the
+    # record is left alone. Values are raw strings (or null to clear a
+    # field) - re-coerced/re-validated server-side against the run's own
+    # field types exactly like a fresh upload, not trusted as already-clean.
+    fields: dict[str, str | None]
+
+
 class BulkDeleteRecordsIn(BaseModel):
     record_ids: list[uuid.UUID]
 

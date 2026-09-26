@@ -24,6 +24,10 @@ export function RecordDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftFields, setDraftFields] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [replaying, setReplaying] = useState(false);
   const [replayError, setReplayError] = useState<string | null>(null);
   const [replayingProvisioning, setReplayingProvisioning] = useState(false);
@@ -65,6 +69,40 @@ export function RecordDetailPage() {
       navigate("/");
     } catch {
       alert("Couldn't delete this record.");
+    }
+  }
+
+  function startEditing() {
+    if (!record) return;
+    setDraftFields(
+      Object.fromEntries(Object.entries(record.fields).map(([k, v]) => [k, v ?? ""])),
+    );
+    setSaveError(null);
+    setEditing(true);
+  }
+
+  async function handleSaveEdits() {
+    if (!id || !record) return;
+    // Only send what actually changed - a partial PATCH, not a full
+    // fields replace, so an untouched field is never re-coerced for no
+    // reason.
+    const changed = Object.fromEntries(
+      Object.entries(draftFields).filter(([k, v]) => (record.fields[k] ?? "") !== v),
+    );
+    if (Object.keys(changed).length === 0) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await api.updateRecordFields(id, changed);
+      setRecord(updated);
+      setEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof ApiError ? err.message : "Couldn't save these changes.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -117,16 +155,54 @@ export function RecordDetailPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           {record.fields.full_name ?? "Unnamed record"}
         </h1>
-        <button
-          onClick={() => setConfirmingDelete(true)}
-          className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-3 py-1.5 text-sm shadow-sm hover:shadow hover:bg-red-50 dark:hover:bg-red-950/30 transition"
-        >
-          Delete
-        </button>
+        <div className="flex items-center gap-2">
+          {editing ? (
+            <>
+              <button
+                onClick={() => setEditing(false)}
+                disabled={saving}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdits}
+                disabled={saving}
+                className="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={startEditing}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary transition"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-3 py-1.5 text-sm shadow-sm hover:shadow hover:bg-red-50 dark:hover:bg-red-950/30 transition"
+              >
+                Delete
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
+      {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
+
       <dl className="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-        <RecordFieldsList fields={record.fields} />
+        {editing ? (
+          <EditableRecordFieldsList
+            fields={draftFields}
+            onChange={(key, value) => setDraftFields((prev) => ({ ...prev, [key]: value }))}
+          />
+        ) : (
+          <RecordFieldsList fields={record.fields} />
+        )}
         <Field label="Source file" value={record.source_file} />
         <Field label="Ingested" value={new Date(record.created_at).toLocaleString()} />
       </dl>
@@ -309,6 +385,36 @@ export function RecordFieldsList({ fields }: { fields: Record<string, string | n
         <div key={key}>
           <dt className="text-muted-foreground">{key}</dt>
           <dd className="font-medium">{value ?? "—"}</dd>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// Same key set as RecordFieldsList, but each value is an input bound to
+// the in-progress edit rather than the saved record - PATCH /records/{id}
+// re-validates on save, so this doesn't need to know each field's type
+// itself.
+function EditableRecordFieldsList({
+  fields,
+  onChange,
+}: {
+  fields: Record<string, string>;
+  onChange: (key: string, value: string) => void;
+}) {
+  return (
+    <>
+      {Object.entries(fields).map(([key, value]) => (
+        <div key={key}>
+          <label htmlFor={`field-${key}`} className="text-muted-foreground">
+            {key}
+          </label>
+          <input
+            id={`field-${key}`}
+            value={value}
+            onChange={(e) => onChange(key, e.target.value)}
+            className="mt-0.5 w-full rounded-md border border-input bg-transparent px-2 py-1 font-medium outline-none focus:ring-2 focus:ring-ring"
+          />
         </div>
       ))}
     </>

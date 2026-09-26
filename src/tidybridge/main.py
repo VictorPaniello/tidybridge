@@ -69,6 +69,7 @@ from tidybridge.schemas import (
     ProvisioningAttemptOut,
     ProvisioningJobStatusOut,
     RecordsPage,
+    UpdateRecordFieldsIn,
     WebhookDeliveryOut,
     WebhookJobStatusOut,
 )
@@ -509,6 +510,11 @@ def put_column_mapping(
             if run is not None:
                 run.rows_flagged = sum(1 for r in run_records if r.has_issues)
                 run.rows_clean = len(run_records) - run.rows_flagged
+                # Keeps a later inline field edit (PATCH /records/{id})
+                # validating against the mapping this run was actually
+                # just re-cleaned with, not whatever resolution ingest_file
+                # originally snapshotted before this save.
+                run.resolution = resolution
 
     db.commit()
     return ColumnMappingOut(field_resolutions=resolution, dedup_key_fields=body.dedup_key_fields)
@@ -765,6 +771,69 @@ def get_record(
     user: User = Depends(current_active_user),
 ) -> ClientRecord:
     return _get_owned_record(db, record_id, user)
+
+
+@app.patch("/records/{record_id}", response_model=ClientRecordOut)
+def update_record_fields(
+    record_id: uuid.UUID,
+    body: UpdateRecordFieldsIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ClientRecord:
+    """Corrects a record in place - the only alternative today is deleting
+    it and re-uploading the whole file with the source data fixed. Values
+    are re-coerced/re-validated against the exact field types this run
+    was cleaned with (run.resolution, see models.py), the same as a fresh
+    upload would, so a fixed date/phone/currency is actually re-checked
+    rather than trusted as-is, and a field that's now blank can still get
+    flagged if it's required."""
+    record = _get_owned_record(db, record_id, user)
+    run = record.ingestion_run
+    if run is None or run.resolution is None:
+        raise HTTPException(
+            status_code=409,
+            detail="This record predates per-run schema tracking and can't be edited in place - "
+            "delete it and re-upload instead.",
+        )
+
+    dynamic_schema = build_schema(run.resolution)
+    known_fields = {f.name for f in dynamic_schema.fields}
+    unknown = set(body.fields) - known_fields
+    if unknown:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown field(s) for this record's shape: {sorted(unknown)}"
+        )
+
+    merged = {**record.fields, **body.fields}
+    # dtype=object: see the identical caveat on the mapping-review
+    # re-validation path below - a bare pd.DataFrame([...]) here would
+    # silently turn a None value into the literal string "nan".
+    frame = pd.DataFrame([merged], dtype=object)
+    frame = map_columns(frame, dynamic_schema)
+    coerced, issues = coerce_and_validate(frame, dynamic_schema)
+
+    record.fields = {col: coerced.at[0, col] for col in coerced.columns}
+    flag_modified(record, "fields")
+    row_issues = [{"field": i.field, "issue": i.issue} for i in issues] or None
+    record.has_issues = row_issues is not None
+    record.issues = row_issues
+
+    db.flush()  # so the counts below see this record's new has_issues
+    run_total = db.execute(
+        select(func.count())
+        .select_from(ClientRecord)
+        .where(ClientRecord.ingestion_run_id == run.id)
+    ).scalar_one()
+    run.rows_flagged = db.execute(
+        select(func.count())
+        .select_from(ClientRecord)
+        .where(ClientRecord.ingestion_run_id == run.id, ClientRecord.has_issues.is_(True))
+    ).scalar_one()
+    run.rows_clean = run_total - run.rows_flagged
+
+    db.commit()
+    db.refresh(record)
+    return record
 
 
 @app.get("/records/{record_id}/webhooks", response_model=list[WebhookDeliveryOut])
