@@ -41,14 +41,18 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/users/me` | The logged-in engineer's own profile |
 | `DELETE` | `/users/me` | Permanently erase **your own** account and everything it owns (client records, ingestion runs, webhook deliveries, linked OAuth account) - real self-service GDPR erasure, not a request queue |
 | `POST` | `/records/upload` | Upload a CSV/Excel file, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id` |
+| `GET` | `/column-mappings/{fingerprint}` | Fetch the saved field-mapping resolution for a header shape (see [Dynamic column mapping](#dynamic-column-mapping)) - 404 if this shape has never had one explicitly saved |
+| `PUT` | `/column-mappings/{fingerprint}` | Save (or update) a header shape's field mapping - names, types, `required`/dedup-key flags - for this and every future upload of that exact shape; optionally re-validates an already-ingested run's records against the new mapping |
 | `GET` | `/ingestion-runs` | List **your own** past uploads, paginated - the persisted summary of every upload, not just the one the last `IngestResult` response reported |
 | `GET` | `/ingestion-runs/{id}` | Fetch one of **your own** past uploads - 404 (not 403) otherwise |
 | `GET` | `/records` | List **your own** records, paginated (`?limit=&offset=`, `limit` capped server-side at 500), optionally `?has_issues=true/false` and/or `?ingestion_run_id=` (drill from one upload into exactly the records it created); returns `{items, total, limit, offset}` |
 | `GET` | `/records/export` | Download **your own** records as a CSV file (`Content-Disposition: attachment`), optionally `?ingestion_run_id=` to export just one upload - unpaginated, unlike `GET /records`, since the point is getting everything out in one file. Same ownership rules; includes an `issues` column summarizing any validation problems |
 | `GET` | `/records/{id}` | Fetch one of **your own** records - 404 (not 403) if it belongs to someone else, or doesn't exist |
+| `PATCH` | `/records/{id}` | Correct one or more of your own record's fields in place - re-coerced and re-validated against the exact field types that record's upload was cleaned with, not trusted as already-clean. 400 for an unknown field name, 409 if the record predates per-run schema tracking |
 | `GET` | `/records/{id}/webhooks` | Audit log of webhook delivery attempts for one of your own records |
 | `POST` | `/records/{id}/webhooks/replay` | Manually re-send the notification for one of your own records, on demand - 400 if no `WEBHOOK_URL` is configured |
 | `DELETE` | `/records/{id}` | Permanently erase one of your own records (and its webhook delivery history) - supports the GDPR right to erasure, not a standalone claim of full GDPR compliance on its own; see [Privacy Policy](#privacy--terms) |
+| `POST` | `/records/bulk-delete` | Permanently erase several of your own records (and their webhook delivery history) in a single transaction |
 | `GET` | `/stats/delivery-success` | Daily webhook/provisioning success rate for **your own** records (`?channel=webhook\|provisioning`, optional `?date_from=&date_to=`, default trailing 30 days, capped at a year) - each day's attempt/success counts, its success rate, and a 7-day rolling average of that rate |
 
 Re-uploading a file already ingested (matched by email, scoped to the
@@ -167,9 +171,62 @@ gets used mid-incident: a client fixes their endpoint and asks for the
 last few notifications to be resent, rather than waiting on a retry
 schedule that already exhausted itself. Goes through the exact same
 signing/retry path as a normal delivery. It replays the record's
-*current* payload, not a stored historical one - nothing in this API
-mutates a `ClientRecord` after ingest (only deletes it outright), so in
-practice "current" and "at first delivery" are always the same data.
+*current* payload - which, since `PATCH /records/{id}` below can now
+correct a record's fields after ingest, is no longer always identical
+to what was sent at first delivery. A replay after an edit intentionally
+sends the corrected data, not a stored historical payload (`WebhookDelivery`
+only ever persisted each attempt's outcome, not its request body).
+
+### Dynamic column mapping
+
+Every upload's raw column headers are fingerprinted
+(`compute_fingerprint` - order- and case-insensitive, so two uploads
+with the same columns in a different order or a stray casing difference
+still match) and resolved into a schema built fresh from that file's own
+columns, instead of every upload having to match one fixed,
+hand-maintained `examples/schema.yaml`. A header that matches a known
+alias (`"Full Name"` → `full_name`) inherits that field's type and
+`required` flag from `schema.yaml`; an unrecognized header becomes its
+own new string field rather than being silently dropped. `ClientRecord.fields`
+is a JSONB blob keyed by whatever a shape actually resolved to - there's
+no fixed column set at the database level.
+
+An engineer can review and save a mapping per (owner, header shape) via
+`GET`/`PUT /column-mappings/{fingerprint}` - rename a field, change its
+type, opt it into `required` (a blank value is only ever flagged if the
+mapping says so - a brand-new dynamic field defaults to not required,
+same as it defaults to type `string`), or pick dedup-key columns - and
+every future upload of that exact shape applies it silently, no review
+needed again. Saving a mapping can also apply immediately to the run
+that triggered the review: `PUT`'s `apply_to_run_id` re-runs
+`coerce_and_validate` against that run's already-ingested records with
+the new field types/required flags, so correcting a mistake in the
+mapping actually re-flags (or un-flags) the rows it affects, rather than
+only changing how *future* uploads of that shape get treated.
+
+Frontend: a review screen (`/column-mappings/:fingerprint`), shown when
+a shape's mapping was never explicitly saved, with up to three real
+sample values per raw column (taken straight from the uploaded file, not
+the cleaned result) so an engineer isn't renaming or retyping a column
+blind.
+
+### Inline record editing
+
+`PATCH /records/{id}` corrects a record's fields in place - previously
+the only way to fix a flagged row (a blank required field, a date
+tidycsv couldn't parse) was deleting it and re-uploading the whole file
+with the source data fixed. Only the fields sent in the request change;
+each is re-coerced and re-validated against the exact types that
+record's upload was cleaned with, the same as a fresh upload, so a
+corrected date/phone/currency is genuinely re-checked rather than
+trusted as-is, and a field that's now blank can still get flagged if
+it's required. This relies on `IngestionRun.resolution`, a snapshot of
+the field mapping a run was actually cleaned with, saved at ingest time
+and kept in sync whenever a saved column mapping later changes that
+run's types (see above) - a record whose run predates this column
+refuses the edit (409) with a message pointing at delete-and-re-upload,
+rather than guessing its schema. Frontend: an Edit/Save/Cancel
+affordance on the record detail page.
 
 ## Local development
 
@@ -247,9 +304,12 @@ is pulled from its GitHub repo, not from PyPI.
 A React + TypeScript SPA in `frontend/` (Vite + Tailwind) - the whole API
 surface: email+password and GitHub OAuth login, forgot/reset password,
 registration (first/last name required, phone optional with a country-code
-picker), upload, a searchable and sortable records list with a stats
-panel, a record detail view with its webhook delivery history, delete, and
-an account settings page (profile fields + change password).
+picker), upload with a column-mapping review screen for shapes it hasn't
+seen before, a searchable/sortable/filterable records list with a stats
+panel and bulk delete, a record detail view with its webhook/provisioning
+delivery history and an inline Edit affordance for correcting a flagged
+record's fields, an upload history page, and an account settings page
+(profile fields + change password).
 
 **GitHub OAuth signups must complete their profile before anything else
 is usable.** That flow bypasses `/auth/register` entirely (fastapi-users
@@ -327,10 +387,17 @@ redirect to work.
 project - not a route inside this app. It's a single static page with no
 auth, no API calls, and no shared build with the app it links to; see
 `docs/superpowers/specs/2026-09-13-custom-domain-landing-page-design.md`
-for why. Deployed to Vercel (a separate project from the app, same
-provider) at the apex domain, `tidybridge.dev` (`www.tidybridge.dev`
-redirects there too, via a Cloudflare Redirect Rule); the app itself
-lives one level down, at `app.tidybridge.dev`.
+for why. Self-hosted Geist Variable/Geist Mono Variable fonts and small
+`motion/react`-driven touches (a one-time hero entrance, a scroll-reveal
+on the capability list, tactile press feedback on both CTAs, all
+respecting `prefers-reduced-motion`) - the hero's own code panel shows
+the actual SCIM `POST /Users` payload `build_scim_payload()` produces
+from `examples/provisioning_mapping.yaml`'s default mapping, a real
+example the product emits rather than a mocked-up screenshot. Deployed
+to Vercel (a separate project from the app, same provider) at the apex
+domain, `tidybridge.dev` (`www.tidybridge.dev` redirects there too, via
+a Cloudflare Redirect Rule); the app itself lives one level down, at
+`app.tidybridge.dev`.
 
 **Not on Cloudflare Pages, despite the original design spec choosing
 it** - the apex domain resolves to a Cloudflare anycast IP range
@@ -639,8 +706,6 @@ project's own code or in actually deploying it:
 
 ## What it doesn't do (yet)
 
-- Single schema for the whole service - a real multi-tenant version would
-  need a schema per client, not one shared `examples/schema.yaml`.
 - **Webhook retries run synchronously, inside the same upload request**
   (see [Architecture](#architecture)) - not as a separate background job,
   since there's no queue/broker in this project. A receiver that's fully
@@ -680,13 +745,16 @@ project's own code or in actually deploying it:
   each instance would then enforce its own separate 5/minute instead of
   one shared limit.
 - **Frontend test coverage is partial.** `npm run test` covers pure logic
-  (`src/lib/`) and one representative component (`ConfirmDialog`) - the
-  pages that actually fetch and render data (`RecordsPage`,
-  `RecordDetailPage`, `IngestionRunsPage`, the auth forms) have no
-  automated tests yet, only manual browser verification against a real
-  local backend. Better than the zero frontend coverage (and no frontend
-  CI at all) this project had before, not yet equivalent to the
-  backend's 73 pytest tests against a real database.
+  (`src/lib/`), several components (`ConfirmDialog`, `CopyButton`,
+  `UploadResultsTable`), and real rendered-DOM behavior on `RecordsPage`,
+  `RecordDetailPage`, and `ColumnMappingReviewPage` - but `RecordDetailPage`'s
+  own coverage is limited to its pure `RecordFieldsList` helper, not the
+  page's data-fetching or its Edit/Save flow, and `IngestionRunsPage` and
+  the auth forms have no automated tests yet, only manual browser
+  verification against a real local backend. Better than the zero
+  frontend coverage (and no frontend CI at all) this project had before,
+  not yet equivalent to the backend's 187 pytest tests against a real
+  database.
 
 ## Security
 
