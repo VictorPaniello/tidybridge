@@ -7,6 +7,175 @@ nothing has been tagged as a release yet, so everything below is under
 ## [Unreleased]
 
 ### Added
+- **Inline editing of ingested records.** Previously the only way to fix a
+  flagged row (a blank required field, a date tidycsv couldn't parse) was
+  deleting it and re-uploading the whole file with the source data
+  corrected. `PATCH /records/{id}` corrects a record's fields in place: a
+  partial update (only the keys sent are changed), re-coerced and
+  re-validated against the exact field types that upload's run was
+  cleaned with - not trusted as already-clean - so a fixed date/phone/
+  currency is genuinely re-checked, and a field that's now blank can
+  still get flagged if it's required. Needed a new piece of state to make
+  that possible: `IngestionRun.resolution` (migration `a146263fe066`), a
+  snapshot of the `field_resolutions` a run was actually cleaned with,
+  set at ingest time and kept in sync by `PUT /column-mappings/
+  {fingerprint}`'s own re-validation path (see below) whenever a saved
+  mapping changes a run's types after the fact. Without it there was no
+  way to know a record's field types later, and the endpoint refuses to
+  edit a record whose run predates this column (409, a clear message
+  telling the caller to delete and re-upload, rather than guessing its
+  schema). Rejects a field name that isn't part of that run's shape
+  (400); 404s for another engineer's record, same as every other
+  `/records/{id}*` route. Recomputes the run's `rows_clean`/
+  `rows_flagged` after the edit. Frontend: an Edit/Save/Cancel affordance
+  on the record detail page turns the fields grid into inputs and
+  re-renders from the server's re-validated response - the title, the
+  fields, `has_issues`, and the validation-issues list all reflect the
+  fix immediately, not just the one field that was typed into.
+- **Dynamic, per-upload column mapping** (migration `f1a2b3c4d5e6`,
+  `mapping.py`) - the biggest structural change since the original
+  fixed `schema.yaml`. Previously every upload had to match one
+  hardcoded set of column names/types; a client's export with different
+  headers, extra columns, or a shape schema.yaml never anticipated
+  either got silently dropped (unmapped columns) or ingested with
+  wrong-default types. Now each upload's raw headers are fingerprinted
+  (order/case-insensitive - `compute_fingerprint`) and resolved into a
+  synthetic schema built fresh from that file's own columns: an
+  alias-matched header (`"Full Name"` → `full_name`) inherits
+  `schema.yaml`'s type and `required` flag; an unrecognized header
+  becomes its own new string field rather than being dropped. An
+  engineer can review and save a mapping per (owner, header shape) via
+  `GET`/`PUT /column-mappings/{fingerprint}` - rename a field, retype
+  it, opt a field into `required` (previously every dynamic field was
+  hardcoded `required=False`, so a blank value in even `full_name` was
+  silently coerced to `None` and never flagged), pick dedup key
+  columns - and future uploads of that exact shape apply it silently.
+  `ClientRecord.fields` is now a JSONB blob keyed by each shape's own
+  field names instead of five fixed columns; `full_name`/`email`/etc.
+  stayed as backward-compatible property accessors reading out of it so
+  `webhooks.py`/`provisioning.py`/`schemas.py` needed no changes.
+  Frontend: a review screen (`/column-mappings/:fingerprint`) shown when
+  a shape's mapping was never explicitly saved, with up to three real
+  sample values per raw column (taken from the file itself, not the
+  cleaned result) so an engineer isn't renaming/retyping a column blind;
+  the upload-results table and records table render whatever field
+  names a shape actually resolved to, humanized for display
+  (`full_name` → "Full Name") without changing the underlying key used
+  for sorting/search/`fields` lookups.
+
+  **Two real bugs found after this shipped, not assumed correct:**
+  reviewing a mapping and changing a field's type (or its `required`
+  flag) only patched the *label* of already-ingested rows -
+  `has_issues`/`issues` were never recomputed, so a row already flagged
+  stayed flagged forever even after a fix, and a row that should now be
+  flagged (a "joined" column corrected from `string` to `date`, exposing
+  `"not-a-date"`) stayed marked Clean. Fixed by re-running
+  `coerce_and_validate` against the run's records on save, not just
+  renaming keys. Building that fix then surfaced a second, sharper bug:
+  the DataFrame it rebuilt from each record's stored fields used a plain
+  `pd.DataFrame([...])` call with no explicit `dtype` - the same pandas
+  3.x "silently upcasts `None` to float `NaN`" caveat `coerce_and_validate`
+  itself already guards against elsewhere (see the tidycsv fix further
+  down this changelog) - so a blank, correctly-empty required field
+  could come back out as the literal string `"nan"` on a second mapping
+  save, which also silently un-flagged it. Fixed with `dtype=object` at
+  construction, matching the existing guard; both fixes have regression
+  tests reproducing the exact scenario that exposed them.
+- **Bulk delete on the records table.** Per-row checkboxes plus a
+  header "select all" (scoped to the currently filtered/searched rows,
+  not the whole table), and a "Delete (N)" button. `POST /records/
+  bulk-delete` deletes the whole selection in one transaction - chosen
+  over looping individual `DELETE` calls specifically so a large
+  "select all" can't burn through the 60/minute rate limit.
+- **Marketing landing page redesign.** The previous page was the
+  generic template shape: centered hero over plain text, four identical
+  bordered cards in a 2x2 grid, the browser's default sans stack, zero
+  motion, zero real product content. Self-hosted Geist Variable
+  (display/body) + Geist Mono Variable (code) replace the default font
+  stack; the hero is an asymmetric split whose right side shows the
+  actual SCIM `POST /Users` payload `build_scim_payload()` produces from
+  `examples/provisioning_mapping.yaml`'s default mapping - a real
+  example the product emits, not a fabricated screenshot - instead of
+  generic hero art. The four capabilities became a `divide-y` list with
+  a small line icon per row (reusing the existing hand-drawn icon
+  convention from `ThemeToggle.tsx`, not a new icon-library dependency
+  for four glyphs) instead of identical shadowed cards. A "How it
+  works" section (upload → clean via tidycsv → deliver via webhook/
+  SCIM, the product's actual three-stage pipeline, numbered since it's
+  a genuine sequence) was added after the page read as too narrow and
+  empty at wider viewports; the shared container went from `max-w-5xl`
+  to `max-w-6xl` at the same time. One orchestrated hero entrance, a
+  `whileInView` stagger on the capability list, and tactile
+  `whileTap` feedback on both CTAs (`motion/react`, a new dependency),
+  all respecting `prefers-reduced-motion`. The header is now sticky,
+  matching the main app's own header.
+
+### Fixed
+- **Mapping review save gave no real feedback.** Save silently updated
+  the mapping and left the engineer on the same screen with a static
+  "Saved." - no navigation, no indication of what changed, and a failed
+  save had no `catch` at all, so a backend error vanished with nothing
+  shown. Now: success navigates back to records with a plain-language
+  summary of what changed (renamed/dropped fields, type changes,
+  required/dedup-key changes); failure shows the backend's actual error
+  message inline instead of nothing.
+- **An unreadable upload file (empty, corrupted, or wrong-extension-for-
+  its-actual-content) crashed deep inside pandas/openpyxl** with nothing
+  catching it, so FastAPI's default handler produced a bare 500 with no
+  `detail` - unhelpful for a client trying to figure out what was wrong
+  with their own export. Added `UnreadableFileError`, a distinct type
+  (not a bare `ValueError`, so it can't swallow an unrelated error
+  raised elsewhere in the same pipeline) caught specifically in the
+  upload route and turned into a real 400 with a specific message.
+- **Saving a mapping redirected to `/?ingestion_run_id=<upload>`**,
+  filtering the records view down to just that one upload - a surprising
+  side effect that left a "Showing only records from one upload" banner
+  the engineer never asked for. Now always lands on the unfiltered view.
+  The "Mapping saved." summary also used to sit on screen forever;
+  it now auto-dismisses after 6 seconds, with a countdown ring
+  (pure CSS `stroke-dashoffset`) around its dismiss button so the
+  countdown is actually visible, not just implied.
+- **Three layout/state bugs found in the same review pass:** the
+  bulk-delete button's own padding stacked on top of its header cell's
+  padding, making the entire header row (and everything below it) grow
+  a few pixels the instant any row got selected, then shrink back on
+  deselect; saving a mapping never flipped the cached upload result's
+  `mapping_is_default`, so "New shape - review the field names/types?"
+  kept showing right after being reviewed and saved; and the upload
+  stats line and shared page container got a layout pass (two-line
+  stats, no em dash, wider container, tighter side padding).
+- **GitHub OAuth login was blocked on staging by the staging-access
+  gate.** `require_staging_gate_password` rejected every request without
+  an `X-Staging-Password` header, including `/auth/github/authorize` and
+  `/auth/github/callback` - but neither route can ever carry that
+  header (one is a top-level browser redirect to GitHub, the other is
+  GitHub's own redirect back). Both routes are now exempt from the gate.
+- **The upload preview table stayed visible even after its mapping had
+  been reviewed and saved**, duplicating rows already shown in the full
+  records table right below it. Now gated on `mapping_is_default`, the
+  same flag that controls the "Review mapping?" prompt beside it.
+- **The Type `<select>` on the mapping review screen was barely
+  readable in dark mode** - the same `color-scheme: dark`-isn't-enough
+  issue as the phone country-code picker further up this changelog,
+  just never applied here. Same fix: explicit `background-color`/
+  `color` on each `<option>`, not just the closed `<select>`.
+- **The header nav (logo, upload history, account icon, theme toggle,
+  log out) had no `flex-wrap`**, risking overflow at narrow phone
+  widths (~360px) instead of wrapping to a second line.
+- Several rounds of records-table motion tried and mostly reverted
+  after testing against the real page: a shared-layout sliding pill
+  behind the active filter chip dropped in from above on its first-ever
+  mount (no prior instance for Motion to animate from - fixed by
+  removing it rather than patching the phantom-origin case); an
+  exit-fade on a filtered/deleted row faded it in place at full height
+  before the table snapped shut, reading as two motions instead of one;
+  a `layout="position"` slide on the remaining rows when switching
+  filters read as the list scrolling, not settling cleanly. All three
+  were removed - a data table's job is instant scanability, and motion
+  on the rows themselves fought that. What stayed: tactile `whileTap`
+  feedback on the per-row and bulk Delete buttons, and a fixed header
+  height/Delete-column width so the bulk-delete button appearing and
+  disappearing never reflows the table around it.
 - **Automated client-data retention.** The Privacy Policy previously
   promised client data (what an engineer uploads about their own
   clients) is kept indefinitely, with no expiry - now it's kept for up
