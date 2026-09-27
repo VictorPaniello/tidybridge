@@ -79,7 +79,7 @@ function SortableHeader({
 }) {
   const active = sort?.key === sortKey;
   return (
-    <th className="px-4 py-2 font-medium">
+    <th className="px-4 py-2 font-medium h-10">
       <button
         type="button"
         onClick={() => onSort(sortKey)}
@@ -537,19 +537,12 @@ export function RecordsPage() {
               key={f}
               onClick={() => setFilter(f)}
               disabled={uploading}
-              className={`relative rounded-full px-3 py-1 border transition disabled:opacity-50 ${
+              className={`rounded-full px-3 py-1 border transition disabled:opacity-50 ${
                 filter === f
-                  ? "border-transparent text-primary-foreground"
+                  ? "bg-primary text-primary-foreground border-primary"
                   : "border-border hover:bg-secondary"
               }`}
             >
-              {filter === f && (
-                <motion.span
-                  layoutId="filter-pill"
-                  transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 500, damping: 35 }}
-                  className="absolute inset-0 rounded-full bg-primary -z-10"
-                />
-              )}
               {f === "all" ? "All" : f === "clean" ? "Clean" : "Flagged"}
             </button>
           ))}
@@ -581,7 +574,7 @@ export function RecordsPage() {
           <table className="w-full text-sm">
             <thead className="bg-secondary text-left text-muted-foreground">
               <tr>
-                <th className="px-4 py-2 font-medium w-8">
+                <th className="px-4 py-2 font-medium w-8 h-10">
                   <input
                     type="checkbox"
                     aria-label="Select all"
@@ -607,7 +600,7 @@ export function RecordsPage() {
                   sort={sort}
                   onSort={handleSort}
                 />
-                <th className="px-4 py-2 font-medium text-right">
+                <th className="px-4 py-2 font-medium text-right w-32 h-10">
                   <AnimatePresence>
                     {selectedIds.size > 0 && (
                       <motion.button
@@ -617,18 +610,21 @@ export function RecordsPage() {
                         initial={reduce ? false : { opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={reduce ? undefined : { opacity: 0, scale: 0.9 }}
+                        whileTap={reduce ? undefined : { scale: 0.97 }}
                         transition={{ duration: 0.15 }}
-                        // h-5 + inline-flex instead of this button having its
-                        // own vertical padding (py-1) - the th's py-2 already
-                        // matches the sibling SortableHeader cells' height;
-                        // stacking the button's own padding on top of that
-                        // made this one cell (and so the whole header row,
-                        // and everything below it) grow ~6px taller the
-                        // moment a selection existed, then shrink back to
-                        // normal on deselect - a visible jump on every
-                        // checkbox click that had nothing to do with an
-                        // actual data change.
-                        className="inline-flex items-center h-5 rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
+                        // h-10 on every header <th> (this one,
+                        // SortableHeader, and the select-all checkbox cell)
+                        // fixes the header row's height outright, not just
+                        // something that happens to match today. Its py-2
+                        // (8px top + 8px bottom) leaves exactly 24px of
+                        // content room inside that 40px - h-6 here (24px)
+                        // fills that room exactly, so this button can never
+                        // force the row taller when it appears. w-32 on
+                        // both this th and the per-row td below gives the
+                        // column a fixed width too, so the button's label
+                        // (its width varies with the selection count) never
+                        // reflows the table horizontally either.
+                        className="inline-flex items-center h-6 rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
                       >
                         {bulkDeleting ? "Deleting…" : `Delete (${selectedIds.size})`}
                       </motion.button>
@@ -638,14 +634,9 @@ export function RecordsPage() {
               </tr>
             </thead>
             <tbody>
-              <AnimatePresence initial={false}>
-                {sortedRecords.map((r) => (
-                <motion.tr
+              {sortedRecords.map((r) => (
+                <tr
                   key={r.id}
-                  layout={reduce ? false : "position"}
-                  initial={false}
-                  exit={reduce ? undefined : { opacity: 0 }}
-                  transition={{ duration: 0.15 }}
                   className="border-t border-border hover:bg-secondary/50"
                 >
                   <td className="px-4 py-2">
@@ -685,17 +676,17 @@ export function RecordsPage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <button
+                  <td className="px-4 py-2 text-right w-32">
+                    <motion.button
+                      whileTap={reduce ? undefined : { scale: 0.97 }}
                       onClick={() => setPendingDeleteId(r.id)}
                       className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
                     >
                       Delete
-                    </button>
+                    </motion.button>
                   </td>
-                </motion.tr>
-                ))}
-              </AnimatePresence>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

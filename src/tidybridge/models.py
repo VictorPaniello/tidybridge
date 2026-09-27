@@ -52,6 +52,17 @@ class IngestionRun(Base):
     rows_clean + rows_flagged + rows_dropped_duplicates + this field,
     which is exactly the gap this field exists to close - found while
     writing this feature's own tests, not assumed correct."""
+    resolution: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    """Snapshot of the field_resolutions actually used to clean this run's
+    records (see mapping.py's build_schema) - not a live pointer to
+    whatever ColumnMapping is saved for this shape today. Needed to
+    re-validate a single record after an inline edit (PATCH
+    /records/{id}) against the same types/required-flags this run was
+    cleaned with, without guessing. Nullable: runs ingested before this
+    column existed have no snapshot, so editing one of their records is
+    refused with a clear error rather than validated against a guess.
+    Kept in sync by PUT /column-mappings/{fingerprint} when it
+    re-validates a run against a newly-saved mapping (main.py)."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     records: Mapped[list[ClientRecord]] = relationship(back_populates="ingestion_run")

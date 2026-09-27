@@ -359,6 +359,20 @@ export async function getRecord(id: string): Promise<ClientRecord> {
   return request<ClientRecord>(`/records/${id}`);
 }
 
+// Partial update: only the keys in `fields` are changed. Re-validated
+// server-side against the record's own run schema, so the response's
+// has_issues/issues reflect the edit, not just the raw value saved.
+export async function updateRecordFields(
+  id: string,
+  fields: Record<string, string | null>,
+): Promise<ClientRecord> {
+  return request<ClientRecord>(`/records/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields }),
+  });
+}
+
 export async function getRecordWebhooks(id: string): Promise<WebhookDelivery[]> {
   return request<WebhookDelivery[]>(`/records/${id}/webhooks`);
 }

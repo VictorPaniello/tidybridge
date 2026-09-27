@@ -193,6 +193,7 @@ def ingest_file(
             rows_clean=0,
             rows_flagged=0,
             rows_dropped_duplicates=dropped,
+            resolution=resolution,
         )
         db.add(run)
         db.flush()
