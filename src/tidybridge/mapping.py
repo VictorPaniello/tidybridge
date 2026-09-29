@@ -82,12 +82,18 @@ def default_dedup_key_fields(resolution: list[dict]) -> list[str]:
     column alias-matched to email - default to that, the same identity
     tidybridge always assumed before dynamic mapping existed, so
     re-uploading an unchanged file stays a no-op with zero configuration.
-    No default otherwise: nothing else is safe to assume as an identity
-    key, and a wrong guess would silently under-insert real, distinct
-    rows instead of just failing to dedup them."""
+    No default otherwise (other than an invoice's supplier tax ID +
+    invoice number, see below): nothing else is safe to assume as an
+    identity key, and a wrong guess would silently under-insert real,
+    distinct rows instead of just failing to dedup them."""
     for entry in resolution:
         if entry["target_field"] == "email" and entry["type"] == "email":
             return ["email"]
+    # An invoice's identity is who issued it plus their own number for it
+    # - the same pair an accountant would use to spot a duplicate.
+    targets = {entry["target_field"] for entry in resolution}
+    if {"supplier_tax_id", "invoice_number"} <= targets:
+        return ["supplier_tax_id", "invoice_number"]
     return []
 
 
