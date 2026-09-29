@@ -7,6 +7,37 @@ nothing has been tagged as a release yet, so everything below is under
 ## [Unreleased]
 
 ### Added
+- **Invoice extraction from PDFs and images** (`extract.py`, off unless
+  `ANTHROPIC_API_KEY` is set). `POST /records/upload` now also accepts
+  `.pdf/.png/.jpg/.jpeg/.webp`: Claude reads each invoice's header
+  fields (supplier name, tax ID, number, date, currency, net/VAT/
+  withholding/total) via structured output validated by Pydantic, and
+  returns the same raw rows `load_input` gives for a CSV - one row per
+  invoice, so a PDF of several scanned invoices works too. Everything
+  after that step (mapping, tidycsv validation, dedup, persistence,
+  webhooks, provisioning) is the existing pipeline, unchanged. The nine
+  invoice fields are typed in `schema.yaml`, and `default_dedup_key_fields`
+  defaults an invoice shape to `supplier_tax_id + invoice_number`, so
+  uploading the same invoice twice creates no second record; tax IDs are
+  normalized first (`"B-12345678"` and `"B12345678"` are one supplier).
+  No model-reported confidence score (poorly calibrated): an invoice is
+  flagged only for fields the model itself says it couldn't read, a
+  deterministic `net + VAT - withholding = total` check (the withholding
+  term exists so Spanish IRPF freelancer invoices aren't all falsely
+  flagged), and tidycsv's usual validation. Errors: a document with no
+  invoice, a refusal, or extraction not being enabled is a 400; an API
+  outage is a 502 with no half-written run left behind, since the model
+  call happens before any DB work. Token usage is logged per call
+  (`extraction.completed`) for working out cost per invoice. Default
+  model `claude-sonnet-5`, configurable via `EXTRACTION_MODEL`. Staging
+  only for now - production has open registration and no per-user quota
+  yet. Tests never call the real API (15 new tests monkeypatch the model
+  call). `scripts/eval_extraction.py` measures per-field accuracy against
+  hand-labeled invoices in `evals/invoices/` (real ones go in the
+  gitignored `evals/invoices/private/`); no run committed yet. Frontend:
+  the upload button accepts invoices ("Upload file or invoice"). The
+  privacy page lists Anthropic as a sub-processor and invoices as a data
+  category - a self-employed supplier's tax ID is personal data.
 - **Inline editing of ingested records.** Previously the only way to fix a
   flagged row (a blank required field, a date tidycsv couldn't parse) was
   deleting it and re-uploading the whole file with the source data
@@ -111,6 +142,16 @@ nothing has been tagged as a release yet, so everything below is under
   matching the main app's own header.
 
 ### Fixed
+- **SCIM provisioning fired for records that aren't users.** With a
+  `PROVISIONING_URL` configured, every new record got a `POST /Users`
+  job, including a CSV row with no email column - which sent
+  `userName: null` and could only be rejected downstream, then retried
+  until dead. Invoice extraction made this the common case (an invoice
+  has no email at all). `enqueue_provisioning` now skips a record with
+  nothing to map to `userName` (checked against the configured mapping,
+  not a hardcoded `email`), and manual replay refuses one with a 400.
+  The mapping file is now parsed once per path instead of on every
+  call, since the check runs per ingested row.
 - **Mapping review save gave no real feedback.** Save silently updated
   the mapping and left the engineer on the same screen with a static
   "Saved." - no navigation, no indication of what changed, and a failed

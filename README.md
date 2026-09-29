@@ -4,7 +4,8 @@ A small service that does what a Forward Deployed Engineer does on day one
 at a new client: take their messy data export, clean it, get it into a real
 database, and notify another system when something new arrives.
 
-Concretely: upload a CSV/Excel file → it's cleaned and validated via
+Concretely: upload a CSV/Excel file (or an invoice as a PDF or image, read
+by Claude - see [Invoice extraction](#invoice-extraction)) → it's cleaned and validated via
 [tidycsv](https://github.com/VictorPaniello/tidycsv) → every row is
 persisted to PostgreSQL → a webhook fires for each newly ingested record,
 with every delivery attempt logged (success or failure) for auditability.
@@ -40,7 +41,7 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/auth/github/authorize` | Start "Sign in with GitHub" (only present if `GITHUB_CLIENT_ID`/`SECRET` are set) |
 | `GET` | `/users/me` | The logged-in engineer's own profile |
 | `DELETE` | `/users/me` | Permanently erase **your own** account and everything it owns (client records, ingestion runs, webhook deliveries, linked OAuth account) - real self-service GDPR erasure, not a request queue |
-| `POST` | `/records/upload` | Upload a CSV/Excel file, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id` |
+| `POST` | `/records/upload` | Upload a CSV/Excel file, or a PDF/image invoice when `ANTHROPIC_API_KEY` is set, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id`. 502 if extraction is temporarily unavailable |
 | `GET` | `/column-mappings/{fingerprint}` | Fetch the saved field-mapping resolution for a header shape (see [Dynamic column mapping](#dynamic-column-mapping)) - 404 if this shape has never had one explicitly saved |
 | `PUT` | `/column-mappings/{fingerprint}` | Save (or update) a header shape's field mapping - names, types, `required`/dedup-key flags - for this and every future upload of that exact shape; optionally re-validates an already-ingested run's records against the new mapping |
 | `GET` | `/ingestion-runs` | List **your own** past uploads, paginated - the persisted summary of every upload, not just the one the last `IngestResult` response reported |
@@ -227,6 +228,31 @@ run's types (see above) - a record whose run predates this column
 refuses the edit (409) with a message pointing at delete-and-re-upload,
 rather than guessing its schema. Frontend: an Edit/Save/Cancel
 affordance on the record detail page.
+
+## Invoice extraction
+
+Upload an invoice as a PDF or image and Claude reads its header fields
+(supplier, tax ID, number, date, currency, net/VAT/withholding/total)
+into the same rows a CSV would produce - one row per invoice, so a PDF
+of several scanned invoices works too. From there it's the normal
+pipeline: mapping, tidycsv validation, dedup on supplier tax ID +
+invoice number, webhooks, provisioning.
+
+Off unless `ANTHROPIC_API_KEY` is set (`EXTRACTION_MODEL` picks the
+model, default `claude-sonnet-5`).
+
+What lands in the review queue (`has_issues`), and why no confidence
+score: model-reported confidence is poorly calibrated, so issues come
+from checks that can be trusted instead - fields the model says it
+couldn't read clearly, a net + VAT - withholding = total arithmetic
+check (withholding exists for Spanish IRPF invoices, which would
+otherwise all fail it), and tidycsv's usual required/format validation.
+
+Accuracy is measured, not assumed: `scripts/eval_extraction.py` runs
+the extractor over hand-labeled invoices in `evals/invoices/` and
+reports per-field accuracy (see that script's docstring for the label
+format), writing each run to `evals/results/`. No run has been
+committed yet - the labeled set is still being gathered.
 
 ## Local development
 
@@ -422,6 +448,10 @@ claim traces back to a real field or endpoint), not adapted from a
 generic template - see `frontend/src/pages/PrivacyPage.tsx` and
 `TermsPage.tsx`. Both pages carry their own disclaimer: good-faith and
 technically accurate, not a substitute for independent legal review.
+Invoice uploads (PDF/image) are the one case where uploaded data goes to
+a third party you didn't configure yourself (unlike webhook/provisioning
+destinations) - they're sent to Anthropic for extraction, disclosed as a
+sub-processor on `/privacy`.
 
 Data retention is documented exactly as the code behaves: client data
 (what you upload about your own clients) is kept for up to a year, then
@@ -753,8 +783,11 @@ project's own code or in actually deploying it:
   the auth forms have no automated tests yet, only manual browser
   verification against a real local backend. Better than the zero
   frontend coverage (and no frontend CI at all) this project had before,
-  not yet equivalent to the backend's 187 pytest tests against a real
+  not yet equivalent to the backend's 204 pytest tests against a real
   database.
+- **Invoice line items** - extraction reads header fields only (totals,
+  not individual lines). Line items would need a child table, not more
+  columns on one record.
 
 ## Security
 

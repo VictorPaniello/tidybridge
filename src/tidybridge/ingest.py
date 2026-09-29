@@ -1,5 +1,7 @@
 """Ingestion pipeline: take an uploaded file, clean it via tidycsv, persist
 the results, and trigger a webhook for each newly inserted record.
+PDF/image uploads are turned into the same raw rows by extract.py instead
+of load_input - everything after that step is shared.
 
 Note on reusing tidycsv's lower-level functions instead of its `clean()`
 convenience wrapper: `clean()` returns `clean_df` with its index reset to
@@ -36,6 +38,7 @@ from tidycsv.cleaner import coerce_and_validate, flag_duplicates, load_input, ma
 from tidycsv.schema import Schema
 
 from tidybridge.config import settings
+from tidybridge.extract import extract_invoices, is_document
 from tidybridge.mapping import (
     apply_mapping,
     build_schema,
@@ -118,28 +121,35 @@ def ingest_file(
     )
 
     try:
-        suffix = Path(filename).suffix or ".csv"
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(content)
-            tmp_path = Path(tmp.name)
+        extraction_issues: dict[int, list[dict]] = {}
+        if is_document(filename):
+            # Before any DB query below, so a slow model call never holds a
+            # transaction open. ExtractionError/ExtractionUnavailableError
+            # propagate to upload_records (main.py) as a 400/502.
+            raw, extraction_issues = extract_invoices(filename, content)
+        else:
+            suffix = Path(filename).suffix or ".csv"
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = Path(tmp.name)
 
-        try:
-            raw = load_input(tmp_path)
-        except Exception as exc:
-            # Anything load_input can throw here means the file itself is
-            # unreadable (empty, corrupted, wrong format for its
-            # extension, wrong extension for its actual content) - before
-            # this point nothing's touched the DB, so it's safe to catch
-            # broadly and turn it into a specific, actionable message
-            # instead of the generic 500 an unhandled exception would
-            # otherwise produce (see upload_records' ValueError -> 400).
-            raise UnreadableFileError(
-                f"Couldn't read {filename!r} as a CSV or Excel file - make sure it's not "
-                f"empty or corrupted, and that its extension matches its actual format "
-                f"({type(exc).__name__}: {exc})"
-            ) from exc
-        finally:
-            tmp_path.unlink(missing_ok=True)
+            try:
+                raw = load_input(tmp_path)
+            except Exception as exc:
+                # Anything load_input can throw here means the file itself is
+                # unreadable (empty, corrupted, wrong format for its
+                # extension, wrong extension for its actual content) - before
+                # this point nothing's touched the DB, so it's safe to catch
+                # broadly and turn it into a specific, actionable message
+                # instead of the generic 500 an unhandled exception would
+                # otherwise produce (see upload_records' ValueError -> 400).
+                raise UnreadableFileError(
+                    f"Couldn't read {filename!r} as a CSV or Excel file - make sure it's not "
+                    f"empty or corrupted, and that its extension matches its actual format "
+                    f"({type(exc).__name__}: {exc})"
+                ) from exc
+            finally:
+                tmp_path.unlink(missing_ok=True)
 
         fingerprint = compute_fingerprint(list(raw.columns))
         sample_values = _sample_raw_values(raw)
@@ -175,7 +185,9 @@ def ingest_file(
         coerced, issues = coerce_and_validate(mapped, dynamic_schema)
         deduped, dropped = flag_duplicates(coerced, dedup_key_fields)
 
-        issue_map: dict[int, list[dict]] = {}
+        # Seeded with extraction's own issues (empty for a CSV) - same
+        # row indices, since flag_duplicates never resets the index.
+        issue_map: dict[int, list[dict]] = {i: list(v) for i, v in extraction_issues.items()}
         for issue in issues:
             issue_map.setdefault(issue.row_index, []).append(
                 {"field": issue.field, "issue": issue.issue}
