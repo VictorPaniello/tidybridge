@@ -15,6 +15,7 @@ principle as WebhookDelivery."""
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
@@ -60,10 +61,24 @@ def _read_response_within_limit(response: httpx.Response) -> bytes:
     return b"".join(chunks)
 
 
+@functools.cache
+def _read_mapping(path: str) -> dict[str, str]:
+    # Cached per path: has_user_name() runs once per ingested row, and the
+    # file is static config that never changes while the process runs.
+    with open(path) as f:
+        return yaml.safe_load(f)["mapping"]
+
+
 def _load_mapping() -> dict[str, str]:
-    with open(settings.provisioning_mapping_path) as f:
-        config = yaml.safe_load(f)
-    return config["mapping"]
+    return _read_mapping(settings.provisioning_mapping_path)
+
+
+def has_user_name(record: ClientRecord) -> bool:
+    """SCIM POST /Users requires a userName - a record with nothing to map
+    to it (an extracted invoice, a CSV with no email column) isn't a user,
+    so there's nothing to provision rather than a request that can only
+    send null and be rejected downstream."""
+    return bool(getattr(record, _load_mapping()["userName"], None))
 
 
 def _step(cursor: dict, part: str) -> dict:
@@ -142,6 +157,8 @@ def enqueue_provisioning(db: Session, record: ClientRecord) -> ProvisioningJob |
     path, in webhook_worker.py's process_due_provisioning_jobs()."""
     if not settings.provisioning_url:
         return None  # no target configured - nothing to do, not an error
+    if not has_user_name(record):
+        return None
     job = ProvisioningJob(record_id=record.id)
     db.add(job)
     db.flush()  # assigns job.id

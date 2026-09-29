@@ -783,7 +783,7 @@ project's own code or in actually deploying it:
   the auth forms have no automated tests yet, only manual browser
   verification against a real local backend. Better than the zero
   frontend coverage (and no frontend CI at all) this project had before,
-  not yet equivalent to the backend's 202 pytest tests against a real
+  not yet equivalent to the backend's 204 pytest tests against a real
   database.
 - **Invoice line items** - extraction reads header fields only (totals,
   not individual lines). Line items would need a child table, not more

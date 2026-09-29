@@ -92,6 +92,43 @@ def test_upload_enqueues_a_provisioning_job_when_a_url_is_configured(
     assert job.status == "pending"
 
 
+def _upload_row_without_email(client: TestClient):
+    # Same shape problem as an extracted invoice: nothing maps to SCIM's
+    # userName, so there's no user to create.
+    return client.post(
+        "/records/upload",
+        files={
+            "file": ("no-email.csv", b"Customer,Order Total\nAda Lovelace,100.00\n", "text/csv")
+        },
+    )
+
+
+def test_upload_skips_provisioning_for_a_record_with_no_user_name(
+    client: TestClient, db: Session, monkeypatch
+):
+    import tidybridge.provisioning as provisioning_module
+
+    monkeypatch.setattr(provisioning_module.settings, "provisioning_url", "http://127.0.0.1:1/Users")
+    record_id = _upload_row_without_email(client).json()["records"][0]["id"]
+
+    job = db.execute(
+        select(ProvisioningJob).where(ProvisioningJob.record_id == record_id)
+    ).scalar_one_or_none()
+    assert job is None
+
+
+def test_replay_provisioning_refuses_a_record_with_no_user_name(
+    client: TestClient, monkeypatch
+):
+    import tidybridge.provisioning as provisioning_module
+
+    monkeypatch.setattr(provisioning_module.settings, "provisioning_url", "http://127.0.0.1:1/Users")
+    record_id = _upload_row_without_email(client).json()["records"][0]["id"]
+
+    response = client.post(f"/records/{record_id}/provisioning/replay")
+    assert response.status_code == 400
+
+
 def test_upload_does_not_enqueue_provisioning_without_a_configured_url(
     client: TestClient, db: Session
 ):

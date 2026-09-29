@@ -142,6 +142,16 @@ nothing has been tagged as a release yet, so everything below is under
   matching the main app's own header.
 
 ### Fixed
+- **SCIM provisioning fired for records that aren't users.** With a
+  `PROVISIONING_URL` configured, every new record got a `POST /Users`
+  job, including a CSV row with no email column - which sent
+  `userName: null` and could only be rejected downstream, then retried
+  until dead. Invoice extraction made this the common case (an invoice
+  has no email at all). `enqueue_provisioning` now skips a record with
+  nothing to map to `userName` (checked against the configured mapping,
+  not a hardcoded `email`), and manual replay refuses one with a 400.
+  The mapping file is now parsed once per path instead of on every
+  call, since the check runs per ingested row.
 - **Mapping review save gave no real feedback.** Save silently updated
   the mapping and left the engineer on the same screen with a static
   "Saved." - no navigation, no indication of what changed, and a failed

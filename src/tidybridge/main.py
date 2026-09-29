@@ -55,7 +55,7 @@ from tidybridge.models import (
     WebhookDelivery,
     WebhookJob,
 )
-from tidybridge.provisioning import replay_provisioning
+from tidybridge.provisioning import has_user_name, replay_provisioning
 from tidybridge.schemas import (
     BulkDeleteRecordsIn,
     BulkDeleteRecordsOut,
@@ -962,6 +962,11 @@ def replay_provisioning_endpoint(
     record = _get_owned_record(db, record_id, user)
     if not settings.provisioning_url:
         raise HTTPException(status_code=400, detail="No provisioning URL is configured")
+    if not has_user_name(record):
+        raise HTTPException(
+            status_code=400,
+            detail="This record has nothing to use as a SCIM userName - no user to create",
+        )
     job = replay_provisioning(db, record)
     return ProvisioningJobStatusOut(
         status=job.status,
