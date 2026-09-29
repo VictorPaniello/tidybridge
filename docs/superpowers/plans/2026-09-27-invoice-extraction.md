@@ -22,7 +22,7 @@
 
 - Work on a feature branch off `main` (`feat/invoice-extraction`) and open a PR to `main`, same as every other feature. Merge into `staging` for testing; never delete `staging`.
 - `ANTHROPIC_API_KEY` is set on **staging only** until Phase 3 adds per-user quotas. Production has open registration, so enabling it there would let anyone spend the key.
-- Model: `claude-opus-5` by default, configurable via `EXTRACTION_MODEL`.
+- Model: `claude-sonnet-5` by default, configurable via `EXTRACTION_MODEL`.
 - Header fields only. Line items are **out of scope** for this plan.
 - No new endpoint: documents go through `POST /records/upload`.
 - Tests never call the real API. They monkeypatch `tidybridge.extract.call_model`.
@@ -89,7 +89,7 @@ Expected: `pyproject.toml` gains `"anthropic>=…"` and `uv.lock` updates. Then 
     produce. None disables it - a document upload then gets a 400 saying
     so, and CSV/Excel uploads are unaffected. Same disable-when-unset
     convention as webhook_url and provisioning_url."""
-    extraction_model: str = "claude-opus-5"
+    extraction_model: str = "claude-sonnet-5"
     """Which Claude model extract.py calls. scripts/eval_extraction.py
     takes --model to compare alternatives against the labeled set before
     changing this."""
@@ -743,7 +743,7 @@ pipeline: mapping, tidycsv validation, dedup on supplier tax ID +
 invoice number, webhooks, provisioning.
 
 Off unless `ANTHROPIC_API_KEY` is set (`EXTRACTION_MODEL` picks the
-model, default `claude-opus-5`).
+model, default `claude-sonnet-5`).
 
 What lands in the review queue (`has_issues`), and why no confidence
 score: model-reported confidence is poorly calibrated, so issues come
@@ -766,7 +766,7 @@ see `evals/results/`.
 ```
 # Invoice extraction (PDF/image uploads). Unset = disabled.
 ANTHROPIC_API_KEY=
-# EXTRACTION_MODEL=claude-opus-5
+# EXTRACTION_MODEL=claude-sonnet-5
 ```
 
 - [ ] **Step 5: Verify the frontend builds**
@@ -823,7 +823,7 @@ evals/invoices/private/
 """Measure invoice extraction accuracy against hand-labeled documents.
 
 Usage:
-    uv run python scripts/eval_extraction.py [--model claude-opus-5]
+    uv run python scripts/eval_extraction.py [--model claude-sonnet-5]
 
 Reads evals/invoices/labels.jsonl - one JSON object per line:
     {"file": "001.pdf", "invoices": [{"invoice_number": "F-1", ...}, ...]}
@@ -960,7 +960,7 @@ Expected: `ok`.
 - [ ] **Step 5: First real run** (needs the labeled set from Step 1 and a real key)
 
 Run: `ANTHROPIC_API_KEY=... uv run python scripts/eval_extraction.py`
-Expected: a per-field accuracy table and `wrote evals/results/<date>-claude-opus-5.json`. Read every mismatch. Each one is either a labeling mistake (fix the label) or a real extraction weakness (note it; that's material for the README and for interviews).
+Expected: a per-field accuracy table and `wrote evals/results/<date>-claude-sonnet-5.json`. Read every mismatch. Each one is either a labeling mistake (fix the label) or a real extraction weakness (note it; that's material for the README and for interviews).
 
 - [ ] **Step 6: Commit**
 

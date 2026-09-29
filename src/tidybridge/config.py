@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     produce. None disables it - a document upload then gets a 400 saying
     so, and CSV/Excel uploads are unaffected. Same disable-when-unset
     convention as webhook_url and provisioning_url."""
-    extraction_model: str = "claude-opus-5"
+    extraction_model: str = "claude-sonnet-5"
     """Which Claude model extract.py calls. scripts/eval_extraction.py
     takes --model to compare alternatives against the labeled set before
     changing this."""

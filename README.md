@@ -239,7 +239,7 @@ pipeline: mapping, tidycsv validation, dedup on supplier tax ID +
 invoice number, webhooks, provisioning.
 
 Off unless `ANTHROPIC_API_KEY` is set (`EXTRACTION_MODEL` picks the
-model, default `claude-opus-5`).
+model, default `claude-sonnet-5`).
 
 What lands in the review queue (`has_issues`), and why no confidence
 score: model-reported confidence is poorly calibrated, so issues come
