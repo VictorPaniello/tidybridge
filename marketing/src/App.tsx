@@ -48,7 +48,7 @@ const CAPABILITIES = [
 // The webhook shape actually sent by build_scim_payload() (provisioning.py)
 // against examples/provisioning_mapping.yaml's default mapping - a real
 // example the product produces, not a mocked-up screenshot.
-const SCIM_PAYLOAD = `POST /Users HTTP/1.1
+const SCIM_PAYLOAD_LINES = `POST /Users HTTP/1.1
 Content-Type: application/scim+json
 
 {
@@ -61,7 +61,7 @@ Content-Type: application/scim+json
     { "value": "sofia.reyes@shop.com" }
   ],
   "active": true
-}`;
+}`.split("\n");
 
 const heroContainer: Variants = {
   hidden: {},
@@ -73,6 +73,23 @@ const heroItem: Variants = {
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
 };
 
+// Streams the payload in line by line, like a request actually going out,
+// starting once the panel itself has faded in (heroItem's own 0.5s) rather
+// than at page load - a delay tuned to that, not measured from the DOM.
+const payloadContainer: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.04, delayChildren: 0.5 } },
+};
+
+const payloadLine: Variants = {
+  hidden: { opacity: 0, x: -6 },
+  show: { opacity: 1, x: 0, transition: { duration: 0.2 } },
+};
+
+// Fires once every line above has streamed in - see the delay math next
+// to where this is used.
+const SENT_DELAY = 0.5 + (SCIM_PAYLOAD_LINES.length - 1) * 0.04 + 0.25;
+
 export default function App() {
   const reduce = useReducedMotion();
 
@@ -80,9 +97,14 @@ export default function App() {
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-          <span className="font-semibold tracking-tight">
+          <motion.span
+            initial={reduce ? false : { opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="font-semibold tracking-tight"
+          >
             tidy<span className="text-ring">bridge</span>
-          </span>
+          </motion.span>
           <ThemeToggle />
         </div>
       </header>
@@ -139,12 +161,32 @@ export default function App() {
             variants={heroItem}
             className="rounded-lg border border-border bg-card overflow-hidden"
           >
-            <div className="border-b border-border px-4 py-2 text-xs font-mono text-muted-foreground">
-              tidybridge → downstream system
+            <div className="border-b border-border px-4 py-2 flex items-center justify-between text-xs font-mono text-muted-foreground">
+              <span>tidybridge → downstream system</span>
+              <motion.span
+                initial={reduce ? false : { opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: reduce ? 0 : SENT_DELAY, duration: 0.25 }}
+                className="flex items-center gap-1.5 text-primary"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+                Sent
+              </motion.span>
             </div>
-            <pre className="px-4 py-4 text-xs sm:text-sm font-mono leading-relaxed overflow-x-auto">
-              <code>{SCIM_PAYLOAD}</code>
-            </pre>
+            <motion.pre
+              initial={reduce ? false : "hidden"}
+              animate="show"
+              variants={payloadContainer}
+              className="px-4 py-4 text-xs sm:text-sm font-mono leading-relaxed overflow-x-auto"
+            >
+              <code>
+                {SCIM_PAYLOAD_LINES.map((line, i) => (
+                  <motion.span key={i} variants={payloadLine} className="block">
+                    {line || " "}
+                  </motion.span>
+                ))}
+              </code>
+            </motion.pre>
           </motion.div>
         </motion.section>
 
@@ -176,13 +218,27 @@ export default function App() {
             {CAPABILITIES.map((c, i) => (
               <motion.li
                 key={c.title}
-                initial={reduce ? false : { opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={reduce ? false : "hidden"}
+                whileInView="show"
+                whileHover={reduce ? undefined : "hover"}
                 viewport={{ once: true, amount: 0.4 }}
-                transition={{ duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] }}
+                variants={{
+                  hidden: { opacity: 0, y: 16 },
+                  show: {
+                    opacity: 1,
+                    y: 0,
+                    transition: { duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] },
+                  },
+                }}
                 className="py-6 first:pt-0 last:pb-0 flex gap-4"
               >
-                <c.icon className="mt-0.5 h-5 w-5 shrink-0 text-ring" />
+                <motion.span
+                  variants={{ hover: { y: -3 } }}
+                  transition={{ duration: 0.15 }}
+                  className="mt-0.5 shrink-0"
+                >
+                  <c.icon className="h-5 w-5 text-ring" />
+                </motion.span>
                 <div>
                   <h2 className="font-semibold">{c.title}</h2>
                   <p className="mt-1 text-sm text-muted-foreground max-w-2xl">{c.description}</p>
