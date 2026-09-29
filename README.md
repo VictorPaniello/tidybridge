@@ -248,6 +248,12 @@ couldn't read clearly, a net + VAT - withholding = total arithmetic
 check (withholding exists for Spanish IRPF invoices, which would
 otherwise all fail it), and tidycsv's usual required/format validation.
 
+Accuracy is measured, not assumed: `scripts/eval_extraction.py` runs
+the extractor over hand-labeled invoices in `evals/invoices/` and
+reports per-field accuracy (see that script's docstring for the label
+format), writing each run to `evals/results/`. No run has been
+committed yet - the labeled set is still being gathered.
+
 ## Local development
 
 Requires a running PostgreSQL instance.

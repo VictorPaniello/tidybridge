@@ -8,3 +8,6 @@ build/
 dist/
 .env
 .scratch/
+
+# Real invoices used for evals - may contain personal data, never committed.
+evals/invoices/private/
