@@ -343,7 +343,7 @@ export function RecordsPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -352,7 +352,7 @@ export function RecordsPage() {
             disabled={uploading}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : "Upload CSV / Excel"}
+            {uploading ? "Uploading…" : "Upload file or invoice"}
           </button>
         </div>
       </div>

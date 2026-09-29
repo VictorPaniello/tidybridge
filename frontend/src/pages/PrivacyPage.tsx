@@ -61,6 +61,11 @@ export function PrivacyPage() {
           who never interacted with tidybridge directly and have no account here.
         </p>
         <p className="mt-2">
+          You can also upload supplier invoices as a PDF or image. The supplier's name, tax ID
+          (for a self-employed supplier, that's their personal tax ID number), invoice number,
+          date, and amounts are read from the document and stored the same way.
+        </p>
+        <p className="mt-2">
           <strong>For this data, you are the controller, not tidybridge.</strong> By uploading a
           file, you confirm you have a lawful basis of your own (a contract with that client, their
           consent, or another valid basis under applicable law) to process and share their data
@@ -90,7 +95,7 @@ export function PrivacyPage() {
       </Section>
 
       <Section title="Who else sees your data">
-        <p>Three services this project depends on, each only for what they're named for:</p>
+        <p>The services this project depends on, each only for what they're named for:</p>
         <ul className="list-disc pl-5 space-y-1">
           <li>
             <strong>GitHub</strong> - only if you choose "Sign in with GitHub"; see{" "}
@@ -114,6 +119,20 @@ export function PrivacyPage() {
               rel="noreferrer"
             >
               Resend's privacy policy
+            </a>.
+          </li>
+          <li>
+            <strong>Anthropic</strong> - if you upload an invoice as a PDF or image, the document
+            is sent to Anthropic's API (based in the United States) to read its fields. Anthropic
+            processes it on tidybridge's behalf as a sub-processor and doesn't use it to train its
+            models. CSV and Excel uploads never leave tidybridge's own servers. See{" "}
+            <a
+              className="text-ring hover:underline"
+              href="https://www.anthropic.com/legal/privacy"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Anthropic's privacy policy
             </a>.
           </li>
           <li>
