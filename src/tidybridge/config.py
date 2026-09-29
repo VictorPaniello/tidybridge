@@ -74,6 +74,17 @@ class Settings(BaseSettings):
     build_scim_payload), resolved relative to the process's working
     directory - same convention and same reason as schema_path below."""
 
+    anthropic_api_key: str | None = None
+    """Enables invoice extraction (see extract.py): PDF/image uploads to
+    /records/upload are read by Claude into the same rows a CSV would
+    produce. None disables it - a document upload then gets a 400 saying
+    so, and CSV/Excel uploads are unaffected. Same disable-when-unset
+    convention as webhook_url and provisioning_url."""
+    extraction_model: str = "claude-opus-5"
+    """Which Claude model extract.py calls. scripts/eval_extraction.py
+    takes --model to compare alternatives against the labeled set before
+    changing this."""
+
     schema_path: str = "examples/schema.yaml"
     """Path to the tidycsv schema, resolved relative to the process's
     working directory at startup - NOT relative to this source file. A

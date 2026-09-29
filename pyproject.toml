@@ -20,6 +20,7 @@ dependencies = [
     "httpx-oauth>=0.15",
     "alembic>=1.13",
     "slowapi>=0.1.9",
+    "anthropic>=1.9.0",
 ]
 
 [project.optional-dependencies]
