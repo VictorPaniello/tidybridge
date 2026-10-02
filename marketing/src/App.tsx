@@ -247,6 +247,44 @@ export default function App() {
             ))}
           </ul>
         </section>
+
+        <motion.section
+          id="gestorias"
+          initial={reduce ? false : { opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="py-12 sm:py-16 border-t border-border scroll-mt-16"
+        >
+          <h2 className="text-2xl font-semibold tracking-tight">
+            For gestorías: stop typing in supplier invoices.
+          </h2>
+          <p className="mt-4 max-w-2xl text-muted-foreground">
+            Send photos or PDFs of a client's invoices and get them back as
+            clean rows: supplier, tax ID, number, date, net, VAT, IRPF and
+            total. Anything doubtful is flagged instead of guessed, including
+            totals that don't add up, and the same invoice twice is only
+            counted once.
+          </p>
+          <div className="mt-8 max-w-2xl rounded-lg border border-border bg-card p-6">
+            <h3 className="font-semibold">Free pilot</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Send me last quarter's invoices for one client. Within 24 hours
+              you get them back ready to import into your accounting software,
+              with the doubtful ones flagged. No cost, no signup.
+            </p>
+            <motion.a
+              whileTap={reduce ? undefined : { scale: 0.97 }}
+              href="mailto:hello@tidybridge.dev?subject=tidybridge%20pilot"
+              className="mt-6 inline-block rounded-md bg-primary text-primary-foreground px-5 py-2.5 font-medium hover:opacity-90 transition"
+            >
+              Join the free pilot
+            </motion.a>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Or write to hello@tidybridge.dev
+            </p>
+          </div>
+        </motion.section>
       </main>
 
       <footer className="border-t border-border">
