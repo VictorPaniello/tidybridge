@@ -281,7 +281,13 @@ export default function App() {
               Join the free pilot
             </motion.a>
             <p className="mt-3 text-xs text-muted-foreground">
-              Or write to hello@tidybridge.dev
+              Or write to{" "}
+              <a
+                href="mailto:hello@tidybridge.dev"
+                className="underline underline-offset-2 hover:text-foreground transition"
+              >
+                hello@tidybridge.dev
+              </a>
             </p>
           </div>
         </motion.section>
