@@ -225,6 +225,46 @@ describe("RecordsPage", () => {
     expect(bulkDelete).toHaveBeenCalledWith(["rec-1"]);
   });
 
+  it("shows Review only on flagged, unapproved rows, and Approved once approved", async () => {
+    const base = {
+      ingestion_run_id: "run-1",
+      source_file: "test.csv",
+      created_at: new Date().toISOString(),
+    };
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      { ...base, id: "clean", has_issues: false, issues: [], approved_at: null, fields: { full_name: "Clean Row" } },
+      {
+        ...base,
+        id: "flagged",
+        has_issues: true,
+        issues: [{ field: "email", issue: "invalid email format" }],
+        approved_at: null,
+        fields: { full_name: "Flagged Row" },
+      },
+      {
+        ...base,
+        id: "approved",
+        has_issues: true,
+        issues: [{ field: "email", issue: "invalid email format" }],
+        approved_at: new Date().toISOString(),
+        fields: { full_name: "Approved Row" },
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Clean Row");
+
+    const review = screen.getAllByRole("link", { name: "Review" });
+    expect(review).toHaveLength(1);
+    expect(review[0]).toHaveAttribute("href", "/records/flagged");
+    const approvedRow = screen.getByText("Approved Row").closest("tr")!;
+    expect(within(approvedRow).getByText("Approved")).toBeInTheDocument();
+  });
+
   it("select-all toggles every currently visible record", async () => {
     vi.spyOn(api, "listRecords").mockResolvedValue([
       {
