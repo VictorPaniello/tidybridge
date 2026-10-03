@@ -16,7 +16,7 @@ type Filter = "all" | "clean" | "flagged";
 // full_name/email/signup_date sort alphabetically (signup_date is stored
 // as an ISO-ish string, so alphabetical order already matches chronological
 // order); amount sorts numerically; has_issues (Status) sorts by its
-// Clean/Flagged label, alphabetically - Clean before Flagged ascending,
+// Approved/Clean/Flagged label, alphabetically - Clean before Flagged ascending,
 // same string-comparator behavior as the other non-numeric columns.
 type SortKey = string;
 type SortDirection = "asc" | "desc";
@@ -26,8 +26,15 @@ interface SortState {
 }
 
 function sortValue(record: ClientRecord, key: SortKey): string | number | null {
-  if (key === "has_issues") return record.has_issues ? "Flagged" : "Clean";
+  if (key === "has_issues") return statusLabel(record);
   return record.fields[key];
+}
+
+// A flagged record someone approved isn't work to do any more - see the
+// review gate in the backend README.
+function statusLabel(record: ClientRecord): "Clean" | "Flagged" | "Approved" {
+  if (!record.has_issues) return "Clean";
+  return record.approved_at ? "Approved" : "Flagged";
 }
 
 function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): number {
@@ -600,7 +607,7 @@ export function RecordsPage() {
                   sort={sort}
                   onSort={handleSort}
                 />
-                <th className="px-4 py-2 font-medium text-right w-32 h-10">
+                <th className="px-4 py-2 font-medium text-right w-44 h-10">
                   <AnimatePresence>
                     {selectedIds.size > 0 && (
                       <motion.button
@@ -666,24 +673,36 @@ export function RecordsPage() {
                     );
                   })}
                   <td className="px-4 py-2">
-                    {r.has_issues ? (
+                    {statusLabel(r) === "Flagged" ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
                         Flagged
                       </span>
                     ) : (
                       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
-                        Clean
+                        {statusLabel(r)}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right w-32">
-                    <motion.button
-                      whileTap={reduce ? undefined : { scale: 0.97 }}
-                      onClick={() => setPendingDeleteId(r.id)}
-                      className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
-                    >
-                      Delete
-                    </motion.button>
+                  <td className="px-4 py-2 text-right w-44">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {/* Opens the record, doesn't approve from here: the
+                          point of the gate is looking at the flags first. */}
+                      {statusLabel(r) === "Flagged" && (
+                        <Link
+                          to={`/records/${r.id}`}
+                          className="rounded-md border border-amber-300 dark:border-amber-900 bg-card text-amber-700 dark:text-amber-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
+                        >
+                          Review
+                        </Link>
+                      )}
+                      <motion.button
+                        whileTap={reduce ? undefined : { scale: 0.97 }}
+                        onClick={() => setPendingDeleteId(r.id)}
+                        className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
+                      >
+                        Delete
+                      </motion.button>
+                    </div>
                   </td>
                 </tr>
               ))}
