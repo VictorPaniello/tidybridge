@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func, or_
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -126,7 +126,24 @@ class ClientRecord(Base):
     common case, via alias-matching) or something else entirely."""
     has_issues: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     issues: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    """Set by POST /records/{id}/approve: a human looked at this record's
+    flags and accepted them. Cleared by PATCH /records/{id}, since the
+    approval was for the old values. See is_ready()."""
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @classmethod
+    def is_ready(cls):
+        """SQL condition: this record may leave tidybridge (webhook,
+        provisioning) - it has no flags, or someone approved it. The
+        worker's claim queries filter on this, so it's the one place that
+        keeps unreviewed records from going downstream, whichever path
+        (upload, edit, mapping review, approve) changed the flags."""
+        return or_(cls.has_issues.is_(False), cls.approved_at.is_not(None))
+
+    @property
+    def ready(self) -> bool:
+        return not self.has_issues or self.approved_at is not None
 
     @property
     def full_name(self) -> str | None:

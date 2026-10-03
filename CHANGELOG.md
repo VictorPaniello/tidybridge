@@ -7,6 +7,16 @@ nothing has been tagged as a release yet, so everything below is under
 ## [Unreleased]
 
 ### Added
+- **Review gate: flagged records wait for a human.** Webhooks and
+  provisioning now only go out for records with no flags, or that someone
+  approved via the new `POST /records/{id}/approve` ("Approve" button on
+  the record page). The worker's claim queries filter on
+  `ClientRecord.is_ready()`, so the gate holds whichever path changed a
+  record's flags (upload, edit, mapping review). New nullable
+  `client_records.approved_at`; an edit clears it. Held jobs show as
+  `awaiting_review`; manual replays of an unready record return 409; the
+  CSV export gains an `approved_at` column. Behavior change: flagged
+  records already queued stop being sent until approved.
 - **Invoice extraction from PDFs and images** (`extract.py`, off unless
   `ANTHROPIC_API_KEY` is set). `POST /records/upload` now also accepts
   `.pdf/.png/.jpg/.jpeg/.webp`: Claude reads each invoice's header
