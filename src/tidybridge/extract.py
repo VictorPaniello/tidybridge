@@ -145,12 +145,43 @@ def _normalize_tax_id(value: str | None) -> str | None:
     return re.sub(r"[^0-9A-Z]", "", value.upper()) or None
 
 
+_DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+
+def _bad_spanish_tax_id(tax_id: str) -> bool:
+    """True only for an ID shaped like a Spanish NIF/NIE/CIF whose check
+    character doesn't match - the deterministic way to catch a misread
+    character. Anything not shaped like one (a foreign VAT number, a
+    truncated read) isn't ours to judge, so it's never flagged."""
+    if len(tax_id) == 11 and tax_id.startswith("ES"):
+        tax_id = tax_id[2:]
+    if re.fullmatch(r"(\d{8}|[XYZ]\d{7})[A-Z]", tax_id):
+        number = int(tax_id[:-1].translate(str.maketrans("XYZ", "012")))
+        return tax_id[-1] != _DNI_LETTERS[number % 23]
+    if re.fullmatch(r"[ABCDEFGHJNPQRSUVW]\d{7}[0-9A-J]", tax_id):
+        digits = [int(c) for c in tax_id[1:8]]
+        total = sum(digits[1::2]) + sum(sum(divmod(d * 2, 10)) for d in digits[0::2])
+        control = (10 - total % 10) % 10
+        # ponytail: accepts the digit or letter form for every company type;
+        # enforce which one each type uses if misreads ever slip through here
+        return tax_id[-1] not in (str(control), "JABCDEFGHI"[control])
+    return False
+
+
 def _issues(invoice: Invoice) -> list[dict]:
     issues = [
         {"field": f, "issue": "extractor unsure - check against the document"}
         for f in invoice.uncertain_fields
         if f in FIELDS
     ]
+    if invoice.supplier_tax_id and _bad_spanish_tax_id(invoice.supplier_tax_id):
+        issues.append(
+            {
+                "field": "supplier_tax_id",
+                "issue": "check digit doesn't match - not a valid Spanish NIF/CIF, "
+                "check against the document",
+            }
+        )
     net, vat, total = invoice.net_amount, invoice.vat_amount, invoice.total_amount
     if net is not None and vat is not None and total is not None:
         expected = net + vat - (invoice.withholding_amount or 0.0)
