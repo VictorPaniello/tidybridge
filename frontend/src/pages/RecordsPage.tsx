@@ -99,22 +99,62 @@ function SortableHeader({
   );
 }
 
+// Clicking a card filters the table to it, same as the pills below; the
+// active one is outlined so the two stay visibly in sync.
 function StatCard({
   label,
   value,
   valueClassName,
+  active,
+  onClick,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className="rounded-md border border-border bg-card px-4 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-md border bg-card px-4 py-3 text-left transition hover:bg-secondary ${
+        active ? "border-ring" : "border-border"
+      }`}
+    >
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`text-2xl font-semibold tracking-tight ${valueClassName ?? ""}`}>
         {value}
       </div>
-    </div>
+    </button>
+  );
+}
+
+// One upload-result count that, when non-zero, switches the table to the
+// matching filter - "3 flagged" goes straight to the records held for
+// review (see the review gate in the backend README).
+function CountFilter({
+  count,
+  label,
+  countClassName,
+  onClick,
+}: {
+  count: number;
+  label: string;
+  countClassName: string;
+  onClick: () => void;
+}) {
+  const content = (
+    <>
+      <span className={`font-medium ${countClassName}`}>{count}</span> {label}
+    </>
+  );
+  if (count === 0) return <span>{content}</span>;
+  return (
+    <button type="button" onClick={onClick} className="hover:underline">
+      {content}
+    </button>
   );
 }
 
@@ -462,15 +502,18 @@ export function RecordsPage() {
             <div>
               <p className="font-medium mb-1">{lastResult.rows_total} rows processed</p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
-                <span>
-                  <span className="font-medium text-primary">{lastResult.rows_clean}</span> clean
-                </span>
-                <span>
-                  <span className="font-medium text-amber-700 dark:text-amber-400">
-                    {lastResult.rows_flagged}
-                  </span>{" "}
-                  flagged
-                </span>
+                <CountFilter
+                  count={lastResult.rows_clean}
+                  label="clean"
+                  countClassName="text-primary"
+                  onClick={() => setFilter("clean")}
+                />
+                <CountFilter
+                  count={lastResult.rows_flagged}
+                  label="flagged"
+                  countClassName="text-amber-700 dark:text-amber-400"
+                  onClick={() => setFilter("flagged")}
+                />
                 <span>
                   <span className="font-medium">{lastResult.rows_dropped_duplicates}</span>{" "}
                   duplicate{lastResult.rows_dropped_duplicates === 1 ? "" : "s"} skipped
@@ -523,10 +566,23 @@ export function RecordsPage() {
 
       {!loading && !error && records.length > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-6">
-          <StatCard label="Total records" value={String(stats.total)} />
-          <StatCard label="Clean" value={String(stats.clean)} valueClassName="text-primary" />
+          <StatCard
+            label="Total records"
+            value={String(stats.total)}
+            active={filter === "all"}
+            onClick={() => setFilter("all")}
+          />
+          <StatCard
+            label="Clean"
+            value={String(stats.clean)}
+            valueClassName="text-primary"
+            active={filter === "clean"}
+            onClick={() => setFilter("clean")}
+          />
           <StatCard
             label="Flagged"
+            active={filter === "flagged"}
+            onClick={() => setFilter("flagged")}
             value={
               stats.total === 0
                 ? "0"
