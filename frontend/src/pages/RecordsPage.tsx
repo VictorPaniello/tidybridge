@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import { ApiError } from "../api/client";
-import type { ClientRecord, IngestResult } from "../api/types";
+import type { ClientRecord, IngestionRun, IngestResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
 import { humanizeFieldName } from "../lib/fieldNames";
@@ -11,12 +11,14 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
 import { UploadResultsTable } from "../components/UploadResultsTable";
 
-type Filter = "all" | "clean" | "flagged";
+// Every record is in exactly one Status, so the three add up to "all".
+type Status = "Clean" | "Needs review" | "Approved";
+type Filter = "all" | Status;
 
 // full_name/email/signup_date sort alphabetically (signup_date is stored
 // as an ISO-ish string, so alphabetical order already matches chronological
 // order); amount sorts numerically; has_issues (Status) sorts by its
-// Approved/Clean/Flagged label, alphabetically - Clean before Flagged ascending,
+// Approved/Clean/Needs review label, alphabetically - Clean before Needs review ascending,
 // same string-comparator behavior as the other non-numeric columns.
 type SortKey = string;
 type SortDirection = "asc" | "desc";
@@ -31,10 +33,22 @@ function sortValue(record: ClientRecord, key: SortKey): string | number | null {
 }
 
 // A flagged record someone approved isn't work to do any more - see the
-// review gate in the backend README.
-function statusLabel(record: ClientRecord): "Clean" | "Flagged" | "Approved" {
+// review gate in the backend README. The cards, the filter, the status
+// pill and the sort all go through this, so they can't disagree.
+function statusLabel(record: ClientRecord): Status {
   if (!record.has_issues) return "Clean";
-  return record.approved_at ? "Approved" : "Flagged";
+  return record.approved_at ? "Approved" : "Needs review";
+}
+
+// "review-gate-test.csv · 3 Oct, 18:40 · 5 rows"
+function uploadLabel(run: IngestionRun): string {
+  const when = new Date(run.created_at).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${run.source_file} · ${when} · ${run.rows_total} row${run.rows_total === 1 ? "" : "s"}`;
 }
 
 function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): number {
@@ -169,6 +183,7 @@ export function RecordsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const ingestionRunId = searchParams.get("ingestion_run_id");
   const [records, setRecords] = useState<ClientRecord[]>([]);
+  const [runs, setRuns] = useState<IngestionRun[]>([]);
   const reduce = useReducedMotion();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -240,17 +255,35 @@ export function RecordsPage() {
     load();
   }, [load]);
 
+  // The upload picker's options. A failure just leaves the picker hidden -
+  // the records themselves still load.
+  const loadRuns = useCallback(async () => {
+    try {
+      const all = await api.listIngestionRuns();
+      setRuns(all.sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    } catch {
+      setRuns([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
+
   const stats = useMemo(() => {
-    const total = records.length;
-    const flagged = records.filter((r) => r.has_issues).length;
-    return { total, clean: total - flagged, flagged };
+    const count = (status: Status) => records.filter((r) => statusLabel(r) === status).length;
+    return {
+      total: records.length,
+      clean: count("Clean"),
+      needsReview: count("Needs review"),
+      approved: count("Approved"),
+    };
   }, [records]);
 
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLowerCase();
     return records.filter((r) => {
-      if (filter === "clean" && r.has_issues) return false;
-      if (filter === "flagged" && !r.has_issues) return false;
+      if (filter !== "all" && statusLabel(r) !== filter) return false;
       if (query) {
         const matchesField = Object.values(r.fields).some(
           (val) => val != null && String(val).toLowerCase().includes(query),
@@ -298,7 +331,7 @@ export function RecordsPage() {
       const result = await api.uploadFile(file);
       setLastResult(result);
       sessionStorage.setItem("tidybridge_last_ingest_result", JSON.stringify(result));
-      await load();
+      await Promise.all([load(), loadRuns()]);
     } catch (err) {
       setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
     } finally {
@@ -426,24 +459,6 @@ export function RecordsPage() {
         </div>
       )}
 
-      {ingestionRunId && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-border bg-secondary/50 px-4 py-2 text-sm">
-          <span>
-            Showing only records from{" "}
-            <Link to="/uploads" className="text-ring hover:underline">
-              one upload
-            </Link>
-          </span>
-          <button
-            type="button"
-            onClick={() => setSearchParams({})}
-            className="text-xs text-muted-foreground hover:underline"
-          >
-            Clear filter
-          </button>
-        </div>
-      )}
-
       {uploadError && (
         <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {uploadError}
@@ -509,13 +524,14 @@ export function RecordsPage() {
                   count={lastResult.rows_clean}
                   label="clean"
                   countClassName="text-primary"
-                  onClick={() => setFilter("clean")}
+                  onClick={() => setFilter("Clean")}
                 />
                 <CountFilter
                   count={lastResult.rows_flagged}
                   label="flagged"
                   countClassName="text-amber-700 dark:text-amber-400"
-                  onClick={() => setFilter("flagged")}
+                  // Everything a fresh upload flagged still needs review.
+                  onClick={() => setFilter("Needs review")}
                 />
                 <span>
                   <span className="font-medium">{lastResult.rows_dropped_duplicates}</span>{" "}
@@ -568,7 +584,7 @@ export function RecordsPage() {
       )}
 
       {!loading && !error && records.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <StatCard
             label="Total records"
             value={String(stats.total)}
@@ -580,26 +596,50 @@ export function RecordsPage() {
             label="Clean"
             value={String(stats.clean)}
             valueClassName="text-primary"
-            active={filter === "clean"}
-            onClick={() => setFilter("clean")}
+            active={filter === "Clean"}
+            onClick={() => setFilter("Clean")}
             disabled={uploading}
           />
           <StatCard
-            label="Flagged"
-            active={filter === "flagged"}
-            onClick={() => setFilter("flagged")}
+            label="Needs review"
+            active={filter === "Needs review"}
+            onClick={() => setFilter("Needs review")}
             disabled={uploading}
-            value={
-              stats.total === 0
-                ? "0"
-                : `${stats.flagged} (${Math.round((stats.flagged / stats.total) * 100)}%)`
-            }
+            value={`${stats.needsReview} (${Math.round((stats.needsReview / stats.total) * 100)}%)`}
             valueClassName="text-amber-700 dark:text-amber-400"
+          />
+          <StatCard
+            label="Approved"
+            value={String(stats.approved)}
+            valueClassName="text-primary"
+            active={filter === "Approved"}
+            onClick={() => setFilter("Approved")}
+            disabled={uploading}
           />
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        {runs.length > 0 && (
+          // Drives the same ?ingestion_run_id= the Upload history links
+          // use, so the fetch, the cards and the export all follow it.
+          <select
+            aria-label="Filter by upload"
+            value={runs.some((r) => r.id === ingestionRunId) ? (ingestionRunId ?? "") : ""}
+            onChange={(e) =>
+              setSearchParams(e.target.value ? { ingestion_run_id: e.target.value } : {})
+            }
+            disabled={uploading}
+            className="w-full sm:w-auto sm:max-w-sm truncate rounded-md border border-input bg-card px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+          >
+            <option value="">All uploads</option>
+            {runs.map((run) => (
+              <option key={run.id} value={run.id}>
+                {uploadLabel(run)}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           type="search"
           value={search}
@@ -719,9 +759,9 @@ export function RecordsPage() {
                     );
                   })}
                   <td className="px-4 py-2">
-                    {statusLabel(r) === "Flagged" ? (
+                    {statusLabel(r) === "Needs review" ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
-                        Flagged
+                        Needs review
                       </span>
                     ) : (
                       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
@@ -733,7 +773,7 @@ export function RecordsPage() {
                     <div className="flex flex-wrap justify-end gap-2">
                       {/* Opens the record, doesn't approve from here: the
                           point of the gate is looking at the flags first. */}
-                      {statusLabel(r) === "Flagged" && (
+                      {statusLabel(r) === "Needs review" && (
                         <Link
                           to={`/records/${r.id}`}
                           className="rounded-md border border-amber-300 dark:border-amber-900 bg-card text-amber-700 dark:text-amber-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
