@@ -16,6 +16,7 @@ describe("RecordsPage", () => {
   beforeEach(() => {
     sessionStorage.clear();
     vi.spyOn(api, "listRecords").mockResolvedValue([]);
+    vi.spyOn(api, "listIngestionRuns").mockResolvedValue([]);
     vi.spyOn(auth, "useAuth").mockReturnValue({
       user: {
         id: "u1",
@@ -136,7 +137,7 @@ describe("RecordsPage", () => {
     expect(screen.getByText("Clean Row")).toBeInTheDocument();
     expect(screen.getByText("Flagged Row")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^Flagged\s*1/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Needs review\s*1/ }));
     expect(screen.queryByText("Clean Row")).not.toBeInTheDocument();
   });
 
@@ -322,6 +323,84 @@ describe("RecordsPage", () => {
     expect(review[0]).toHaveAttribute("href", "/records/flagged");
     const approvedRow = screen.getByText("Approved Row").closest("tr")!;
     expect(within(approvedRow).getByText("Approved")).toBeInTheDocument();
+  });
+
+  it("splits flagged records into Needs review and Approved cards", async () => {
+    const base = {
+      ingestion_run_id: "run-1",
+      source_file: "test.csv",
+      created_at: new Date().toISOString(),
+    };
+    const issues = [{ field: "email", issue: "invalid email format" }];
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      { ...base, id: "c", has_issues: false, issues: [], approved_at: null, fields: { full_name: "Clean Row" } },
+      { ...base, id: "n", has_issues: true, issues, approved_at: null, fields: { full_name: "Todo Row" } },
+      { ...base, id: "a", has_issues: true, issues, approved_at: base.created_at, fields: { full_name: "Done Row" } },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Clean Row");
+
+    const cases: [RegExp, string][] = [
+      [/^Clean\s*1$/, "Clean Row"],
+      [/^Needs review\s*1 \(33%\)$/, "Todo Row"],
+      [/^Approved\s*1$/, "Done Row"],
+    ];
+    for (const [card, only] of cases) {
+      fireEvent.click(screen.getByRole("button", { name: card }));
+      for (const name of ["Clean Row", "Todo Row", "Done Row"]) {
+        if (name === only) expect(screen.getByText(name)).toBeInTheDocument();
+        else expect(screen.queryByText(name)).not.toBeInTheDocument();
+      }
+    }
+  });
+
+  it("the upload picker drives ?ingestion_run_id= and the records fetch", async () => {
+    vi.spyOn(api, "listIngestionRuns").mockResolvedValue([
+      {
+        id: "run-old",
+        source_file: "old.csv",
+        rows_total: 1,
+        rows_clean: 1,
+        rows_flagged: 0,
+        rows_dropped_duplicates: 0,
+        rows_skipped_existing: 0,
+        created_at: "2026-10-01T10:00:00Z",
+      },
+      {
+        id: "run-new",
+        source_file: "new.csv",
+        rows_total: 5,
+        rows_clean: 2,
+        rows_flagged: 3,
+        rows_dropped_duplicates: 0,
+        rows_skipped_existing: 0,
+        created_at: "2026-10-03T18:40:00Z",
+      },
+    ]);
+    const listRecords = vi.spyOn(api, "listRecords").mockResolvedValue([]);
+
+    render(
+      <MemoryRouter initialEntries={["/?ingestion_run_id=run-old"]}>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+
+    const picker = (await screen.findByLabelText("Filter by upload")) as HTMLSelectElement;
+    expect(picker.value).toBe("run-old"); // preselected from the URL
+    // Newest first, after "All uploads".
+    expect([...picker.options].map((o) => o.value)).toEqual(["", "run-new", "run-old"]);
+    expect(listRecords).toHaveBeenLastCalledWith(undefined, "run-old");
+
+    fireEvent.change(picker, { target: { value: "run-new" } });
+    await vi.waitFor(() => expect(listRecords).toHaveBeenLastCalledWith(undefined, "run-new"));
+
+    fireEvent.change(picker, { target: { value: "" } });
+    await vi.waitFor(() => expect(listRecords).toHaveBeenLastCalledWith(undefined, undefined));
   });
 
   it("select-all toggles every currently visible record", async () => {
