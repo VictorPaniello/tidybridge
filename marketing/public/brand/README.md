@@ -35,6 +35,10 @@ Gmail, Word, Slides). Use "on-light" files on light backgrounds and
 - Smallest size: lockup 96 px wide on screen, mark 16 px.
 - Don't recolor, stretch, rotate, outline or add effects to the logo, and
   don't put it on a busy photo or a mid-tone background.
+- The bridge arc is never redrawn as decoration. Wherever the shape
+  appears (banners, slides, patterns), use the mark itself scaled evenly,
+  with its own line weight and dots; a wider or thinner arc reads as a
+  stretched logo.
 
 ## Colors
 

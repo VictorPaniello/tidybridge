@@ -95,6 +95,18 @@ def mark(color: str, x: float, y: float, size: float) -> str:
     )
 
 
+def lockup(colors: dict, size: float, x: float, baseline: float):
+    """Mark + wordmark, the logo itself; returns (svg, width, bounds). The
+    mark runs from the top of the letters to the baseline, so its dots sit
+    on the same line as the text - every place the logo appears uses this."""
+    _, _, (_, y0, _, _) = wordmark(colors, size, 0, baseline)
+    k = (baseline - y0) / 14.5  # mark-on-* is 14.5 units tall on the 32-unit grid
+    mark_w, gap = 22 * k, 14.5 * k * 0.3
+    word, word_w, (_, _, _, y1) = wordmark(colors, size, x + mark_w + gap, baseline)
+    body = mark(colors["accent"], x - 5 * k, y0 - 8.75 * k, 32 * k) + word
+    return body, mark_w + gap + word_w, (x, y0, x + mark_w + gap + word_w, y1)
+
+
 def svg(width: float, height: float, body: str, bg: str | None = None) -> str:
     fill = f'<rect width="100%" height="100%" fill="{bg}"/>' if bg else ""
     return (
@@ -126,52 +138,26 @@ def build() -> dict[str, tuple[str, list[int]]]:
             [480, 960],
         )
 
-        # Lockup: mark, then wordmark. The mark runs from the top of the
-        # letters to the baseline, so its dots sit on the same line as the text.
-        ink = size - y0
-        mark_w = ink * 22 / 14.5
-        gap = ink * 0.3
-        word, word_w, _ = wordmark(c, size, pad + mark_w + gap, size)
-        k = ink / 14.5  # mark-on-* is 14.5 units tall on the 32-unit grid
-        lockup = mark(c["accent"], pad - 5 * k, y0 - 8.75 * k, 32 * k) + word
-        files[f"lockup-{name}"] = (
-            svg(pad + mark_w + gap + word_w + pad, y1 + pad, lockup),
-            [600, 1200],
-        )
+        body, width, (_, _, _, y1) = lockup(c, size, pad, size)
+        files[f"lockup-{name}"] = (svg(width + 2 * pad, y1 + pad, body), [600, 1200])
 
     # Avatar for LinkedIn / Google profile: shown cropped to a circle.
     files["avatar"] = (svg(400, 400, mark(DARK["accent"], -5, -5, 410), DARK["bg"]), [400])
 
-    # Social preview (og:image), same layout as the old og-image.svg.
-    body, _, _ = wordmark(DARK, 80, 80, 270)
-    tag, _, _ = text(SANS_400, TAGLINE, 32, 80, 330)
-    og = (
-        body
-        + f'<path d="{tag}" fill="{DARK["muted"]}"/>'
-        + f'<path d="M80 560c40-90 90-140 200-140s160 50 200 140" stroke="{DARK["accent"]}" '
-        f'stroke-width="6" fill="none" stroke-linecap="round"/>'
-        f'<circle cx="80" cy="560" r="10" fill="{DARK["accent"]}"/>'
-        f'<circle cx="480" cy="560" r="10" fill="{DARK["accent"]}"/>'
-    )
+    # Social preview (og:image): the logo and tagline, left-aligned like the site's hero.
+    body, _, _ = lockup(DARK, 88, 80, 290)
+    tag, _, _ = text(SANS_400, TAGLINE, 34, 80, 360)
+    og = body + f'<path d="{tag}" fill="{DARK["muted"]}"/>'
     files["og-image"] = (svg(1200, 630, og, DARK["bg"]), [1200])
 
     # LinkedIn banner (1584x396). The profile photo covers the bottom-left
     # on desktop and the centre-left on mobile, so content sits right.
-    _, word_w, _ = wordmark(DARK, 72, 0, 0)
-    _, tag_w, _ = text(SANS_400, TAGLINE, 30, 0, 0)
     right = 1584 - 96
-    body, _, _ = wordmark(DARK, 72, right - word_w, 190)
+    _, logo_w, _ = lockup(DARK, 72, 0, 0)
+    _, tag_w, _ = text(SANS_400, TAGLINE, 30, 0, 0)
+    body, _, _ = lockup(DARK, 72, right - logo_w, 190)
     tag_d, _, _ = text(SANS_400, TAGLINE, 30, right - tag_w, 246)
-    # The social preview's arc at 0.6 scale, its dots on the tagline's baseline.
-    ax, ay = right - tag_w - 320, 246
-    banner = (
-        body
-        + f'<path d="{tag_d}" fill="{DARK["muted"]}"/>'
-        + f'<path d="M{ax} {ay}c24-54 54-84 120-84s96 30 120 84" stroke="{DARK["accent"]}" '
-        f'stroke-width="4" fill="none" stroke-linecap="round"/>'
-        f'<circle cx="{ax}" cy="{ay}" r="6" fill="{DARK["accent"]}"/>'
-        f'<circle cx="{ax + 240}" cy="{ay}" r="6" fill="{DARK["accent"]}"/>'
-    )
+    banner = body + f'<path d="{tag_d}" fill="{DARK["muted"]}"/>'
     files["linkedin-banner"] = (svg(1584, 396, banner, DARK["bg"]), [1584])
     return files
 
