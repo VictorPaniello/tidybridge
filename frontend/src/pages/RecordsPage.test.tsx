@@ -390,16 +390,25 @@ describe("RecordsPage", () => {
       </MemoryRouter>,
     );
 
-    const picker = (await screen.findByLabelText("Filter by upload")) as HTMLSelectElement;
-    expect(picker.value).toBe("run-old"); // preselected from the URL
-    // Newest first, after "All uploads".
-    expect([...picker.options].map((o) => o.value)).toEqual(["", "run-new", "run-old"]);
+    const picker = await screen.findByRole("button", { name: "Filter by upload" });
+    expect(picker).toHaveTextContent("old.csv"); // preselected from the URL
     expect(listRecords).toHaveBeenLastCalledWith(undefined, "run-old");
 
-    fireEvent.change(picker, { target: { value: "run-new" } });
-    await vi.waitFor(() => expect(listRecords).toHaveBeenLastCalledWith(undefined, "run-new"));
+    fireEvent.click(picker);
+    const options = screen.getAllByRole("option");
+    // "All uploads" first, then newest first.
+    expect(options.map((o) => o.textContent)).toEqual([
+      expect.stringContaining("All uploads"),
+      expect.stringContaining("new.csv"),
+      expect.stringContaining("old.csv"),
+    ]);
 
-    fireEvent.change(picker, { target: { value: "" } });
+    fireEvent.click(options[1]);
+    await vi.waitFor(() => expect(listRecords).toHaveBeenLastCalledWith(undefined, "run-new"));
+    await vi.waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+
+    fireEvent.click(picker);
+    fireEvent.click(screen.getByRole("option", { name: /All uploads/ }));
     await vi.waitFor(() => expect(listRecords).toHaveBeenLastCalledWith(undefined, undefined));
   });
 

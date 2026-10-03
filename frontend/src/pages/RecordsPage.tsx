@@ -9,6 +9,7 @@ import { greeting } from "../lib/greeting";
 import { humanizeFieldName } from "../lib/fieldNames";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
+import { UploadPicker } from "../components/UploadPicker";
 import { UploadResultsTable } from "../components/UploadResultsTable";
 
 // Every record is in exactly one Status, so the three add up to "all".
@@ -40,16 +41,6 @@ function statusLabel(record: ClientRecord): Status {
   return record.approved_at ? "Approved" : "Needs review";
 }
 
-// "review-gate-test.csv · 3 Oct, 18:40 · 5 rows"
-function uploadLabel(run: IngestionRun): string {
-  const when = new Date(run.created_at).toLocaleString(undefined, {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${run.source_file} · ${when} · ${run.rows_total} row${run.rows_total === 1 ? "" : "s"}`;
-}
 
 function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): number {
   const av = sortValue(a, sort.key);
@@ -623,22 +614,12 @@ export function RecordsPage() {
         {runs.length > 0 && (
           // Drives the same ?ingestion_run_id= the Upload history links
           // use, so the fetch, the cards and the export all follow it.
-          <select
-            aria-label="Filter by upload"
-            value={runs.some((r) => r.id === ingestionRunId) ? (ingestionRunId ?? "") : ""}
-            onChange={(e) =>
-              setSearchParams(e.target.value ? { ingestion_run_id: e.target.value } : {})
-            }
+          <UploadPicker
+            runs={runs}
+            value={ingestionRunId}
+            onChange={(runId) => setSearchParams(runId ? { ingestion_run_id: runId } : {})}
             disabled={uploading}
-            className="w-full sm:w-auto sm:max-w-sm truncate rounded-md border border-input bg-card px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-          >
-            <option value="">All uploads</option>
-            {runs.map((run) => (
-              <option key={run.id} value={run.id}>
-                {uploadLabel(run)}
-              </option>
-            ))}
-          </select>
+          />
         )}
         <input
           type="search"
@@ -776,7 +757,7 @@ export function RecordsPage() {
                       {statusLabel(r) === "Needs review" && (
                         <Link
                           to={`/records/${r.id}`}
-                          className="rounded-md border border-amber-300 dark:border-amber-900 bg-card text-amber-700 dark:text-amber-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
+                          className="rounded-md border border-amber-300 dark:border-amber-900 bg-card text-amber-700 dark:text-amber-400 px-2.5 py-1 text-xs shadow-sm transition hover:shadow hover:bg-amber-50 hover:border-amber-400 dark:hover:bg-amber-950/50 dark:hover:border-amber-700"
                         >
                           Review
                         </Link>
@@ -784,7 +765,7 @@ export function RecordsPage() {
                       <motion.button
                         whileTap={reduce ? undefined : { scale: 0.97 }}
                         onClick={() => setPendingDeleteId(r.id)}
-                        className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
+                        className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm transition hover:shadow hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/50 dark:hover:border-red-700"
                       >
                         Delete
                       </motion.button>
