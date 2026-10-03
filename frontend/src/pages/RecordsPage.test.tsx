@@ -81,6 +81,65 @@ describe("RecordsPage", () => {
     expect(sessionStorage.getItem("tidybridge_last_ingest_result")).toBeNull();
   });
 
+  it("clicking the upload counts or the stat cards filters the table to match", async () => {
+    sessionStorage.setItem(
+      "tidybridge_last_ingest_result",
+      JSON.stringify({
+        ingestion_run_id: "run-1",
+        rows_total: 2,
+        rows_clean: 1,
+        rows_flagged: 1,
+        rows_dropped_duplicates: 0,
+        rows_skipped_existing: 0,
+        mapping_is_default: false,
+        fingerprint: "fp123",
+        field_resolutions: [],
+        dedup_key_fields: [],
+        records: [],
+      }),
+    );
+    const base = {
+      ingestion_run_id: "run-1",
+      source_file: "test.csv",
+      approved_at: null,
+      created_at: new Date().toISOString(),
+    };
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      { ...base, id: "clean", has_issues: false, issues: [], fields: { full_name: "Clean Row" } },
+      {
+        ...base,
+        id: "flagged",
+        has_issues: true,
+        issues: [{ field: "email", issue: "invalid email format" }],
+        fields: { full_name: "Flagged Row" },
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("Clean Row");
+
+    fireEvent.click(screen.getByRole("button", { name: "1 flagged" }));
+    expect(screen.queryByText("Clean Row")).not.toBeInTheDocument();
+    expect(screen.getByText("Flagged Row")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "1 clean" }));
+    expect(screen.getByText("Clean Row")).toBeInTheDocument();
+    expect(screen.queryByText("Flagged Row")).not.toBeInTheDocument();
+    // The stat cards filter too, and the active one is marked.
+    const allCard = screen.getByRole("button", { name: /Total records/ });
+    fireEvent.click(allCard);
+    expect(allCard).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Clean Row")).toBeInTheDocument();
+    expect(screen.getByText("Flagged Row")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Flagged\s*1/ }));
+    expect(screen.queryByText("Clean Row")).not.toBeInTheDocument();
+  });
+
   it("hides the upload preview table once the mapping is no longer default", async () => {
     // The full records table is already right below this banner - once
     // a mapping's been reviewed there's nothing left for this preview
