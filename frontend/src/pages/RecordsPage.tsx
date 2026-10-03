@@ -99,27 +99,30 @@ function SortableHeader({
   );
 }
 
-// Clicking a card filters the table to it, same as the pills below; the
-// active one is outlined so the two stay visibly in sync.
+// The table's only Clean/Flagged filter: clicking a card filters the
+// table to it, and the active one is outlined.
 function StatCard({
   label,
   value,
   valueClassName,
   active,
   onClick,
+  disabled,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
   active: boolean;
   onClick: () => void;
+  disabled: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
-      className={`rounded-md border bg-card px-4 py-3 text-left transition hover:bg-secondary ${
+      className={`rounded-md border bg-card px-4 py-3 text-left transition hover:bg-secondary disabled:opacity-50 ${
         active ? "border-ring" : "border-border"
       }`}
     >
@@ -571,6 +574,7 @@ export function RecordsPage() {
             value={String(stats.total)}
             active={filter === "all"}
             onClick={() => setFilter("all")}
+            disabled={uploading}
           />
           <StatCard
             label="Clean"
@@ -578,11 +582,13 @@ export function RecordsPage() {
             valueClassName="text-primary"
             active={filter === "clean"}
             onClick={() => setFilter("clean")}
+            disabled={uploading}
           />
           <StatCard
             label="Flagged"
             active={filter === "flagged"}
             onClick={() => setFilter("flagged")}
+            disabled={uploading}
             value={
               stats.total === 0
                 ? "0"
@@ -594,22 +600,6 @@ export function RecordsPage() {
       )}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex gap-2 text-sm">
-          {(["all", "clean", "flagged"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              disabled={uploading}
-              className={`rounded-full px-3 py-1 border transition disabled:opacity-50 ${
-                filter === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border hover:bg-secondary"
-              }`}
-            >
-              {f === "all" ? "All" : f === "clean" ? "Clean" : "Flagged"}
-            </button>
-          ))}
-        </div>
         <input
           type="search"
           value={search}
