@@ -50,8 +50,9 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/records/export` | Download **your own** records as a CSV file (`Content-Disposition: attachment`), optionally `?ingestion_run_id=` to export just one upload - unpaginated, unlike `GET /records`, since the point is getting everything out in one file. Same ownership rules; includes an `issues` column summarizing any validation problems |
 | `GET` | `/records/{id}` | Fetch one of **your own** records - 404 (not 403) if it belongs to someone else, or doesn't exist |
 | `PATCH` | `/records/{id}` | Correct one or more of your own record's fields in place - re-coerced and re-validated against the exact field types that record's upload was cleaned with, not trusted as already-clean. 400 for an unknown field name, 409 if the record predates per-run schema tracking |
+| `POST` | `/records/{id}/approve` | Accept one of your own flagged records as is, so it goes downstream - see [Review gate](#review-gate). Idempotent |
 | `GET` | `/records/{id}/webhooks` | Audit log of webhook delivery attempts for one of your own records |
-| `POST` | `/records/{id}/webhooks/replay` | Manually re-send the notification for one of your own records, on demand - 400 if no `WEBHOOK_URL` is configured |
+| `POST` | `/records/{id}/webhooks/replay` | Manually re-send the notification for one of your own records, on demand - 400 if no `WEBHOOK_URL` is configured, 409 if the record is flagged and not approved |
 | `DELETE` | `/records/{id}` | Permanently erase one of your own records (and its webhook delivery history) - supports the GDPR right to erasure, not a standalone claim of full GDPR compliance on its own; see [Privacy Policy](#privacy--terms) |
 | `POST` | `/records/bulk-delete` | Permanently erase several of your own records (and their webhook delivery history) in a single transaction |
 | `GET` | `/stats/delivery-success` | Daily webhook/provisioning success rate for **your own** records (`?channel=webhook\|provisioning`, optional `?date_from=&date_to=`, default trailing 30 days, capped at a year) - each day's attempt/success counts, its success rate, and a 7-day rolling average of that rate |
@@ -115,6 +116,19 @@ enqueues one `webhook_jobs` row per new record, and `scripts/webhook_worker.py`
 claims and delivers them. A manual replay (`POST /records/{id}/webhooks/replay`)
 is the one exception - it still delivers synchronously in the request, since
 that's a human asking for an immediate resend, not queued background work.
+
+### Review gate
+
+Only **ready** records leave tidybridge: no validation flags, or approved
+by a human (`POST /records/{id}/approve`, the "Approve" button on the
+record page). Every record still gets its webhook/provisioning job at
+upload, but the worker only claims jobs whose record is ready
+(`ClientRecord.is_ready()`), so a flagged record's job waits - shown as
+`awaiting_review` - until it's fixed (`PATCH`) or approved. Checking in
+the worker rather than at upload covers every way a record's flags can
+change (upload, edit, mapping review, approve) in one place. An edit
+clears an approval, since it was for the old values. Manual replays
+return 409 for a record that isn't ready, so they can't skip the gate.
 
 `config.py` holds every environment-dependent value (database URL, webhook
 URL/secret, schema path) - nothing is hardcoded, so the same image runs

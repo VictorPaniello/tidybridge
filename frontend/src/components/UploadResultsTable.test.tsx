@@ -10,6 +10,7 @@ const record: ClientRecord = {
   fields: { full_name: "Jane Doe", email: "jane@example.com" },
   has_issues: false,
   issues: null,
+  approved_at: null,
   created_at: "2026-01-01T00:00:00Z",
 };
 

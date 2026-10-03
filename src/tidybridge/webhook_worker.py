@@ -38,10 +38,14 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
     for _ in range(limit):
         job = db.execute(
             select(WebhookJob)
+            .join(ClientRecord, ClientRecord.id == WebhookJob.record_id)
             .where(WebhookJob.status == "pending", WebhookJob.available_at <= datetime.now(UTC))
+            # Flagged, unapproved records wait here (still "pending") until
+            # fixed or approved - see ClientRecord.is_ready().
+            .where(ClientRecord.is_ready())
             .order_by(WebhookJob.available_at)
             .limit(1)
-            .with_for_update(skip_locked=True)
+            .with_for_update(skip_locked=True, of=WebhookJob)
         ).scalar_one_or_none()
         if job is None:
             break
@@ -79,13 +83,15 @@ def process_due_provisioning_jobs(db: Session, limit: int = 20) -> int:
     for _ in range(limit):
         job = db.execute(
             select(ProvisioningJob)
+            .join(ClientRecord, ClientRecord.id == ProvisioningJob.record_id)
             .where(
                 ProvisioningJob.status == "pending",
                 ProvisioningJob.available_at <= datetime.now(UTC),
             )
+            .where(ClientRecord.is_ready())  # same gate as process_due_jobs
             .order_by(ProvisioningJob.available_at)
             .limit(1)
-            .with_for_update(skip_locked=True)
+            .with_for_update(skip_locked=True, of=ProvisioningJob)
         ).scalar_one_or_none()
         if job is None:
             break

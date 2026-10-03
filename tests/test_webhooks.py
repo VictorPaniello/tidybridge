@@ -223,9 +223,13 @@ def test_gives_up_after_max_attempts_and_logs_every_one(
 
 
 def test_replay_sends_a_fresh_delivery_on_demand(client: TestClient, db: Session, webhook_receiver):
-    record_id = _upload(client).json()["records"][0]["id"]
+    records = _upload(client).json()["records"]
     _drain_jobs(db)
-    assert len(webhook_receiver.received) == 5  # one per row in messy_clients.csv
+    # One per clean row in messy_clients.csv - flagged rows wait for
+    # review (see ClientRecord.is_ready()).
+    clean = [r for r in records if not r["has_issues"]]
+    assert len(webhook_receiver.received) == len(clean)
+    record_id = clean[0]["id"]
 
     response = client.post(f"/records/{record_id}/webhooks/replay")
     assert response.status_code == 200
@@ -233,7 +237,7 @@ def test_replay_sends_a_fresh_delivery_on_demand(client: TestClient, db: Session
 
     # The original delivery plus exactly one new one for this record -
     # not a second full ingest, not another retry sequence.
-    assert len(webhook_receiver.received) == 6
+    assert len(webhook_receiver.received) == len(clean) + 1
     deliveries = client.get(f"/records/{record_id}/webhooks").json()
     assert [d["attempt_number"] for d in deliveries] == [1, 1]  # each its own attempt 1
 

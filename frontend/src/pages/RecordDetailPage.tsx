@@ -32,6 +32,8 @@ export function RecordDetailPage() {
   const [replayError, setReplayError] = useState<string | null>(null);
   const [replayingProvisioning, setReplayingProvisioning] = useState(false);
   const [provisioningReplayError, setProvisioningReplayError] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -99,10 +101,36 @@ export function RecordDetailPage() {
       const updated = await api.updateRecordFields(id, changed);
       setRecord(updated);
       setEditing(false);
+      await refreshJobStatuses(id); // an edit can clear the flags, or the approval
     } catch (err) {
       setSaveError(err instanceof ApiError ? err.message : "Couldn't save these changes.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Whether a record is held for review shows in both status badges, and
+  // approving or editing it changes that.
+  async function refreshJobStatuses(recordId: string) {
+    const [webhook, provisioning] = await Promise.all([
+      api.getRecordWebhookStatus(recordId),
+      api.getRecordProvisioningStatus(recordId),
+    ]);
+    setWebhookStatus(webhook);
+    setProvisioningStatus(provisioning);
+  }
+
+  async function handleApprove() {
+    if (!id) return;
+    setApproving(true);
+    setApproveError(null);
+    try {
+      setRecord(await api.approveRecord(id));
+      await refreshJobStatuses(id);
+    } catch (err) {
+      setApproveError(err instanceof ApiError ? err.message : "Couldn't approve this record.");
+    } finally {
+      setApproving(false);
     }
   }
 
@@ -209,7 +237,29 @@ export function RecordDetailPage() {
 
       {record.has_issues && record.issues && (
         <div className="mt-8">
-          <h2 className="text-sm font-semibold mb-2">Validation issues</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold">Validation issues</h2>
+            {record.approved_at ? (
+              <span className="text-xs text-muted-foreground">
+                Approved on {new Date(record.approved_at).toLocaleString()}
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={approving}
+                className="rounded-md border border-border px-3 py-1 text-xs hover:bg-secondary transition disabled:opacity-50"
+              >
+                {approving ? "Approving…" : "Approve"}
+              </button>
+            )}
+          </div>
+          {!record.approved_at && (
+            <p className="mb-2 text-xs text-muted-foreground">
+              Not sent anywhere until you fix these or approve the record as is.
+            </p>
+          )}
+          {approveError && <p className="mb-2 text-sm text-red-600">{approveError}</p>}
           <ul className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 divide-y divide-amber-200 dark:divide-amber-900 text-sm">
             {record.issues.map((issue, i) => (
               <li key={i} className="px-4 py-2">
@@ -442,6 +492,13 @@ function WebhookStatusBadge({ status }: { status: WebhookJobStatus | null }) {
       </span>
     );
   }
+  if (status.status === "awaiting_review") {
+    return (
+      <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-xs">
+        Awaiting review
+      </span>
+    );
+  }
   // "pending"
   return (
     <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
@@ -469,6 +526,13 @@ function ProvisioningStatusBadge({ status }: { status: ProvisioningJobStatus | n
     return (
       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
         {status.status === "done" ? "Provisioned" : "Already existed"}
+      </span>
+    );
+  }
+  if (status.status === "awaiting_review") {
+    return (
+      <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-xs">
+        Awaiting review
       </span>
     );
   }
