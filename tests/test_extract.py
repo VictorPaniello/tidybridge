@@ -15,7 +15,7 @@ from tidybridge.extract import ExtractedInvoices, ExtractionError, Invoice
 def _invoice(**overrides) -> Invoice:
     base = dict(
         supplier_name="Acme S.L.",
-        supplier_tax_id="B12345678",
+        supplier_tax_id="B12345674",  # a valid CIF - the check digit is 4
         invoice_number="F-2026-001",
         invoice_date="2026-03-05",
         currency="EUR",
@@ -98,3 +98,30 @@ def test_tax_id_is_normalized_so_dedup_matches(enabled, monkeypatch):
     df, _ = extract.extract_invoices("inv.pdf", b"%PDF")
     assert df.at[0, "supplier_tax_id"] == "B12345678"
     assert df.at[1, "supplier_tax_id"] == ""  # nothing left -> treated as missing
+
+
+@pytest.mark.parametrize(
+    "tax_id",
+    [
+        "12345678Z",  # DNI
+        "X1234567L",  # NIE
+        "B12345674",  # CIF, digit control (S.L.)
+        "Q2826000H",  # CIF, letter control (public body)
+        "ESB12345674",  # EU VAT number with the ES prefix
+        "DE123456789",  # foreign VAT number - not ours to check
+        "1234",  # too short to be a Spanish ID - not flagged as one
+    ],
+)
+def test_valid_or_non_spanish_tax_ids_are_not_flagged(enabled, monkeypatch, tax_id):
+    _model_returns(monkeypatch, _invoice(supplier_tax_id=tax_id))
+    _, issues = extract.extract_invoices("inv.pdf", b"%PDF")
+    assert issues == {}
+
+
+@pytest.mark.parametrize(
+    "tax_id", ["12345678A", "X1234567T", "B12345673", "Q2826000J", "ESB12345673"]
+)
+def test_spanish_tax_id_with_a_wrong_check_character_is_flagged(enabled, monkeypatch, tax_id):
+    _model_returns(monkeypatch, _invoice(supplier_tax_id=tax_id))
+    _, issues = extract.extract_invoices("inv.pdf", b"%PDF")
+    assert [i["field"] for i in issues[0]] == ["supplier_tax_id"]
