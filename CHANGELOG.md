@@ -7,6 +7,17 @@ nothing has been tagged as a release yet, so everything below is under
 ## [Unreleased]
 
 ### Added
+- **Data processing agreement (`/dpa`)** and updated legal pages. The DPA
+  covers GDPR Art. 28(3) for the client and invoice data customers upload:
+  the two sub-processors (Railway EU West, Anthropic only when extraction
+  is on), 48-hour breach notice, 30 days' notice for new sub-processors, a
+  security annex of measures that really exist, and "not an invoice
+  archive". The privacy page adds EU hosting, a transfers section with
+  each US provider's verified safeguard (DPF or SCCs), Cloudflare, and
+  corrected legal bases (GitHub login on contract; legitimate interest
+  for IPs and backups). The terms describe the current product (invoices,
+  the review gate), make reviewing results the customer's job, and pull
+  in the DPA. Linked from the footer.
 - **Review gate: flagged records wait for a human.** Webhooks and
   provisioning now only go out for records with no flags, or that someone
   approved via the new `POST /records/{id}/approve` ("Approve" button on
