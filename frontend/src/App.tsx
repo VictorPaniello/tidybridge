@@ -13,6 +13,7 @@ import { RecordsPage } from "./pages/RecordsPage";
 import { RecordDetailPage } from "./pages/RecordDetailPage";
 import { IngestionRunsPage } from "./pages/IngestionRunsPage";
 import { ColumnMappingReviewPage } from "./pages/ColumnMappingReviewPage";
+import { DpaPage } from "./pages/DpaPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { TermsPage } from "./pages/TermsPage";
 import type { ColumnMapping } from "./api/types";
@@ -70,6 +71,14 @@ export default function App() {
             element={
               <Layout>
                 <TermsPage />
+              </Layout>
+            }
+          />
+          <Route
+            path="/dpa"
+            element={
+              <Layout>
+                <DpaPage />
               </Layout>
             }
           />

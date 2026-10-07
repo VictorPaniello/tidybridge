@@ -4,7 +4,8 @@ A small service that does what a Forward Deployed Engineer does on day one
 at a new client: take their messy data export, clean it, get it into a real
 database, and notify another system when something new arrives.
 
-Concretely: upload a CSV/Excel file → it's cleaned and validated via
+Concretely: upload a CSV/Excel file (or an invoice as a PDF or image, read
+by Claude - see [Invoice extraction](#invoice-extraction)) → it's cleaned and validated via
 [tidycsv](https://github.com/VictorPaniello/tidycsv) → every row is
 persisted to PostgreSQL → a webhook fires for each newly ingested record,
 with every delivery attempt logged (success or failure) for auditability.
@@ -40,7 +41,7 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/auth/github/authorize` | Start "Sign in with GitHub" (only present if `GITHUB_CLIENT_ID`/`SECRET` are set) |
 | `GET` | `/users/me` | The logged-in engineer's own profile |
 | `DELETE` | `/users/me` | Permanently erase **your own** account and everything it owns (client records, ingestion runs, webhook deliveries, linked OAuth account) - real self-service GDPR erasure, not a request queue |
-| `POST` | `/records/upload` | Upload a CSV/Excel file, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id` |
+| `POST` | `/records/upload` | Upload a CSV/Excel file, or a PDF/image invoice when `ANTHROPIC_API_KEY` is set, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id`. 502 if extraction is temporarily unavailable |
 | `GET` | `/column-mappings/{fingerprint}` | Fetch the saved field-mapping resolution for a header shape (see [Dynamic column mapping](#dynamic-column-mapping)) - 404 if this shape has never had one explicitly saved |
 | `PUT` | `/column-mappings/{fingerprint}` | Save (or update) a header shape's field mapping - names, types, `required`/dedup-key flags - for this and every future upload of that exact shape; optionally re-validates an already-ingested run's records against the new mapping |
 | `GET` | `/ingestion-runs` | List **your own** past uploads, paginated - the persisted summary of every upload, not just the one the last `IngestResult` response reported |
@@ -49,8 +50,9 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/records/export` | Download **your own** records as a CSV file (`Content-Disposition: attachment`), optionally `?ingestion_run_id=` to export just one upload - unpaginated, unlike `GET /records`, since the point is getting everything out in one file. Same ownership rules; includes an `issues` column summarizing any validation problems |
 | `GET` | `/records/{id}` | Fetch one of **your own** records - 404 (not 403) if it belongs to someone else, or doesn't exist |
 | `PATCH` | `/records/{id}` | Correct one or more of your own record's fields in place - re-coerced and re-validated against the exact field types that record's upload was cleaned with, not trusted as already-clean. 400 for an unknown field name, 409 if the record predates per-run schema tracking |
+| `POST` | `/records/{id}/approve` | Accept one of your own flagged records as is, so it goes downstream - see [Review gate](#review-gate). Idempotent |
 | `GET` | `/records/{id}/webhooks` | Audit log of webhook delivery attempts for one of your own records |
-| `POST` | `/records/{id}/webhooks/replay` | Manually re-send the notification for one of your own records, on demand - 400 if no `WEBHOOK_URL` is configured |
+| `POST` | `/records/{id}/webhooks/replay` | Manually re-send the notification for one of your own records, on demand - 400 if no `WEBHOOK_URL` is configured, 409 if the record is flagged and not approved |
 | `DELETE` | `/records/{id}` | Permanently erase one of your own records (and its webhook delivery history) - supports the GDPR right to erasure, not a standalone claim of full GDPR compliance on its own; see [Privacy Policy](#privacy--terms) |
 | `POST` | `/records/bulk-delete` | Permanently erase several of your own records (and their webhook delivery history) in a single transaction |
 | `GET` | `/stats/delivery-success` | Daily webhook/provisioning success rate for **your own** records (`?channel=webhook\|provisioning`, optional `?date_from=&date_to=`, default trailing 30 days, capped at a year) - each day's attempt/success counts, its success rate, and a 7-day rolling average of that rate |
@@ -114,6 +116,19 @@ enqueues one `webhook_jobs` row per new record, and `scripts/webhook_worker.py`
 claims and delivers them. A manual replay (`POST /records/{id}/webhooks/replay`)
 is the one exception - it still delivers synchronously in the request, since
 that's a human asking for an immediate resend, not queued background work.
+
+### Review gate
+
+Only **ready** records leave tidybridge: no validation flags, or approved
+by a human (`POST /records/{id}/approve`, the "Approve" button on the
+record page). Every record still gets its webhook/provisioning job at
+upload, but the worker only claims jobs whose record is ready
+(`ClientRecord.is_ready()`), so a flagged record's job waits - shown as
+`awaiting_review` - until it's fixed (`PATCH`) or approved. Checking in
+the worker rather than at upload covers every way a record's flags can
+change (upload, edit, mapping review, approve) in one place. An edit
+clears an approval, since it was for the old values. Manual replays
+return 409 for a record that isn't ready, so they can't skip the gate.
 
 `config.py` holds every environment-dependent value (database URL, webhook
 URL/secret, schema path) - nothing is hardcoded, so the same image runs
@@ -227,6 +242,31 @@ run's types (see above) - a record whose run predates this column
 refuses the edit (409) with a message pointing at delete-and-re-upload,
 rather than guessing its schema. Frontend: an Edit/Save/Cancel
 affordance on the record detail page.
+
+## Invoice extraction
+
+Upload an invoice as a PDF or image and Claude reads its header fields
+(supplier, tax ID, number, date, currency, net/VAT/withholding/total)
+into the same rows a CSV would produce - one row per invoice, so a PDF
+of several scanned invoices works too. From there it's the normal
+pipeline: mapping, tidycsv validation, dedup on supplier tax ID +
+invoice number, webhooks, provisioning.
+
+Off unless `ANTHROPIC_API_KEY` is set (`EXTRACTION_MODEL` picks the
+model, default `claude-sonnet-5`).
+
+What lands in the review queue (`has_issues`), and why no confidence
+score: model-reported confidence is poorly calibrated, so issues come
+from checks that can be trusted instead - fields the model says it
+couldn't read clearly, a net + VAT - withholding = total arithmetic
+check (withholding exists for Spanish IRPF invoices, which would
+otherwise all fail it), and tidycsv's usual required/format validation.
+
+Accuracy is measured, not assumed: `scripts/eval_extraction.py` runs
+the extractor over hand-labeled invoices in `evals/invoices/` and
+reports per-field accuracy (see that script's docstring for the label
+format), writing each run to `evals/results/`. No run has been
+committed yet - the labeled set is still being gathered.
 
 ## Local development
 
@@ -413,7 +453,7 @@ never affected.
 
 ## Privacy & Terms
 
-Real pages, not placeholders - `/privacy` and `/terms` on the deployed
+Real pages, not placeholders - `/privacy`, `/terms` and `/dpa` on the deployed
 frontend, linked from the footer on every page and from a required
 consent checkbox at both signup paths (email+password registration and
 GitHub OAuth's complete-profile step). Written from what this specific
@@ -422,6 +462,21 @@ claim traces back to a real field or endpoint), not adapted from a
 generic template - see `frontend/src/pages/PrivacyPage.tsx` and
 `TermsPage.tsx`. Both pages carry their own disclaimer: good-faith and
 technically accurate, not a substitute for independent legal review.
+Invoice uploads (PDF/image) are the one case where uploaded data goes to
+a third party you didn't configure yourself (unlike webhook/provisioning
+destinations) - they're sent to Anthropic for extraction, disclosed as a
+sub-processor on `/privacy`.
+
+`/dpa` is the GDPR Article 28 data processing agreement for the client
+and invoice data customers upload (tidybridge as their processor),
+adapted from the EU parts of General Legal's CC0
+[`dpa-global`](https://github.com/General-Legal/legal-templates) template.
+It's part of the terms once a customer uploads client data, lists the
+only two sub-processors of that data (Railway in EU West, and Anthropic
+when extraction is on), and states the transfer safeguard of every US
+provider - each checked on the provider's own site, see
+`docs/superpowers/plans/2026-10-07-legal-update.md`. Everything is hosted
+in Railway's EU West region (Amsterdam).
 
 Data retention is documented exactly as the code behaves: client data
 (what you upload about your own clients) is kept for up to a year, then
@@ -753,8 +808,11 @@ project's own code or in actually deploying it:
   the auth forms have no automated tests yet, only manual browser
   verification against a real local backend. Better than the zero
   frontend coverage (and no frontend CI at all) this project had before,
-  not yet equivalent to the backend's 187 pytest tests against a real
+  not yet equivalent to the backend's 204 pytest tests against a real
   database.
+- **Invoice line items** - extraction reads header fields only (totals,
+  not individual lines). Line items would need a child table, not more
+  columns on one record.
 
 ## Security
 

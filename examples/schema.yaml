@@ -21,4 +21,39 @@ fields:
     aliases: ["Phone", "Telefono", "Mobile Number"]
     type: phone
 
+  # Invoice fields - the column names extract.py produces for PDF/image
+  # uploads, listed here so default_resolution() gives them real types
+  # and required flags instead of all-string/optional.
+  - name: supplier_name
+    type: string
+    required: true
+
+  - name: supplier_tax_id
+    type: string
+    required: true
+
+  - name: invoice_number
+    type: string
+    required: true
+
+  - name: invoice_date
+    type: date
+    required: true
+
+  - name: currency
+    type: string
+
+  - name: net_amount
+    type: currency
+
+  - name: vat_amount
+    type: currency
+
+  - name: withholding_amount
+    type: currency
+
+  - name: total_amount
+    type: currency
+    required: true
+
 key_columns: ["email"]

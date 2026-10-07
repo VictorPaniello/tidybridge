@@ -42,6 +42,7 @@ from tidybridge.auth import (
 from tidybridge.auth_models import User
 from tidybridge.config import settings
 from tidybridge.db import get_db
+from tidybridge.extract import ExtractionError, ExtractionUnavailableError
 from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
 from tidybridge.mapping import build_schema, validate_resolution
@@ -54,7 +55,7 @@ from tidybridge.models import (
     WebhookDelivery,
     WebhookJob,
 )
-from tidybridge.provisioning import replay_provisioning
+from tidybridge.provisioning import has_user_name, replay_provisioning
 from tidybridge.schemas import (
     BulkDeleteRecordsIn,
     BulkDeleteRecordsOut,
@@ -364,8 +365,10 @@ async def upload_records(
         outcome = await run_in_threadpool(
             ingest_file, db, file.filename or "upload.csv", content, schema, user.id
         )
-    except UnreadableFileError as exc:
+    except (UnreadableFileError, ExtractionError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ExtractionUnavailableError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     run = outcome.run
     return IngestResult(
         ingestion_run_id=run.id,
@@ -724,6 +727,7 @@ def export_records(
             "phone",
             "has_issues",
             "issues",
+            "approved_at",
             "webhook_status",
             "webhook_attempt_number",
             "webhook_available_at",
@@ -740,7 +744,8 @@ def export_records(
                 record.phone,
                 record.has_issues,
                 _format_issues(record.issues),
-                job.status if job else "not_configured",
+                record.approved_at,
+                _job_status(job.status, record) if job else "not_configured",
                 job.attempt_number if job else None,
                 job.available_at if job else None,
             ]
@@ -762,6 +767,21 @@ def _get_owned_record(db: Session, record_id: uuid.UUID, user: User) -> ClientRe
     if record is None or record.owner_id != user.id:
         raise HTTPException(status_code=404, detail="Record not found")
     return record
+
+
+def _require_ready(record: ClientRecord) -> None:
+    """Manual replays go through the same review gate as the worker (see
+    ClientRecord.is_ready()) - otherwise "Resend" would be a way around it."""
+    if not record.ready:
+        raise HTTPException(
+            status_code=409, detail="This record is flagged - fix or approve it first"
+        )
+
+
+def _job_status(status: str, record: ClientRecord) -> str:
+    """A pending job whose record isn't ready isn't waiting on the worker,
+    it's waiting on a human - say so instead of "pending"."""
+    return "awaiting_review" if status == "pending" and not record.ready else status
 
 
 @app.get("/records/{record_id}", response_model=ClientRecordOut)
@@ -817,6 +837,9 @@ def update_record_fields(
     row_issues = [{"field": i.field, "issue": i.issue} for i in issues] or None
     record.has_issues = row_issues is not None
     record.issues = row_issues
+    # The approval was for the old values: clean now means ready anyway,
+    # still flagged means it needs a fresh look.
+    record.approved_at = None
 
     db.flush()  # so the counts below see this record's new has_issues
     run_total = db.execute(
@@ -833,6 +856,24 @@ def update_record_fields(
 
     db.commit()
     db.refresh(record)
+    return record
+
+
+@app.post("/records/{record_id}/approve", response_model=ClientRecordOut)
+def approve_record(
+    record_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_active_user),
+) -> ClientRecord:
+    """A human checked this record's flags and accepts it as is. Its
+    pending webhook/provisioning jobs go out on the worker's next poll
+    (see ClientRecord.is_ready()). Idempotent: approving again keeps the
+    first approval time."""
+    record = _get_owned_record(db, record_id, user)
+    if record.approved_at is None:
+        record.approved_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(record)
     return record
 
 
@@ -864,13 +905,15 @@ def get_record_webhook_status(
     """The automatic post-ingest delivery pipeline's current state for one
     record - see WebhookJobStatusOut's docstring for what each status
     means."""
-    _get_owned_record(db, record_id, user)
+    record = _get_owned_record(db, record_id, user)
     job_query = select(WebhookJob).where(WebhookJob.record_id == record_id)
     job = db.execute(job_query).scalar_one_or_none()
     if job is None:
         return WebhookJobStatusOut(status="not_configured", attempt_number=None, available_at=None)
     return WebhookJobStatusOut(
-        status=job.status, attempt_number=job.attempt_number, available_at=job.available_at
+        status=_job_status(job.status, record),
+        attempt_number=job.attempt_number,
+        available_at=job.available_at,
     )
 
 
@@ -901,6 +944,7 @@ def replay_webhook(
     original delivery would, rather than failing after one try.
     """
     record = _get_owned_record(db, record_id, user)
+    _require_ready(record)
     delivery = notify_new_record(db, record)
     if delivery is None:
         raise HTTPException(status_code=400, detail="No webhook URL is configured")
@@ -916,7 +960,7 @@ def get_record_provisioning_status(
     """The automatic post-ingest provisioning pipeline's current state
     for one record - same shape/purpose as get_record_webhook_status
     above."""
-    _get_owned_record(db, record_id, user)
+    record = _get_owned_record(db, record_id, user)
     job = db.execute(
         select(ProvisioningJob).where(ProvisioningJob.record_id == record_id)
     ).scalar_one_or_none()
@@ -925,7 +969,7 @@ def get_record_provisioning_status(
             status="not_configured", attempt_number=None, available_at=None, remote_id=None
         )
     return ProvisioningJobStatusOut(
-        status=job.status,
+        status=_job_status(job.status, record),
         attempt_number=job.attempt_number,
         available_at=job.available_at,
         remote_id=job.remote_id,
@@ -957,8 +1001,14 @@ def replay_provisioning_endpoint(
     replay_provisioning()'s docstring in provisioning.py for how this
     differs from replay_webhook above."""
     record = _get_owned_record(db, record_id, user)
+    _require_ready(record)
     if not settings.provisioning_url:
         raise HTTPException(status_code=400, detail="No provisioning URL is configured")
+    if not has_user_name(record):
+        raise HTTPException(
+            status_code=400,
+            detail="This record has nothing to use as a SCIM userName - no user to create",
+        )
     job = replay_provisioning(db, record)
     return ProvisioningJobStatusOut(
         status=job.status,

@@ -66,6 +66,9 @@ export function Layout({ children }: { children: ReactNode }) {
             <Link to="/terms" className="hover:text-foreground transition">
               Terms of service
             </Link>
+            <Link to="/dpa" className="hover:text-foreground transition">
+              Data processing
+            </Link>
           </div>
         </div>
       </footer>

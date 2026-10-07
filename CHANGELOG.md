@@ -6,7 +6,71 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
+### Fixed
+- **Legal pages and landing copy match what the product does.** DPA: no
+  webhook forwarding on the hosted service; eval use of invoices only with
+  written permission; breach notice "where possible within 48 hours"; a
+  free-pilot section (DPA accepted by email before any invoices are sent,
+  copies deleted after delivery). Privacy: server logs disclosed; webhooks
+  are self-hosted only. Terms: flagged records "stay marked". Landing: no
+  "not pooled into a shared store" (records share one table, isolated per
+  account), no "every new record fires a webhook", no totals check (it
+  only runs in extraction), and the pilot promises a clean spreadsheet in
+  24 hours, not an accounting-software import file.
+
 ### Added
+- **Data processing agreement (`/dpa`)** and updated legal pages. The DPA
+  covers GDPR Art. 28(3) for the client and invoice data customers upload:
+  the two sub-processors (Railway EU West, Anthropic only when extraction
+  is on), 48-hour breach notice, 30 days' notice for new sub-processors, a
+  security annex of measures that really exist, and "not an invoice
+  archive". The privacy page adds EU hosting, a transfers section with
+  each US provider's verified safeguard (DPF or SCCs), Cloudflare, and
+  corrected legal bases (GitHub login on contract; legitimate interest
+  for IPs and backups). The terms describe the current product (invoices,
+  the review gate), make reviewing results the customer's job, and pull
+  in the DPA. Linked from the footer.
+- **Review gate: flagged records wait for a human.** Webhooks and
+  provisioning now only go out for records with no flags, or that someone
+  approved via the new `POST /records/{id}/approve` ("Approve" button on
+  the record page). The worker's claim queries filter on
+  `ClientRecord.is_ready()`, so the gate holds whichever path changed a
+  record's flags (upload, edit, mapping review). New nullable
+  `client_records.approved_at`; an edit clears it. Held jobs show as
+  `awaiting_review`; manual replays of an unready record return 409; the
+  CSV export gains an `approved_at` column. Behavior change: flagged
+  records already queued stop being sent until approved.
+- **Invoice extraction from PDFs and images** (`extract.py`, off unless
+  `ANTHROPIC_API_KEY` is set). `POST /records/upload` now also accepts
+  `.pdf/.png/.jpg/.jpeg/.webp`: Claude reads each invoice's header
+  fields (supplier name, tax ID, number, date, currency, net/VAT/
+  withholding/total) via structured output validated by Pydantic, and
+  returns the same raw rows `load_input` gives for a CSV - one row per
+  invoice, so a PDF of several scanned invoices works too. Everything
+  after that step (mapping, tidycsv validation, dedup, persistence,
+  webhooks, provisioning) is the existing pipeline, unchanged. The nine
+  invoice fields are typed in `schema.yaml`, and `default_dedup_key_fields`
+  defaults an invoice shape to `supplier_tax_id + invoice_number`, so
+  uploading the same invoice twice creates no second record; tax IDs are
+  normalized first (`"B-12345678"` and `"B12345678"` are one supplier).
+  No model-reported confidence score (poorly calibrated): an invoice is
+  flagged only for fields the model itself says it couldn't read, a
+  deterministic `net + VAT - withholding = total` check (the withholding
+  term exists so Spanish IRPF freelancer invoices aren't all falsely
+  flagged), and tidycsv's usual validation. Errors: a document with no
+  invoice, a refusal, or extraction not being enabled is a 400; an API
+  outage is a 502 with no half-written run left behind, since the model
+  call happens before any DB work. Token usage is logged per call
+  (`extraction.completed`) for working out cost per invoice. Default
+  model `claude-sonnet-5`, configurable via `EXTRACTION_MODEL`. Staging
+  only for now - production has open registration and no per-user quota
+  yet. Tests never call the real API (15 new tests monkeypatch the model
+  call). `scripts/eval_extraction.py` measures per-field accuracy against
+  hand-labeled invoices in `evals/invoices/` (real ones go in the
+  gitignored `evals/invoices/private/`); no run committed yet. Frontend:
+  the upload button accepts invoices ("Upload file or invoice"). The
+  privacy page lists Anthropic as a sub-processor and invoices as a data
+  category - a self-employed supplier's tax ID is personal data.
 - **Inline editing of ingested records.** Previously the only way to fix a
   flagged row (a blank required field, a date tidycsv couldn't parse) was
   deleting it and re-uploading the whole file with the source data
@@ -111,6 +175,16 @@ nothing has been tagged as a release yet, so everything below is under
   matching the main app's own header.
 
 ### Fixed
+- **SCIM provisioning fired for records that aren't users.** With a
+  `PROVISIONING_URL` configured, every new record got a `POST /Users`
+  job, including a CSV row with no email column - which sent
+  `userName: null` and could only be rejected downstream, then retried
+  until dead. Invoice extraction made this the common case (an invoice
+  has no email at all). `enqueue_provisioning` now skips a record with
+  nothing to map to `userName` (checked against the configured mapping,
+  not a hardcoded `email`), and manual replay refuses one with a 400.
+  The mapping file is now parsed once per path instead of on every
+  call, since the check runs per ingested row.
 - **Mapping review save gave no real feedback.** Save silently updated
   the mapping and left the engineer on the same screen with a static
   "Saved." - no navigation, no indication of what changed, and a failed

@@ -373,6 +373,11 @@ export async function updateRecordFields(
   });
 }
 
+// Accepts a flagged record as is, so its webhook/provisioning go out.
+export async function approveRecord(id: string): Promise<ClientRecord> {
+  return request<ClientRecord>(`/records/${id}/approve`, { method: "POST" });
+}
+
 export async function getRecordWebhooks(id: string): Promise<WebhookDelivery[]> {
   return request<WebhookDelivery[]>(`/records/${id}/webhooks`);
 }

@@ -3,20 +3,23 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import * as api from "../api/client";
 import { ApiError } from "../api/client";
-import type { ClientRecord, IngestResult } from "../api/types";
+import type { ClientRecord, IngestionRun, IngestResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
 import { humanizeFieldName } from "../lib/fieldNames";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
+import { UploadPicker } from "../components/UploadPicker";
 import { UploadResultsTable } from "../components/UploadResultsTable";
 
-type Filter = "all" | "clean" | "flagged";
+// Every record is in exactly one Status, so the three add up to "all".
+type Status = "Clean" | "Needs review" | "Approved";
+type Filter = "all" | Status;
 
 // full_name/email/signup_date sort alphabetically (signup_date is stored
 // as an ISO-ish string, so alphabetical order already matches chronological
 // order); amount sorts numerically; has_issues (Status) sorts by its
-// Clean/Flagged label, alphabetically - Clean before Flagged ascending,
+// Approved/Clean/Needs review label, alphabetically - Clean before Needs review ascending,
 // same string-comparator behavior as the other non-numeric columns.
 type SortKey = string;
 type SortDirection = "asc" | "desc";
@@ -26,9 +29,18 @@ interface SortState {
 }
 
 function sortValue(record: ClientRecord, key: SortKey): string | number | null {
-  if (key === "has_issues") return record.has_issues ? "Flagged" : "Clean";
+  if (key === "has_issues") return statusLabel(record);
   return record.fields[key];
 }
+
+// A flagged record someone approved isn't work to do any more - see the
+// review gate in the backend README. The cards, the filter, the status
+// pill and the sort all go through this, so they can't disagree.
+function statusLabel(record: ClientRecord): Status {
+  if (!record.has_issues) return "Clean";
+  return record.approved_at ? "Approved" : "Needs review";
+}
+
 
 function compareRecords(a: ClientRecord, b: ClientRecord, sort: SortState): number {
   const av = sortValue(a, sort.key);
@@ -92,22 +104,65 @@ function SortableHeader({
   );
 }
 
+// The table's only Clean/Flagged filter: clicking a card filters the
+// table to it, and the active one is outlined.
 function StatCard({
   label,
   value,
   valueClassName,
+  active,
+  onClick,
+  disabled,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
+  active: boolean;
+  onClick: () => void;
+  disabled: boolean;
 }) {
   return (
-    <div className="rounded-md border border-border bg-card px-4 py-3">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`rounded-md border bg-card px-4 py-3 text-left transition hover:bg-secondary disabled:opacity-50 ${
+        active ? "border-ring" : "border-border"
+      }`}
+    >
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className={`text-2xl font-semibold tracking-tight ${valueClassName ?? ""}`}>
         {value}
       </div>
-    </div>
+    </button>
+  );
+}
+
+// One upload-result count that, when non-zero, switches the table to the
+// matching filter - "3 flagged" goes straight to the records held for
+// review (see the review gate in the backend README).
+function CountFilter({
+  count,
+  label,
+  countClassName,
+  onClick,
+}: {
+  count: number;
+  label: string;
+  countClassName: string;
+  onClick: () => void;
+}) {
+  const content = (
+    <>
+      <span className={`font-medium ${countClassName}`}>{count}</span> {label}
+    </>
+  );
+  if (count === 0) return <span>{content}</span>;
+  return (
+    <button type="button" onClick={onClick} className="hover:underline">
+      {content}
+    </button>
   );
 }
 
@@ -119,6 +174,7 @@ export function RecordsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const ingestionRunId = searchParams.get("ingestion_run_id");
   const [records, setRecords] = useState<ClientRecord[]>([]);
+  const [runs, setRuns] = useState<IngestionRun[]>([]);
   const reduce = useReducedMotion();
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -190,17 +246,35 @@ export function RecordsPage() {
     load();
   }, [load]);
 
+  // The upload picker's options. A failure just leaves the picker hidden -
+  // the records themselves still load.
+  const loadRuns = useCallback(async () => {
+    try {
+      const all = await api.listIngestionRuns();
+      setRuns(all.sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    } catch {
+      setRuns([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
+
   const stats = useMemo(() => {
-    const total = records.length;
-    const flagged = records.filter((r) => r.has_issues).length;
-    return { total, clean: total - flagged, flagged };
+    const count = (status: Status) => records.filter((r) => statusLabel(r) === status).length;
+    return {
+      total: records.length,
+      clean: count("Clean"),
+      needsReview: count("Needs review"),
+      approved: count("Approved"),
+    };
   }, [records]);
 
   const filteredRecords = useMemo(() => {
     const query = search.trim().toLowerCase();
     return records.filter((r) => {
-      if (filter === "clean" && r.has_issues) return false;
-      if (filter === "flagged" && !r.has_issues) return false;
+      if (filter !== "all" && statusLabel(r) !== filter) return false;
       if (query) {
         const matchesField = Object.values(r.fields).some(
           (val) => val != null && String(val).toLowerCase().includes(query),
@@ -248,7 +322,7 @@ export function RecordsPage() {
       const result = await api.uploadFile(file);
       setLastResult(result);
       sessionStorage.setItem("tidybridge_last_ingest_result", JSON.stringify(result));
-      await load();
+      await Promise.all([load(), loadRuns()]);
     } catch (err) {
       setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
     } finally {
@@ -343,7 +417,7 @@ export function RecordsPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.xlsx,.xls"
+            accept=".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -352,7 +426,7 @@ export function RecordsPage() {
             disabled={uploading}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : "Upload CSV / Excel"}
+            {uploading ? "Uploading…" : "Upload file or invoice"}
           </button>
         </div>
       </div>
@@ -373,24 +447,6 @@ export function RecordsPage() {
       {bulkDeleteError && (
         <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {bulkDeleteError}
-        </div>
-      )}
-
-      {ingestionRunId && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-border bg-secondary/50 px-4 py-2 text-sm">
-          <span>
-            Showing only records from{" "}
-            <Link to="/uploads" className="text-ring hover:underline">
-              one upload
-            </Link>
-          </span>
-          <button
-            type="button"
-            onClick={() => setSearchParams({})}
-            className="text-xs text-muted-foreground hover:underline"
-          >
-            Clear filter
-          </button>
         </div>
       )}
 
@@ -455,15 +511,19 @@ export function RecordsPage() {
             <div>
               <p className="font-medium mb-1">{lastResult.rows_total} rows processed</p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
-                <span>
-                  <span className="font-medium text-primary">{lastResult.rows_clean}</span> clean
-                </span>
-                <span>
-                  <span className="font-medium text-amber-700 dark:text-amber-400">
-                    {lastResult.rows_flagged}
-                  </span>{" "}
-                  flagged
-                </span>
+                <CountFilter
+                  count={lastResult.rows_clean}
+                  label="clean"
+                  countClassName="text-primary"
+                  onClick={() => setFilter("Clean")}
+                />
+                <CountFilter
+                  count={lastResult.rows_flagged}
+                  label="flagged"
+                  countClassName="text-amber-700 dark:text-amber-400"
+                  // Everything a fresh upload flagged still needs review.
+                  onClick={() => setFilter("Needs review")}
+                />
                 <span>
                   <span className="font-medium">{lastResult.rows_dropped_duplicates}</span>{" "}
                   duplicate{lastResult.rows_dropped_duplicates === 1 ? "" : "s"} skipped
@@ -515,38 +575,52 @@ export function RecordsPage() {
       )}
 
       {!loading && !error && records.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <StatCard label="Total records" value={String(stats.total)} />
-          <StatCard label="Clean" value={String(stats.clean)} valueClassName="text-primary" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <StatCard
-            label="Flagged"
-            value={
-              stats.total === 0
-                ? "0"
-                : `${stats.flagged} (${Math.round((stats.flagged / stats.total) * 100)}%)`
-            }
+            label="Total records"
+            value={String(stats.total)}
+            active={filter === "all"}
+            onClick={() => setFilter("all")}
+            disabled={uploading}
+          />
+          <StatCard
+            label="Clean"
+            value={String(stats.clean)}
+            valueClassName="text-primary"
+            active={filter === "Clean"}
+            onClick={() => setFilter("Clean")}
+            disabled={uploading}
+          />
+          <StatCard
+            label="Needs review"
+            active={filter === "Needs review"}
+            onClick={() => setFilter("Needs review")}
+            disabled={uploading}
+            value={`${stats.needsReview} (${Math.round((stats.needsReview / stats.total) * 100)}%)`}
             valueClassName="text-amber-700 dark:text-amber-400"
+          />
+          <StatCard
+            label="Approved"
+            value={String(stats.approved)}
+            valueClassName="text-primary"
+            active={filter === "Approved"}
+            onClick={() => setFilter("Approved")}
+            disabled={uploading}
           />
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="flex gap-2 text-sm">
-          {(["all", "clean", "flagged"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              disabled={uploading}
-              className={`rounded-full px-3 py-1 border transition disabled:opacity-50 ${
-                filter === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border hover:bg-secondary"
-              }`}
-            >
-              {f === "all" ? "All" : f === "clean" ? "Clean" : "Flagged"}
-            </button>
-          ))}
-        </div>
+        {runs.length > 0 && (
+          // Drives the same ?ingestion_run_id= the Upload history links
+          // use, so the fetch, the cards and the export all follow it.
+          <UploadPicker
+            runs={runs}
+            value={ingestionRunId}
+            onChange={(runId) => setSearchParams(runId ? { ingestion_run_id: runId } : {})}
+            disabled={uploading}
+          />
+        )}
         <input
           type="search"
           value={search}
@@ -600,7 +674,7 @@ export function RecordsPage() {
                   sort={sort}
                   onSort={handleSort}
                 />
-                <th className="px-4 py-2 font-medium text-right w-32 h-10">
+                <th className="px-4 py-2 font-medium text-right w-44 h-10">
                   <AnimatePresence>
                     {selectedIds.size > 0 && (
                       <motion.button
@@ -666,24 +740,36 @@ export function RecordsPage() {
                     );
                   })}
                   <td className="px-4 py-2">
-                    {r.has_issues ? (
+                    {statusLabel(r) === "Needs review" ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
-                        Flagged
+                        Needs review
                       </span>
                     ) : (
                       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
-                        Clean
+                        {statusLabel(r)}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right w-32">
-                    <motion.button
-                      whileTap={reduce ? undefined : { scale: 0.97 }}
-                      onClick={() => setPendingDeleteId(r.id)}
-                      className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm hover:shadow transition"
-                    >
-                      Delete
-                    </motion.button>
+                  <td className="px-4 py-2 text-right w-44">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {/* Opens the record, doesn't approve from here: the
+                          point of the gate is looking at the flags first. */}
+                      {statusLabel(r) === "Needs review" && (
+                        <Link
+                          to={`/records/${r.id}`}
+                          className="rounded-md border border-amber-300 dark:border-amber-900 bg-card text-amber-700 dark:text-amber-400 px-2.5 py-1 text-xs shadow-sm transition hover:shadow hover:bg-amber-50 hover:border-amber-400 dark:hover:bg-amber-950/50 dark:hover:border-amber-700"
+                        >
+                          Review
+                        </Link>
+                      )}
+                      <motion.button
+                        whileTap={reduce ? undefined : { scale: 0.97 }}
+                        onClick={() => setPendingDeleteId(r.id)}
+                        className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm transition hover:shadow hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/50 dark:hover:border-red-700"
+                      >
+                        Delete
+                      </motion.button>
+                    </div>
                   </td>
                 </tr>
               ))}

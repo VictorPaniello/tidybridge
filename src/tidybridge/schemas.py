@@ -19,6 +19,7 @@ class ClientRecordOut(BaseModel):
     fields: dict
     has_issues: bool
     issues: list[dict] | None
+    approved_at: datetime | None
     created_at: datetime
 
 
@@ -89,7 +90,7 @@ class WebhookJobStatusOut(BaseModel):
     Doesn't reflect manual replays - those are a deliberate one-off
     action outside this pipeline (see notify_new_record()'s docstring)."""
 
-    status: str  # "pending" | "done" | "dead" | "not_configured"
+    status: str  # "pending" | "awaiting_review" | "done" | "dead" | "not_configured"
     attempt_number: int | None
     available_at: datetime | None
 
@@ -116,7 +117,8 @@ class ProvisioningJobStatusOut(BaseModel):
     outcome synchronously - replay_provisioning only resets the job for
     the worker to pick up (see the plan's clarification #4)."""
 
-    status: str  # "pending" | "done" | "skipped_exists" | "dead" | "not_configured"
+    # "pending" | "awaiting_review" | "done" | "skipped_exists" | "dead" | "not_configured"
+    status: str
     attempt_number: int | None
     available_at: datetime | None
     remote_id: str | None

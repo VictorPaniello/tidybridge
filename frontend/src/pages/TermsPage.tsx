@@ -1,22 +1,32 @@
 import { Link } from "react-router-dom";
+import { LegalSection as Section } from "../components/LegalSection";
 
 export function TermsPage() {
   return (
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Terms of service</h1>
-        <p className="text-muted-foreground">Last updated: September 2026</p>
+        <p className="text-muted-foreground">Last updated: October 2026</p>
       </div>
 
       <Section title="What this is">
         <p>
-          tidybridge is a client-data ingestion service: you upload a CSV/Excel file, it's
-          cleaned and validated, persisted, and (if you've configured one) forwarded to a webhook
-          you control. It's operated by an individual developer (Victor Paniello), not a
-          company, and run as a single instance with no uptime guarantee or service-level
-          agreement - see the project's own README for the full, honest list of what it doesn't
-          do yet (no horizontal scaling, no failover, in-memory rate limiting). By using it, you
-          accept that trade-off.
+          tidybridge is a data ingestion service for professionals: you upload a CSV/Excel file
+          of client data, or supplier invoices as PDFs or images (when invoice extraction is
+          enabled), and it's cleaned, validated, flagged where something looks wrong, stored, and
+          available to export. Flagged records stay marked until you fix them or approve them
+          as they are.
+        </p>
+        <p className="mt-2">
+          It's operated by an individual developer (Victor Paniello), not a company, and run as
+          a single instance with no uptime guarantee or service-level agreement - see the
+          project's own README for the full, honest list of what it doesn't do yet (no
+          horizontal scaling, no failover, in-memory rate limiting). By using it, you accept that
+          trade-off.
+        </p>
+        <p className="mt-2">
+          The service is meant for use in your business or profession. Nothing here limits
+          rights you have as a consumer under EU law, where those apply.
         </p>
       </Section>
 
@@ -44,6 +54,31 @@ export function TermsPage() {
           Don't upload data you don't have the right to share - someone else's client list taken
           without authorization, data obtained unlawfully, or special-category data (health,
           biometric, etc.) this service isn't built to handle securely.
+        </p>
+        <p className="mt-2">
+          The{" "}
+          <Link to="/dpa" className="text-ring hover:underline">
+            Data processing agreement
+          </Link>{" "}
+          forms part of these terms as soon as you upload data about other people, and sets out
+          how tidybridge handles it as your processor.
+        </p>
+      </Section>
+
+      <Section title="Checking the results is your job">
+        <p>
+          Validation flags and invoice extraction help you spot problems, but they can miss
+          things or read a document wrong. You're responsible for reviewing the data before you
+          rely on it, for example in your accounting or tax filings. Approving a flagged record
+          means you've checked it.
+        </p>
+      </Section>
+
+      <Section title="tidybridge is not an archive">
+        <p>
+          Uploaded data is deleted automatically after one year. Spanish law requires invoices
+          to be kept for four to six years: keep them in your accounting software or your own
+          records, not in tidybridge.
         </p>
       </Section>
 
@@ -118,7 +153,7 @@ export function TermsPage() {
 
       <Section title="Contact">
         <p>
-          <a className="text-ring hover:underline" href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>
+          <a className="text-ring hover:underline" href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>
         </p>
       </Section>
 
@@ -127,14 +162,5 @@ export function TermsPage() {
         not a substitute for independent legal advice for your own use of it.
       </p>
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="text-lg font-semibold tracking-tight mb-2">{title}</h2>
-      {children}
-    </section>
   );
 }

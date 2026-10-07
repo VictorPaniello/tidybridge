@@ -13,6 +13,9 @@ export interface ClientRecord {
   fields: Record<string, string | null>;
   has_issues: boolean;
   issues: { field: string; issue: string }[] | null;
+  // Set by POST /records/{id}/approve; cleared by an edit. A flagged
+  // record is only sent downstream once approved (or fixed).
+  approved_at: string | null;
   created_at: string;
 }
 
@@ -120,7 +123,7 @@ export interface RecordsPage {
 // record - see the backend's WebhookJobStatusOut docstring for what each
 // status means. Doesn't reflect manual replays.
 export interface WebhookJobStatus {
-  status: "pending" | "done" | "dead" | "not_configured";
+  status: "pending" | "awaiting_review" | "done" | "dead" | "not_configured";
   attempt_number: number | null;
   available_at: string | null;
 }
@@ -142,7 +145,7 @@ export interface ProvisioningAttempt {
 // replay's own outcome synchronously - see the backend's
 // replay_provisioning docstring.
 export interface ProvisioningJobStatus {
-  status: "pending" | "done" | "skipped_exists" | "dead" | "not_configured";
+  status: "pending" | "awaiting_review" | "done" | "skipped_exists" | "dead" | "not_configured";
   attempt_number: number | null;
   available_at: string | null;
   remote_id: string | null;
