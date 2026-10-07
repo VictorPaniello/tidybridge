@@ -29,6 +29,20 @@ describe("legal pages", () => {
     );
   });
 
+  it.each([
+    ["Terms", <TermsPage />],
+    ["Privacy", <PrivacyPage />],
+    ["DPA", <DpaPage />],
+  ])("%s uses hello@tidybridge.dev, never a personal address", (_, page) => {
+    renderIn(page);
+    const mailtos = screen
+      .getAllByRole("link")
+      .map((a) => a.getAttribute("href") ?? "")
+      .filter((href) => href.startsWith("mailto:"));
+    expect(mailtos.length).toBeGreaterThan(0);
+    expect(mailtos.every((href) => href === "mailto:hello@tidybridge.dev")).toBe(true);
+  });
+
   it("the footer links to all three", () => {
     vi.spyOn(auth, "useAuth").mockReturnValue({ user: null, logout: vi.fn() } as never);
     renderIn(<Layout>content</Layout>);

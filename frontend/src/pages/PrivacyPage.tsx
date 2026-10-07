@@ -24,7 +24,7 @@ export function PrivacyPage() {
         </p>
         <p>
           Contact for anything on this page, including exercising the rights described further
-          down: <a className="text-ring hover:underline" href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>.
+          down: <a className="text-ring hover:underline" href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>.
         </p>
       </Section>
 
@@ -205,7 +205,7 @@ export function PrivacyPage() {
         </ul>
         <p className="mt-2">
           Email{" "}
-          <a className="text-ring hover:underline" href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>{" "}
+          <a className="text-ring hover:underline" href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>{" "}
           for more detail on any of these.
         </p>
       </Section>
@@ -249,7 +249,7 @@ export function PrivacyPage() {
         </ul>
         <p className="mt-2">
           For anything not already self-service in the app, email{" "}
-          <a className="text-ring hover:underline" href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>.
+          <a className="text-ring hover:underline" href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>.
           If you're not satisfied with the response, you can lodge a complaint with Spain's data
           protection authority, the{" "}
           <a
