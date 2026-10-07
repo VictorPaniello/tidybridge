@@ -25,7 +25,7 @@ export function DpaPage() {
         </Link>{" "}
         and applies automatically as soon as you upload such data, as required by Article 28 of
         the GDPR. If you need a signed copy for your records, email{" "}
-        <a className={linkClass} href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>.
+        <a className={linkClass} href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>.
       </p>
 
       <Section title="1. Who is who">

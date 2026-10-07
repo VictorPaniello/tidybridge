@@ -153,7 +153,7 @@ export function TermsPage() {
 
       <Section title="Contact">
         <p>
-          <a className="text-ring hover:underline" href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>
+          <a className="text-ring hover:underline" href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>
         </p>
       </Section>
 
