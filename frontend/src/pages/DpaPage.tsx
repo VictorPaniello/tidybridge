@@ -49,8 +49,9 @@ export function DpaPage() {
         <ul className="list-disc pl-5 space-y-1">
           <li>
             <strong>Purpose and nature:</strong> cleaning, validating, flagging, storing and
-            exporting the files you upload, reading invoice fields from PDFs and images (when
-            invoice extraction is enabled), and forwarding records to a webhook you configure.
+            exporting the files you upload, and reading invoice fields from PDFs and images (when
+            invoice extraction is enabled). The hosted service doesn't forward your data to any
+            webhook or other system.
           </li>
           <li>
             <strong>Types of data:</strong> names, email addresses, phone numbers, dates, monetary
@@ -75,8 +76,11 @@ export function DpaPage() {
         <p>
           tidybridge processes this data only on your documented instructions: using the service
           as you configure it is that instruction. It won't use your data for any purpose of its
-          own: no analytics, no marketing, no selling it, and no training AI models on it. If an
-          instruction seems to break data protection law, tidybridge will tell you.
+          own: no analytics, no marketing, no selling it, and no training AI models on it. The
+          only exception needs your explicit written permission: keeping selected invoices to
+          test how accurately extraction reads them. You can withdraw that permission at any
+          time, and those invoices are then deleted. If an instruction seems to break data
+          protection law, tidybridge will tell you.
         </p>
       </Section>
 
@@ -93,8 +97,8 @@ export function DpaPage() {
           <li>Data is hosted in the EU (Amsterdam, Netherlands).</li>
           <li>All traffic is encrypted in transit (HTTPS/TLS, with HSTS).</li>
           <li>
-            Every record is tied to the account that uploaded it, and every request checks it:
-            one account can never read another's data.
+            Every record is tied to the account that uploaded it, and every request checks that
+            it belongs to the account asking for it.
           </li>
           <li>Passwords are stored only as one-way hashes.</li>
           <li>Sessions can be revoked; logging out invalidates the session on the server.</li>
@@ -104,10 +108,6 @@ export function DpaPage() {
             database owner.
           </li>
           <li>Daily database backups, kept for 30 days, for disaster recovery.</li>
-          <li>
-            Flagged records are held back: they aren't forwarded anywhere until you fix or
-            approve them.
-          </li>
         </ul>
       </Section>
 
@@ -154,9 +154,9 @@ export function DpaPage() {
           </li>
           <li>
             <strong>Breaches:</strong> if a personal data breach affects your data, tidybridge
-            will tell you without undue delay and within <strong>48 hours</strong> of becoming
-            aware of it, with what is known at the time, so you can meet your own 72-hour
-            deadline with the AEPD.
+            will tell you without undue delay, and where possible within{" "}
+            <strong>48 hours</strong> of becoming aware of it, with what is known at the time, so
+            you can meet your own 72-hour deadline with the AEPD.
           </li>
           <li>
             <strong>Impact assessments:</strong> tidybridge will give you the information about
@@ -201,7 +201,32 @@ export function DpaPage() {
         </p>
       </Section>
 
-      <Section title="11. Everything else">
+      <Section title="11. The free pilot">
+        <p>
+          In the free pilot you send your invoices to Victor instead of uploading them yourself,
+          and he does the processing for you. For the pilot:
+        </p>
+        <ul className="list-disc pl-5 space-y-1 mt-2">
+          <li>
+            This agreement applies from when you accept it, by replying to the email that sends
+            it to you, and <strong>before</strong> you send any invoices.
+          </li>
+          <li>
+            You send the files by email. The email provider that receives them is named in that
+            same email and acts as an additional sub-processor for the pilot.
+          </li>
+          <li>
+            Victor uploads them into his own tidybridge account (hosted in the EU, as above),
+            reviews the results and sends you back a spreadsheet.
+          </li>
+          <li>
+            Once you confirm you've received it, he deletes the records from tidybridge and,
+            within 30 days, the files and your emails from his mailbox and devices.
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="12. Everything else">
         <p>
           This agreement lasts as long as tidybridge processes your data. If it conflicts with the
           Terms on data protection, this agreement wins. It is governed by Spanish law, like the

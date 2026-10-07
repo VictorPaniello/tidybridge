@@ -94,9 +94,11 @@ export function PrivacyPage() {
         </ul>
         <p className="mt-2">
           Your IP address is used, in memory only, to rate-limit logins, registrations and
-          uploads, and may appear in the hosting provider's request logs. Database backups are
-          kept for 30 days. <strong>Legal basis</strong> for both: our legitimate interest in
-          keeping the service secure and recoverable (Art. 6(1)(f) GDPR).
+          uploads, and may appear in the hosting provider's request logs. The server's own logs
+          record events such as a password reset, which can include your email address; the
+          hosting provider keeps logs for a limited time. Database backups are kept for 30 days.{" "}
+          <strong>Legal basis</strong> for all of these: our legitimate interest in keeping the
+          service secure and recoverable (Art. 6(1)(f) GDPR).
         </p>
         <p className="mt-2">
           Nothing here is used for advertising, analytics, or tracking - there is no analytics
@@ -168,9 +170,11 @@ export function PrivacyPage() {
             from your browser straight to the backend, not through Vercel.
           </li>
           <li>
-            <strong>A webhook URL you configure yourself</strong> (optional, self-hosted setups
-            only) - if set, the data of each newly-ingested client record is sent there. This is
-            your own destination, under your own control, not a tidybridge-operated third party.
+            <strong>A webhook URL you configure yourself</strong> (self-hosted copies of
+            tidybridge only; the hosted service at tidybridge.dev doesn't send your data to any
+            webhook) - if set, the data of each newly-ingested client record is sent there. This
+            is your own destination, under your own control, not a tidybridge-operated third
+            party.
           </li>
         </ul>
         <p className="mt-2">
