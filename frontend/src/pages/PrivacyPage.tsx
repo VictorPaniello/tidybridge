@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { LegalSection as Section } from "../components/LegalSection";
 
 // Written from what this codebase actually does, verified against the
 // source rather than adapted from a generic template - every data
@@ -11,7 +12,7 @@ export function PrivacyPage() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Privacy policy</h1>
-        <p className="text-muted-foreground">Last updated: September 2026</p>
+        <p className="text-muted-foreground">Last updated: October 2026</p>
       </div>
 
       <Section title="Who's responsible for your data">
@@ -49,8 +50,8 @@ export function PrivacyPage() {
         </ul>
         <p className="mt-2">
           <strong>Legal basis:</strong> performance of the contract you enter into by creating an
-          account (Art. 6(1)(b) GDPR), and your consent for GitHub OAuth specifically, since it's
-          an optional login method you choose to use.
+          account (Art. 6(1)(b) GDPR). That includes signing in with GitHub, which is just one of
+          the ways to log in to that account.
         </p>
 
         <h3 className="font-medium mt-4 mb-1">2. Data you upload about your own clients</h3>
@@ -71,7 +72,11 @@ export function PrivacyPage() {
           consent, or another valid basis under applicable law) to process and share their data
           this way. tidybridge acts as your <strong>data processor</strong> for this category only
           - storing and, if you configure a webhook, forwarding it on your behalf, on your
-          instructions.
+          instructions. The terms of that are in the{" "}
+          <Link to="/dpa" className="text-ring hover:underline">
+            Data processing agreement
+          </Link>
+          .
         </p>
 
         <h3 className="font-medium mt-4 mb-1">3. Technical data</h3>
@@ -87,6 +92,12 @@ export function PrivacyPage() {
             persist beyond the login flow.
           </li>
         </ul>
+        <p className="mt-2">
+          Your IP address is used, in memory only, to rate-limit logins, registrations and
+          uploads, and may appear in the hosting provider's request logs. Database backups are
+          kept for 30 days. <strong>Legal basis</strong> for both: our legitimate interest in
+          keeping the service secure and recoverable (Art. 6(1)(f) GDPR).
+        </p>
         <p className="mt-2">
           Nothing here is used for advertising, analytics, or tracking - there is no analytics
           script, tracking pixel, or third-party embed on this site to opt out of, because none
@@ -109,9 +120,10 @@ export function PrivacyPage() {
             </a>.
           </li>
           <li>
-            <strong>Resend</strong> - sends the "forgot password" email, if you request one. This
-            means your email address, and the reset link, passes through Resend's systems (based
-            in the United States) to reach your inbox. See{" "}
+            <strong>Resend</strong> - sends the "forgot password" email, if you request one, and
+            replies sent from hello@tidybridge.dev. This means your email address, and the reset
+            link, passes through Resend's systems (based in the United States) to reach your
+            inbox. See{" "}
             <a
               className="text-ring hover:underline"
               href="https://resend.com/legal/privacy-policy"
@@ -122,10 +134,22 @@ export function PrivacyPage() {
             </a>.
           </li>
           <li>
-            <strong>Anthropic</strong> - if you upload an invoice as a PDF or image, the document
-            is sent to Anthropic's API (based in the United States) to read its fields. Anthropic
-            processes it on tidybridge's behalf as a sub-processor and doesn't use it to train its
-            models. CSV and Excel uploads never leave tidybridge's own servers. See{" "}
+            <strong>Cloudflare</strong> - forwards emails you send to hello@tidybridge.dev. See{" "}
+            <a
+              className="text-ring hover:underline"
+              href="https://www.cloudflare.com/privacypolicy/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Cloudflare's privacy policy
+            </a>.
+          </li>
+          <li>
+            <strong>Anthropic</strong> - only when invoice extraction is enabled: if you upload an
+            invoice as a PDF or image, the document is sent to Anthropic's API (based in the
+            United States) to read its fields. Anthropic processes it on tidybridge's behalf as a
+            sub-processor, and its commercial terms don't allow it to train its models on it. CSV
+            and Excel uploads never leave tidybridge's own servers. See{" "}
             <a
               className="text-ring hover:underline"
               href="https://www.anthropic.com/legal/privacy"
@@ -136,9 +160,12 @@ export function PrivacyPage() {
             </a>.
           </li>
           <li>
-            <strong>Railway</strong> and <strong>Vercel</strong> - host the backend/database and
-            the frontend, respectively. Standard infrastructure providers; they don't receive your
-            data for any purpose of their own beyond running the service.
+            <strong>Railway</strong> - hosts the backend, the database and its backups, in the EU
+            (Amsterdam, Netherlands).
+          </li>
+          <li>
+            <strong>Vercel</strong> - serves the app's web pages to your browser. Your data goes
+            from your browser straight to the backend, not through Vercel.
           </li>
           <li>
             <strong>A webhook URL you configure yourself</strong> (optional, self-hosted setups
@@ -149,6 +176,33 @@ export function PrivacyPage() {
         <p className="mt-2">
           Nobody else. Your data is not sold, rented, or shared for marketing purposes - there
           isn't a marketing program to share it with.
+        </p>
+      </Section>
+
+      <Section title="Where your data is stored, and transfers outside the EU">
+        <p>
+          The database, its backups, and everything you upload are stored in the EU, in Railway's
+          Amsterdam region.
+        </p>
+        <p className="mt-2">
+          Several of the providers above are US companies, so some personal data can reach the
+          United States. Each transfer is covered by a safeguard recognized under GDPR (Art. 45 or
+          46):
+        </p>
+        <ul className="list-disc pl-5 space-y-1 mt-2">
+          <li>
+            <strong>EU-U.S. Data Privacy Framework</strong> certification: Vercel, Resend,
+            Cloudflare, GitHub.
+          </li>
+          <li>
+            <strong>EU Standard Contractual Clauses</strong> in their data processing agreements:
+            Railway, Anthropic (GitHub and Cloudflare also have them as a backup).
+          </li>
+        </ul>
+        <p className="mt-2">
+          Email{" "}
+          <a className="text-ring hover:underline" href="mailto:panivictor14@gmail.com">panivictor14@gmail.com</a>{" "}
+          for more detail on any of these.
         </p>
       </Section>
 
@@ -237,14 +291,5 @@ export function PrivacyPage() {
         for your own use of the service.
       </p>
     </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="text-lg font-semibold tracking-tight mb-2">{title}</h2>
-      {children}
-    </section>
   );
 }

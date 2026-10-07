@@ -453,7 +453,7 @@ never affected.
 
 ## Privacy & Terms
 
-Real pages, not placeholders - `/privacy` and `/terms` on the deployed
+Real pages, not placeholders - `/privacy`, `/terms` and `/dpa` on the deployed
 frontend, linked from the footer on every page and from a required
 consent checkbox at both signup paths (email+password registration and
 GitHub OAuth's complete-profile step). Written from what this specific
@@ -466,6 +466,17 @@ Invoice uploads (PDF/image) are the one case where uploaded data goes to
 a third party you didn't configure yourself (unlike webhook/provisioning
 destinations) - they're sent to Anthropic for extraction, disclosed as a
 sub-processor on `/privacy`.
+
+`/dpa` is the GDPR Article 28 data processing agreement for the client
+and invoice data customers upload (tidybridge as their processor),
+adapted from the EU parts of General Legal's CC0
+[`dpa-global`](https://github.com/General-Legal/legal-templates) template.
+It's part of the terms once a customer uploads client data, lists the
+only two sub-processors of that data (Railway in EU West, and Anthropic
+when extraction is on), and states the transfer safeguard of every US
+provider - each checked on the provider's own site, see
+`docs/superpowers/plans/2026-10-07-legal-update.md`. Everything is hosted
+in Railway's EU West region (Amsterdam).
 
 Data retention is documented exactly as the code behaves: client data
 (what you upload about your own clients) is kept for up to a year, then
