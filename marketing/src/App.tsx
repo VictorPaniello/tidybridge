@@ -1,15 +1,19 @@
-import { motion, useReducedMotion, type Variants } from "motion/react";
+import type { MouseEvent, PointerEvent } from "react";
+import { motion, useReducedMotion, type HTMLMotionProps, type Variants } from "motion/react";
 import { ThemeToggle } from "./components/ThemeToggle";
+
+const APP_URL = "https://app.tidybridge.dev";
+const REPO_URL = "https://github.com/VictorPaniello/tidybridge";
 
 const PIPELINE = [
   {
     title: "Upload",
-    description: "Drop in a CSV or Excel export, wherever the client's data started out.",
+    description: "Drop in a CSV or Excel export, wherever the client’s data started out.",
   },
   {
     title: "Clean & validate",
     description:
-      "tidycsv normalizes types and collapses stray whitespace, flagging anything it can't parse instead of dropping it.",
+      "tidycsv normalizes types and collapses stray whitespace, flagging anything it can’t parse instead of dropping it.",
   },
   {
     title: "Deliver",
@@ -23,7 +27,7 @@ const CAPABILITIES = [
     icon: BroomIcon,
     title: "Clean CSV/Excel uploads",
     description:
-      "Upload a CSV or Excel export and it's cleaned and validated via tidycsv. Malformed rows are flagged, not silently dropped or crashed on.",
+      "Upload a CSV or Excel export and it’s cleaned and validated via tidycsv. Malformed rows are flagged, not silently dropped or crashed on.",
   },
   {
     icon: WebhookIcon,
@@ -63,6 +67,9 @@ Content-Type: application/scim+json
   "active": true
 }`.split("\n");
 
+const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+const SPRING = { type: "spring", stiffness: 400, damping: 25 } as const;
+
 const heroContainer: Variants = {
   hidden: {},
   show: { transition: { staggerChildren: 0.09 } },
@@ -70,7 +77,7 @@ const heroContainer: Variants = {
 
 const heroItem: Variants = {
   hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE_OUT } },
 };
 
 // Streams the payload in line by line, like a request actually going out,
@@ -90,130 +97,266 @@ const payloadLine: Variants = {
 // to where this is used.
 const SENT_DELAY = 0.5 + (SCIM_PAYLOAD_LINES.length - 1) * 0.04 + 0.25;
 
+// "How it works": the connector line draws across the steps and each step's
+// number lights up as the line reaches it. STEP_GAP is the time between two
+// steps lighting up, so the line's own duration is derived from it.
+const STEP_GAP = 0.45;
+
+// Desktop: one line across all steps.
+const connector: Variants = {
+  hidden: { scaleX: 0 },
+  show: { scaleX: 1, transition: { duration: STEP_GAP * (PIPELINE.length - 1), ease: "linear" } },
+};
+
+// Mobile: one vertical segment per step, each drawn in its own slot.
+const segment: Variants = {
+  hidden: { scaleY: 0 },
+  show: (i: number) => ({ scaleY: 1, transition: { duration: STEP_GAP, delay: i * STEP_GAP, ease: "linear" } }),
+};
+
+const stepRing: Variants = {
+  hidden: { opacity: 0, scale: 0.6 },
+  show: (i: number) => ({ opacity: 1, scale: 1, transition: { ...SPRING, delay: i * STEP_GAP } }),
+};
+
+const stepText: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  show: (i: number) => ({ opacity: 1, y: 0, transition: { duration: 0.5, delay: i * 0.08, ease: EASE_OUT } }),
+};
+
+// Hands off the current theme so the app doesn't flash to the wrong one on
+// arrival - localStorage can't do this, tidybridge.dev and app.tidybridge.dev
+// are different origins. The app's own blocking script (frontend/index.html)
+// reads this once, persists it to its own localStorage, and strips it from
+// the URL. Rewrites the href instead of navigating by hand so ctrl-click,
+// middle-click and "open in new tab" keep working: pointerdown runs before
+// any of those, click covers keyboard activation.
+function withTheme(e: MouseEvent<HTMLAnchorElement> | PointerEvent<HTMLAnchorElement>) {
+  const dark = document.documentElement.classList.contains("dark");
+  e.currentTarget.href = `${APP_URL}/register?theme=${dark ? "dark" : "light"}`;
+}
+
+const CTA_STYLES = {
+  primary:
+    "bg-primary text-primary-foreground hover:shadow-[0_8px_24px_-8px_var(--ring)]",
+  secondary: "border border-border hover:bg-secondary",
+};
+
+function Cta({
+  variant = "primary",
+  size = "md",
+  className = "",
+  ...props
+}: HTMLMotionProps<"a"> & { variant?: keyof typeof CTA_STYLES; size?: "sm" | "md" }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.a
+      whileHover={reduce ? undefined : { y: -2 }}
+      whileTap={reduce ? undefined : { y: 0, scale: 0.97 }}
+      transition={SPRING}
+      className={`inline-flex items-center rounded-md font-medium transition-[box-shadow,background-color] ${
+        size === "sm" ? "px-3 py-1.5 text-sm" : "px-5 py-2.5"
+      } ${CTA_STYLES[variant]} ${className}`}
+      {...props}
+    />
+  );
+}
+
+function GetStarted(props: { size?: "sm" | "md"; className?: string }) {
+  return (
+    <Cta href={`${APP_URL}/register`} onPointerDown={withTheme} onClick={withTheme} {...props}>
+      Get started
+    </Cta>
+  );
+}
+
+// Lights the panel's 1px border under the cursor. Writes CSS variables
+// straight to the element so moving the mouse never re-renders React.
+function trackSpotlight(e: PointerEvent<HTMLDivElement>) {
+  const r = e.currentTarget.getBoundingClientRect();
+  e.currentTarget.style.setProperty("--x", `${e.clientX - r.left}px`);
+  e.currentTarget.style.setProperty("--y", `${e.clientY - r.top}px`);
+}
+
 export default function App() {
   const reduce = useReducedMotion();
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-40 border-b border-border bg-background">
-        <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-          <motion.span
+    <div className="min-h-dvh flex flex-col">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
+      >
+        Skip to content
+      </a>
+
+      <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--background)_85%,transparent)] backdrop-blur">
+        <div className="mx-auto max-w-6xl px-4 py-2 flex items-center justify-between gap-4">
+          <motion.a
+            href="/"
             initial={reduce ? false : { opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="font-semibold tracking-tight"
+            transition={{ duration: 0.35, ease: EASE_OUT }}
+            className="font-semibold tracking-tight rounded-sm hover:opacity-80 transition-opacity"
+            translate="no"
           >
             tidy<span className="text-ring">bridge</span>
-          </motion.span>
-          <ThemeToggle />
+          </motion.a>
+          <nav aria-label="Main" className="flex items-center gap-2 sm:gap-4">
+            <a
+              href="#gestorias"
+              className="rounded-sm px-1 py-2 text-sm text-muted-foreground hover:text-foreground transition"
+            >
+              For gestorías
+            </a>
+            <GetStarted size="sm" className="hidden sm:inline-flex" />
+            <ThemeToggle />
+          </nav>
         </div>
       </header>
 
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4">
+      <main id="main" className="flex-1 mx-auto w-full max-w-6xl px-4">
         <motion.section
           initial={reduce ? false : "hidden"}
           animate="show"
           variants={heroContainer}
-          className="py-16 sm:py-20 grid gap-10 md:grid-cols-2 md:items-center"
+          className="relative isolate py-16 sm:py-24 grid gap-10 md:grid-cols-2 md:items-center"
         >
+          <div aria-hidden="true" className="hero-glow pointer-events-none absolute inset-0 -z-10" />
           <div>
             <motion.h1
               variants={heroItem}
-              className="text-4xl sm:text-5xl font-semibold tracking-tight leading-[1.1]"
+              className="text-4xl sm:text-6xl font-semibold tracking-[-0.03em] leading-[1.05]"
             >
               Clean client data in, a working integration out.
             </motion.h1>
-            <motion.p variants={heroItem} className="mt-4 max-w-md text-muted-foreground text-lg">
-              The forward-deployed engineer's move, automated: clean a messy
+            <motion.p variants={heroItem} className="mt-5 max-w-md text-muted-foreground text-lg">
+              The forward-deployed engineer’s move, automated: clean a messy
               export, load it into a database, notify downstream systems as
               it lands.
             </motion.p>
-            <motion.div variants={heroItem} className="mt-8 flex items-center gap-4">
-              <motion.a
-                whileTap={reduce ? undefined : { scale: 0.97 }}
-                href="https://app.tidybridge.dev/register"
-                onClick={(e) => {
-                  // Hands off the current theme so the app doesn't flash to
-                  // the wrong one on arrival - localStorage can't do this,
-                  // tidybridge.dev and app.tidybridge.dev are different
-                  // origins. The app's own blocking script (frontend/index.html)
-                  // reads this once, persists it to its own localStorage, and
-                  // strips it from the URL.
-                  e.preventDefault();
-                  const dark = document.documentElement.classList.contains("dark");
-                  window.location.href = `https://app.tidybridge.dev/register?theme=${dark ? "dark" : "light"}`;
-                }}
-                className="rounded-md bg-primary text-primary-foreground px-5 py-2.5 font-medium hover:opacity-90 transition"
-              >
-                Get started
-              </motion.a>
-              <motion.a
-                whileTap={reduce ? undefined : { scale: 0.97 }}
-                href="https://github.com/VictorPaniello/tidybridge"
-                className="rounded-md border border-border px-5 py-2.5 font-medium hover:bg-secondary transition"
-              >
+            <motion.div variants={heroItem} className="mt-8 flex flex-wrap items-center gap-3">
+              <GetStarted />
+              <Cta variant="secondary" href={REPO_URL}>
                 View on GitHub
-              </motion.a>
+              </Cta>
             </motion.div>
+            <motion.a
+              variants={heroItem}
+              href="#gestorias"
+              className="group mt-6 inline-flex items-center gap-1.5 rounded-sm text-sm text-muted-foreground hover:text-foreground transition"
+            >
+              Accountant in Spain?
+              <span className="font-medium text-primary underline-offset-4 group-hover:underline">
+                Try the free invoice pilot
+              </span>
+              <span aria-hidden="true" className="text-primary transition-transform group-hover:translate-x-0.5">
+                →
+              </span>
+            </motion.a>
           </div>
 
           <motion.div
             variants={heroItem}
-            className="rounded-lg border border-border bg-card overflow-hidden"
+            onPointerMove={trackSpotlight}
+            className="group relative min-w-0 rounded-lg bg-border p-px"
           >
-            <div className="border-b border-border px-4 py-2 flex items-center justify-between text-xs font-mono text-muted-foreground">
-              <span>tidybridge → downstream system</span>
-              <motion.span
-                initial={reduce ? false : { opacity: 0, scale: 0.85 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: reduce ? 0 : SENT_DELAY, duration: 0.25 }}
-                className="flex items-center gap-1.5 text-primary"
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(240px_circle_at_var(--x)_var(--y),var(--ring),transparent_70%)]"
+            />
+            <div className="relative rounded-[7px] bg-card overflow-hidden">
+              <div className="border-b border-border px-4 py-2 flex items-center justify-between text-xs font-mono text-muted-foreground">
+                <span>tidybridge → downstream system</span>
+                <motion.span
+                  initial={reduce ? false : { opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: reduce ? 0 : SENT_DELAY, duration: 0.25 }}
+                  className="flex items-center gap-1.5 text-primary"
+                >
+                  <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                    {!reduce && (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 1 }}
+                        animate={{ opacity: [0.7, 0], scale: [1, 3] }}
+                        transition={{ delay: SENT_DELAY, duration: 1, repeat: 2, repeatDelay: 0.3 }}
+                        className="absolute inset-0 rounded-full bg-primary"
+                      />
+                    )}
+                    <span className="relative h-1.5 w-1.5 rounded-full bg-primary" />
+                  </span>
+                  Sent
+                </motion.span>
+              </div>
+              <motion.pre
+                initial={reduce ? false : "hidden"}
+                animate="show"
+                variants={payloadContainer}
+                translate="no"
+                className="px-4 py-4 text-xs sm:text-sm font-mono leading-relaxed overflow-x-auto"
               >
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-                Sent
-              </motion.span>
+                <code>
+                  {SCIM_PAYLOAD_LINES.map((line, i) => (
+                    <motion.span key={i} variants={payloadLine} className="block">
+                      {line || " "}
+                    </motion.span>
+                  ))}
+                </code>
+              </motion.pre>
             </div>
-            <motion.pre
-              initial={reduce ? false : "hidden"}
-              animate="show"
-              variants={payloadContainer}
-              className="px-4 py-4 text-xs sm:text-sm font-mono leading-relaxed overflow-x-auto"
-            >
-              <code>
-                {SCIM_PAYLOAD_LINES.map((line, i) => (
-                  <motion.span key={i} variants={payloadLine} className="block">
-                    {line || " "}
-                  </motion.span>
-                ))}
-              </code>
-            </motion.pre>
           </motion.div>
         </motion.section>
 
         <section className="py-12 sm:py-16 border-t border-border">
-          <h2 className="text-2xl font-semibold tracking-tight">How it works</h2>
-          <div className="mt-8 grid gap-8 sm:grid-cols-3">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">How it works</h2>
+          <motion.ol
+            initial={reduce ? false : "hidden"}
+            whileInView="show"
+            viewport={{ once: true, amount: 0.4 }}
+            className="relative mt-10 grid gap-8 sm:grid-cols-3"
+          >
+            {/* Desktop connector: from the first number's centre to the
+                last one's. With gap-8 (2rem) each column is (100% - 4rem)/3
+                wide, so the last centre sits one column minus 1rem from
+                the right edge. */}
+            <motion.span
+              aria-hidden="true"
+              variants={connector}
+              className="hidden sm:block absolute top-4 left-4 right-[calc((100%_-_4rem)/3_-_1rem)] h-px origin-left bg-primary"
+            />
             {PIPELINE.map((step, i) => (
-              <motion.div
-                key={step.title}
-                initial={reduce ? false : { opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.4 }}
-                transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                className="sm:border-l sm:border-border sm:pl-6 first:border-l-0 first:pl-0"
-              >
-                <span className="font-mono text-sm text-muted-foreground">
+              <li key={step.title} className="relative flex gap-4 sm:block">
+                {/* Mobile connector: one segment per step, from below this
+                    number down to the next one (100% + the 2rem gap - the
+                    2rem the segment starts below the top). */}
+                {i < PIPELINE.length - 1 && (
+                  <motion.span
+                    aria-hidden="true"
+                    custom={i}
+                    variants={segment}
+                    className="sm:hidden absolute left-4 top-8 h-full w-px origin-top bg-primary"
+                  />
+                )}
+                <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-full border border-border bg-background font-mono text-xs">
+                  <motion.span
+                    aria-hidden="true"
+                    custom={i}
+                    variants={stepRing}
+                    className="absolute -inset-px rounded-full ring-2 ring-primary"
+                  />
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <h3 className="mt-2 font-semibold">{step.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
-              </motion.div>
+                <motion.div custom={i} variants={stepText} className="min-w-0">
+                  <h3 className="sm:mt-4 font-semibold">{step.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
+                </motion.div>
+              </li>
             ))}
-          </div>
+          </motion.ol>
         </section>
 
         <section className="py-12 sm:py-16 border-t border-border">
-          <h2 className="text-2xl font-semibold tracking-tight">What it does</h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">What it does</h2>
           <ul className="mt-8 divide-y divide-border">
             {CAPABILITIES.map((c, i) => (
               <motion.li
@@ -227,7 +370,7 @@ export default function App() {
                   show: {
                     opacity: 1,
                     y: 0,
-                    transition: { duration: 0.5, delay: i * 0.06, ease: [0.16, 1, 0.3, 1] },
+                    transition: { duration: 0.5, delay: i * 0.06, ease: EASE_OUT },
                   },
                 }}
                 className="py-6 first:pt-0 last:pb-0 flex gap-4"
@@ -240,7 +383,7 @@ export default function App() {
                   <c.icon className="h-5 w-5 text-ring" />
                 </motion.span>
                 <div>
-                  <h2 className="font-semibold">{c.title}</h2>
+                  <h3 className="font-semibold">{c.title}</h3>
                   <p className="mt-1 text-sm text-muted-foreground max-w-2xl">{c.description}</p>
                 </div>
               </motion.li>
@@ -252,39 +395,37 @@ export default function App() {
           id="gestorias"
           initial={reduce ? false : { opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.4 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="py-12 sm:py-16 border-t border-border scroll-mt-16"
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.5, ease: EASE_OUT }}
+          className="my-12 sm:my-16 rounded-2xl bg-[color-mix(in_srgb,var(--accent)_35%,transparent)] p-6 sm:p-10 grid gap-8 md:grid-cols-[3fr_2fr] md:items-start"
         >
-          <h2 className="text-2xl font-semibold tracking-tight">
-            For gestorías: stop typing in supplier invoices.
-          </h2>
-          <p className="mt-4 max-w-2xl text-muted-foreground">
-            Send photos or PDFs of a client's invoices and get them back as
-            clean rows: supplier, tax ID, number, date, net, VAT, IRPF and
-            total. Anything doubtful is flagged instead of guessed, including
-            totals that don't add up, and the same invoice twice is only
-            counted once.
-          </p>
-          <div className="mt-8 max-w-2xl rounded-lg border border-border bg-card p-6">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+              For gestorías: stop typing in supplier invoices.
+            </h2>
+            <p className="mt-4 max-w-xl text-muted-foreground">
+              Send photos or PDFs of a client’s invoices and get them back as
+              clean rows: supplier, tax ID, number, date, net, VAT, IRPF and
+              total. Anything doubtful is flagged instead of guessed, including
+              totals that don’t add up, and the same invoice twice is only
+              counted once.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="font-semibold">Free pilot</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Send me last quarter's invoices for one client. Within 24 hours
+              Send me last quarter’s invoices for one client. Within 24 hours
               you get them back ready to import into your accounting software,
               with the doubtful ones flagged. No cost, no signup.
             </p>
-            <motion.a
-              whileTap={reduce ? undefined : { scale: 0.97 }}
-              href="mailto:hello@tidybridge.dev?subject=tidybridge%20pilot"
-              className="mt-6 inline-block rounded-md bg-primary text-primary-foreground px-5 py-2.5 font-medium hover:opacity-90 transition"
-            >
+            <Cta href="mailto:hello@tidybridge.dev?subject=tidybridge%20pilot" className="mt-6">
               Join the free pilot
-            </motion.a>
+            </Cta>
             <p className="mt-3 text-xs text-muted-foreground">
               Or write to{" "}
               <a
                 href="mailto:hello@tidybridge.dev"
-                className="underline underline-offset-2 hover:text-foreground transition"
+                className="rounded-sm underline underline-offset-2 hover:text-foreground transition"
               >
                 hello@tidybridge.dev
               </a>
@@ -296,12 +437,17 @@ export default function App() {
       <footer className="border-t border-border">
         <div className="mx-auto max-w-6xl px-4 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>© {new Date().getFullYear()} Victor Paniello</span>
-          <a
-            href="https://github.com/VictorPaniello/tidybridge"
-            className="hover:text-foreground transition"
-          >
-            GitHub
-          </a>
+          <nav aria-label="Footer" className="flex gap-4">
+            <a href={`${APP_URL}/privacy`} className="rounded-sm py-1 hover:text-foreground transition">
+              Privacy
+            </a>
+            <a href={`${APP_URL}/terms`} className="rounded-sm py-1 hover:text-foreground transition">
+              Terms
+            </a>
+            <a href={REPO_URL} className="rounded-sm py-1 hover:text-foreground transition">
+              GitHub
+            </a>
+          </nav>
         </div>
       </footer>
     </div>
