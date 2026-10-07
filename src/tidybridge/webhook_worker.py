@@ -34,6 +34,13 @@ def process_due_jobs(db: Session, limit: int = 20) -> int:
     available_at in the past), one at a time. Returns how many it
     processed (not how many succeeded - a job that failed and was
     rescheduled, or marked dead, still counts)."""
+    # Jobs can outlive the setting: removing WEBHOOK_URL leaves already-
+    # queued jobs behind, and deliver_attempt() would hand httpx a None
+    # URL (TypeError, worker crash loop). Leave them pending instead -
+    # they go out if the URL is set again, or are cascaded away with
+    # their record.
+    if not settings.webhook_url:
+        return 0
     processed = 0
     for _ in range(limit):
         job = db.execute(
@@ -75,6 +82,8 @@ def process_due_provisioning_jobs(db: Session, limit: int = 20) -> int:
     time. One difference from webhook delivery: a 409 (the user already
     exists on the target system) is terminal success-equivalent
     ("skipped_exists"), not a failure to retry - see the spec."""
+    if not settings.provisioning_url:
+        return 0  # same reasoning as process_due_jobs' guard
     processed = 0
     for _ in range(limit):
         job = db.execute(
