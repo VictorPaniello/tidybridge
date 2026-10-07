@@ -160,3 +160,25 @@ def test_webhook_status_respects_ownership(client: TestClient, other_client: Tes
     record_id = _upload_single_row(client).json()["records"][0]["id"]
     response = other_client.get(f"/records/{record_id}/webhook-status")
     assert response.status_code == 404
+
+
+def test_process_due_jobs_leaves_jobs_pending_when_webhook_url_is_removed(
+    db: Session, monkeypatch
+):
+    """A job queued while WEBHOOK_URL was set must not crash the worker
+    once the URL is removed (httpx.post(None) raises TypeError) - it just
+    waits."""
+    import tidybridge.webhooks as webhooks_module
+
+    record = ClientRecord(source_file="test.csv")
+    db.add(record)
+    db.flush()
+    db.add(WebhookJob(record_id=record.id))
+    db.commit()
+
+    monkeypatch.setattr(webhooks_module.settings, "webhook_url", None)
+
+    assert process_due_jobs(db) == 0
+    job = db.execute(select(WebhookJob).where(WebhookJob.record_id == record.id)).scalar_one()
+    assert job.status == "pending"
+    assert job.attempt_number == 1
