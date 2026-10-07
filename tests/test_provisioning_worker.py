@@ -239,3 +239,24 @@ def test_process_due_provisioning_jobs_succeeds_and_captures_remote_id(db: Sessi
     refreshed = db.get(ProvisioningJob, job_id)
     assert refreshed.status == "done"
     assert refreshed.remote_id == "usr_8f3a"
+
+
+def test_process_due_provisioning_jobs_leaves_jobs_pending_when_url_is_removed(
+    db: Session, monkeypatch
+):
+    import tidybridge.provisioning as provisioning_module
+    from tidybridge.webhook_worker import process_due_provisioning_jobs
+
+    record = ClientRecord(source_file="test.csv", fields={"email": "ada@example.com"})
+    db.add(record)
+    db.flush()
+    db.add(ProvisioningJob(record_id=record.id))
+    db.commit()
+
+    monkeypatch.setattr(provisioning_module.settings, "provisioning_url", None)
+
+    assert process_due_provisioning_jobs(db) == 0
+    job = db.execute(
+        select(ProvisioningJob).where(ProvisioningJob.record_id == record.id)
+    ).scalar_one()
+    assert job.status == "pending"
