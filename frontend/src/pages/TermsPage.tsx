@@ -14,9 +14,8 @@ export function TermsPage() {
           tidybridge is a data ingestion service for professionals: you upload a CSV/Excel file
           of client data, or supplier invoices as PDFs or images (when invoice extraction is
           enabled), and it's cleaned, validated, flagged where something looks wrong, stored, and
-          available to export. <strong>Flagged records wait for your review:</strong> they aren't
-          forwarded anywhere (for example to a webhook you control) until you fix or approve
-          them.
+          available to export. Flagged records stay marked until you fix them or approve them
+          as they are.
         </p>
         <p className="mt-2">
           It's operated by an individual developer (Victor Paniello), not a company, and run as

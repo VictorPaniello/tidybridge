@@ -6,6 +6,18 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
+### Fixed
+- **Legal pages and landing copy match what the product does.** DPA: no
+  webhook forwarding on the hosted service; eval use of invoices only with
+  written permission; breach notice "where possible within 48 hours"; a
+  free-pilot section (DPA accepted by email before any invoices are sent,
+  copies deleted after delivery). Privacy: server logs disclosed; webhooks
+  are self-hosted only. Terms: flagged records "stay marked". Landing: no
+  "not pooled into a shared store" (records share one table, isolated per
+  account), no "every new record fires a webhook", no totals check (it
+  only runs in extraction), and the pilot promises a clean spreadsheet in
+  24 hours, not an accounting-software import file.
+
 ### Added
 - **Data processing agreement (`/dpa`)** and updated legal pages. The DPA
   covers GDPR Art. 28(3) for the client and invoice data customers upload:
