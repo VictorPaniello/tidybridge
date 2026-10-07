@@ -245,6 +245,7 @@ def test_process_due_provisioning_jobs_leaves_jobs_pending_when_url_is_removed(
     db: Session, monkeypatch
 ):
     import tidybridge.provisioning as provisioning_module
+    from tidybridge.webhook_worker import process_due_provisioning_jobs
 
     record = ClientRecord(source_file="test.csv", fields={"email": "ada@example.com"})
     db.add(record)
