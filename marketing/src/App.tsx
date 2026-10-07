@@ -18,7 +18,7 @@ const PIPELINE = [
   {
     title: "Deliver",
     description:
-      "Each new record fires a webhook and a SCIM POST /Users downstream, with retries and a full audit trail.",
+      "Records can go out by webhook and SCIM POST /Users to a downstream system, with retries and a full audit trail.",
   },
 ];
 
@@ -33,13 +33,13 @@ const CAPABILITIES = [
     icon: WebhookIcon,
     title: "Webhook + SCIM provisioning delivery",
     description:
-      "Every new record can fire a webhook and a SCIM POST /Users to a downstream system, with retries, backoff, idempotency keys, and an audit trail.",
+      "Records can be delivered by webhook and SCIM POST /Users to a downstream system, with retries, backoff, idempotency keys, and an audit trail.",
   },
   {
     icon: LockIcon,
     title: "Per-engineer data isolation",
     description:
-      "Every record is scoped to the engineer who uploaded it, not pooled into a shared multi-tenant store.",
+      "Every record is tied to the account that uploaded it, and every request checks it: one engineer can’t see another’s records.",
   },
   {
     icon: ClockIcon,
@@ -406,17 +406,17 @@ export default function App() {
             <p className="mt-4 max-w-xl text-muted-foreground">
               Send photos or PDFs of a client’s invoices and get them back as
               clean rows: supplier, tax ID, number, date, net, VAT, IRPF and
-              total. Anything doubtful is flagged instead of guessed, including
-              totals that don’t add up, and the same invoice twice is only
-              counted once.
+              total. Anything doubtful is flagged instead of guessed, and the
+              same invoice twice is only counted once.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="font-semibold">Free pilot</h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Send me last quarter’s invoices for one client. Within 24 hours
-              you get them back ready to import into your accounting software,
-              with the doubtful ones flagged. No cost, no signup.
+              you get them back as a clean spreadsheet, with the doubtful ones
+              flagged. No cost, no signup: before you send any invoices, I’ll
+              send you a short data processing agreement to accept.
             </p>
             <Cta href="mailto:hello@tidybridge.dev?subject=tidybridge%20pilot" className="mt-6">
               Join the free pilot
