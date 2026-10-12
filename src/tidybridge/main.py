@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import secrets
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
@@ -683,6 +684,26 @@ def _format_issues(issues: list[dict] | None) -> str:
     return "; ".join(f"{issue['field']}: {issue['issue']}" for issue in issues)
 
 
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+_PLAIN_NUMBER = re.compile(r"[+-]?\d+(?:\.\d+)?")
+
+
+def _csv_safe(value: object) -> object:
+    """A text cell starting with = + - @ (or tab/CR) runs as a formula in
+    Excel/Sheets, and record fields are attacker-controlled text (an
+    invoice's supplier name comes verbatim from the document). Prefixing
+    "'" makes the spreadsheet show it as text - OWASP's CSV injection fix.
+    Plain numbers ("-150.00", "+34611223344") are left as numbers - matched
+    strictly, since float() also accepts "\t-1", "-1_000" and "-inf"."""
+    if (
+        isinstance(value, str)
+        and value.startswith(_FORMULA_START)
+        and not _PLAIN_NUMBER.fullmatch(value)
+    ):
+        return "'" + value
+    return value
+
+
 # Registered before GET /records/{record_id} - the literal "export" path
 # would otherwise be shadowed by {record_id} trying (and failing) to
 # parse it as a UUID, the exact class of routing-shadow bug this project
@@ -716,15 +737,21 @@ def export_records(
         ).scalars()
     }
 
+    # Columns are the records' own fields - client and invoice uploads have
+    # different ones, and a mapping can add custom names - in schema.yaml
+    # order, then any custom names in first-seen order. JSONB doesn't keep
+    # key order, so the schema is the only stable one.
+    schema_order = [f.name for f in load_schema().fields]
+    seen = {name for record in records for name in record.fields}
+    field_names = [name for name in schema_order if name in seen]
+    for record in records:
+        field_names += [name for name in record.fields if name not in field_names]
+
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(
         [
-            "full_name",
-            "email",
-            "signup_date",
-            "amount",
-            "phone",
+            *field_names,
             "has_issues",
             "issues",
             "approved_at",
@@ -737,13 +764,9 @@ def export_records(
         job = jobs_by_record_id.get(record.id)
         writer.writerow(
             [
-                record.full_name,
-                record.email,
-                record.signup_date,
-                record.amount,
-                record.phone,
+                *(_csv_safe(record.fields.get(name)) for name in field_names),
                 record.has_issues,
-                _format_issues(record.issues),
+                _csv_safe(_format_issues(record.issues)),
                 record.approved_at,
                 _job_status(job.status, record) if job else "not_configured",
                 job.attempt_number if job else None,

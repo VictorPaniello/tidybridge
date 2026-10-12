@@ -99,6 +99,22 @@ function XIcon({ size = 16, className }: { size?: number; className?: string }) 
   );
 }
 
+function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+      <span>{message}</span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss error"
+        className="shrink-0 opacity-70 hover:opacity-100 transition"
+      >
+        <XIcon />
+      </button>
+    </div>
+  );
+}
+
 function SortableHeader({
   label,
   sortKey,
@@ -459,23 +475,11 @@ export function RecordsPage() {
         </div>
       )}
 
-      {exportError && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {exportError}
-        </div>
-      )}
+      {exportError && <ErrorBanner message={exportError} onDismiss={() => setExportError(null)} />}
 
-      {bulkDeleteError && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {bulkDeleteError}
-        </div>
-      )}
+      {bulkDeleteError && <ErrorBanner message={bulkDeleteError} onDismiss={() => setBulkDeleteError(null)} />}
 
-      {uploadError && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 text-sm text-red-700 dark:text-red-300">
-          {uploadError}
-        </div>
-      )}
+      {uploadError && <ErrorBanner message={uploadError} onDismiss={() => setUploadError(null)} />}
 
       {mappingSaveSummary && (
         <div className="mb-4 rounded-md border border-border bg-secondary/50 px-4 py-3 text-sm">
