@@ -147,18 +147,28 @@ export function PrivacyPage() {
             </a>.
           </li>
           <li>
-            <strong>Anthropic</strong> - only when invoice extraction is enabled: if you upload an
-            invoice as a PDF or image, the document is sent to Anthropic's API (based in the
-            United States) to read its fields. Anthropic processes it on tidybridge's behalf as a
-            sub-processor, and its commercial terms don't allow it to train its models on it. CSV
-            and Excel uploads never leave tidybridge's own servers. See{" "}
+            <strong>Mistral AI</strong> - only when invoice extraction is enabled: if you upload
+            an invoice as a PDF or image, the document is sent to Mistral AI's API (France, hosted
+            in the EU) to read its fields. Mistral AI processes it on tidybridge's behalf as a
+            sub-processor, keeps it for up to 30 days for abuse monitoring and then deletes it,
+            and tidybridge has opted out of its use for training. Some of Mistral AI's security
+            and network providers are outside the EU, under the safeguards listed in{" "}
             <a
               className="text-ring hover:underline"
-              href="https://www.anthropic.com/legal/privacy"
+              href="https://trust.mistral.ai/subprocessors"
               target="_blank"
               rel="noreferrer"
             >
-              Anthropic's privacy policy
+              its sub-processor list
+            </a>
+            . CSV and Excel uploads never leave tidybridge's own servers. See{" "}
+            <a
+              className="text-ring hover:underline"
+              href="https://legal.mistral.ai/terms/privacy-policy"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Mistral AI's privacy policy
             </a>.
           </li>
           <li>
@@ -200,7 +210,7 @@ export function PrivacyPage() {
           </li>
           <li>
             <strong>EU Standard Contractual Clauses</strong> in their data processing agreements:
-            Railway, Anthropic (GitHub and Cloudflare also have them as a backup).
+            Railway (GitHub and Cloudflare also have them as a backup).
           </li>
         </ul>
         <p className="mt-2">
