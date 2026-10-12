@@ -14,7 +14,7 @@
 
 - The provider is **Mistral AI (France)**. Use the EU endpoint `https://api.eu.mistral.ai` if Task 0 confirms that it serves the OCR model.
 - **Never send thumbs-up/down feedback to Mistral**, because its DPA §2.3 lets it train on feedback even with the opt-out. **Never use Labs or preview models**, because the opt-out doesn't cover them.
-- **Mistral is paid (pay-as-you-go) with a monthly spending limit of about $5.** The free plan can't create API keys. At $5 per 1,000 annotated pages (1.1x on the EU endpoint), a pilot gestoría's ~200 invoices cost about $1.
+- **Mistral is paid (pay-as-you-go) with a monthly spending limit of €10** (set 2026-10-12). The free plan can't create API keys. At $5 per 1,000 annotated pages (1.1x on the EU endpoint), a pilot gestoría's ~200 invoices cost about $1.
 - The API key is never pasted in chat or committed. It goes only in `.env` locally and in Railway variables.
 - **Production stays off**: no `MISTRAL_API_KEY` on production until the monthly quota exists (roadmap 3.5). Production has open signup.
 - Every change goes in its own PR into `staging`. Customer-facing contact is `hello@tidybridge.dev`.
@@ -35,7 +35,7 @@
 These decide one config default and the wording of the legal pages, so they come first.
 
 - [ ] **Step 0: Activate pay-as-you-go.** The Studio account (hello@, "Default Workspace") is on the Free plan, which can't create API keys. In Studio, click **Actualizar** and screenshot the options **without confirming**. Send me the screenshot, and confirm only if it's usage-based billing with no monthly fee. If it's something else (a subscription, a minimum spend), stop and we decide again: Groq free is the fallback (see the handoff).
-  - **Right after confirming, set a monthly spending limit of about $5**, before creating any key.
+  - **Right after confirming, set a monthly spending limit (€10 was set)**, before creating any key.
   - Note whether the plan offers zero data retention, and whether you have to request it. Task 3's "kept for up to 30 days" wording depends on the answer.
   - Create the key **`tidybridge-staging`**. Copy it once, straight into `.env` (Step 1). Don't screenshot it.
 - [ ] **Step 1: Put the key in local `.env`** (it's gitignored). Add the line `MISTRAL_API_KEY=<your key>`. Don't paste it in chat.

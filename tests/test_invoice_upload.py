@@ -27,7 +27,8 @@ _INVOICE = Invoice(
 
 @pytest.fixture
 def enabled(monkeypatch):
-    monkeypatch.setattr(settings, "anthropic_api_key", "test-key")
+    monkeypatch.setattr(settings, "mistral_api_key", "test-key")
+    monkeypatch.setattr(settings, "extraction_model", "mistral-ocr-test")
 
 
 def _model_returns(monkeypatch, *invoices: Invoice):
@@ -82,7 +83,8 @@ def test_totals_mismatch_lands_in_the_review_queue(client, enabled, monkeypatch)
 
 
 def test_pdf_without_extraction_enabled_is_a_clear_400(client, monkeypatch):
-    monkeypatch.setattr(settings, "anthropic_api_key", None)
+    monkeypatch.setattr(settings, "mistral_api_key", None)
+    monkeypatch.setattr(settings, "extraction_model", "mistral-ocr-test")
     response = _upload_pdf(client)
     assert response.status_code == 400
     assert "isn't enabled" in response.json()["detail"]

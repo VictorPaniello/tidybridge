@@ -124,17 +124,20 @@ export function DpaPage() {
             .
           </li>
           <li>
-            <strong>Anthropic, PBC</strong> (United States): only if invoice extraction is
-            enabled, receives the invoice PDFs and images you upload, to read their fields. It
-            may not train its models on them under{" "}
-            <a className={linkClass} href="https://www.anthropic.com/legal/commercial-terms" target="_blank" rel="noreferrer">
-              its commercial terms
+            <strong>Mistral AI</strong> (France): only if invoice extraction is enabled, receives
+            the invoice PDFs and images you upload, to read their fields. They are processed on
+            its EU infrastructure, kept for up to 30 days for abuse monitoring and then deleted,
+            and tidybridge has opted out of their use for training, under{" "}
+            <a className={linkClass} href="https://legal.mistral.ai/terms/data-processing-addendum" target="_blank" rel="noreferrer">
+              Mistral's DPA
             </a>
-            , and transfers are covered by the Standard Contractual Clauses in{" "}
-            <a className={linkClass} href="https://www.anthropic.com/legal/data-processing-addendum" target="_blank" rel="noreferrer">
-              Anthropic's DPA
+            . Some of Mistral's own security and network providers are based outside the EU,
+            covered by the EU Standard Contractual Clauses or the EU-U.S. Data Privacy Framework
+            (see{" "}
+            <a className={linkClass} href="https://trust.mistral.ai/subprocessors" target="_blank" rel="noreferrer">
+              Mistral's sub-processors
             </a>
-            . CSV and Excel uploads are never sent to it.
+            ). CSV and Excel uploads are never sent to it.
           </li>
         </ul>
         <p className="mt-2">
@@ -195,9 +198,9 @@ export function DpaPage() {
 
       <Section title="10. Where your data goes">
         <p>
-          Your uploaded data is stored and processed in the EU. The only exception is invoice
-          documents sent to Anthropic in the United States when extraction is enabled, under the
-          safeguards in section 6.
+          Your uploaded data is stored and processed in the EU. When invoice extraction is
+          enabled, Mistral AI's security and network providers outside the EU may handle invoice
+          documents in transit, under the safeguards in section 6.
         </p>
       </Section>
 

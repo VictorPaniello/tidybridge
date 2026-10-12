@@ -30,6 +30,19 @@ describe("legal pages", () => {
   });
 
   it.each([
+    ["Privacy", <PrivacyPage />],
+    ["DPA", <DpaPage />],
+  ])("%s names Mistral as the LLM provider, not Anthropic", (_, page) => {
+    renderIn(page);
+    expect(document.body.textContent).toMatch(/Mistral AI/);
+    expect(document.body.textContent).not.toMatch(/Anthropic/);
+    // Some of Mistral's providers are outside the EU - the list is linked
+    expect(
+      screen.getAllByRole("link").some((a) => a.getAttribute("href") === "https://trust.mistral.ai/subprocessors"),
+    ).toBe(true);
+  });
+
+  it.each([
     ["Terms", <TermsPage />],
     ["Privacy", <PrivacyPage />],
     ["DPA", <DpaPage />],
