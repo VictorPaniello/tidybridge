@@ -8,12 +8,13 @@
 
 **Tech Stack:** Python 3.11, httpx, pydantic, pytest, React + vitest (legal pages).
 
-**Spec:** the LLM research and Victor's approval (2026-10-12, in chat; summarized in the 2026-10-07 handoff, "Next days #2"), plus `docs/superpowers/plans/2026-09-27-invoice-extraction.md` for how extraction works today.
+**Spec:** the LLM research and Victor's approval (2026-10-12, in chat; summarized in the 2026-10-12 LLM provider handoff, which also records why the free plan doesn't work: it can't create API keys), plus `docs/superpowers/plans/2026-09-27-invoice-extraction.md` for how extraction works today.
 
 ## Global Constraints
 
 - The provider is **Mistral AI (France)**. Use the EU endpoint `https://api.eu.mistral.ai` if Task 0 confirms that it serves the OCR model.
 - **Never send thumbs-up/down feedback to Mistral**, because its DPA §2.3 lets it train on feedback even with the opt-out. **Never use Labs or preview models**, because the opt-out doesn't cover them.
+- **Mistral is paid (pay-as-you-go) with a monthly spending limit of about $5.** The free plan can't create API keys. At $5 per 1,000 annotated pages (1.1x on the EU endpoint), a pilot gestoría's ~200 invoices cost about $1.
 - The API key is never pasted in chat or committed. It goes only in `.env` locally and in Railway variables.
 - **Production stays off**: no `MISTRAL_API_KEY` on production until the monthly quota exists (roadmap 3.5). Production has open signup.
 - Every change goes in its own PR into `staging`. Customer-facing contact is `hello@tidybridge.dev`.
@@ -23,7 +24,7 @@
 
 1. **A multi-page PDF beyond Mistral's page limit for annotations.** Expect a clean 400 that says to split the file, never a 500. Task 1 has a test for this.
 2. **Mistral returns 200 with `document_annotation: null` or JSON that doesn't fit the schema.** Expect a 400 ("couldn't be read"), not a crash. Task 1 has tests for both.
-3. **429 from the free tier's rate limit, or 401 from a revoked key.** Expect a 502 ("try again in a minute"), and no ingestion run left behind. Task 1 has tests for both. The existing upload test covers "no run left behind".
+3. **429 from the rate limit or the spending limit being reached, or 401 from a revoked key.** Expect a 502 ("try again in a minute"), and no ingestion run left behind. Task 1 has tests for both. The existing upload test covers "no run left behind".
 4. **A JPEG or PNG invoice**, which must go as `image_url`, not `document_url`. Task 1 has a test for this.
 5. **`EXTRACTION_MODEL=claude-…` with only `MISTRAL_API_KEY` set.** Expect "isn't enabled", never a call made with no key. Task 1 has a test for this.
 
@@ -33,6 +34,10 @@
 
 These decide one config default and the wording of the legal pages, so they come first.
 
+- [ ] **Step 0: Activate pay-as-you-go.** The Studio account (hello@, "Default Workspace") is on the Free plan, which can't create API keys. In Studio, click **Actualizar** and screenshot the options **without confirming**. Send me the screenshot, and confirm only if it's usage-based billing with no monthly fee. If it's something else (a subscription, a minimum spend), stop and we decide again: Groq free is the fallback (see the handoff).
+  - **Right after confirming, set a monthly spending limit of about $5**, before creating any key.
+  - Note whether the plan offers zero data retention, and whether you have to request it. Task 3's "kept for up to 30 days" wording depends on the answer.
+  - Create the key **`tidybridge-staging`**. Copy it once, straight into `.env` (Step 1). Don't screenshot it.
 - [ ] **Step 1: Put the key in local `.env`** (it's gitignored). Add the line `MISTRAL_API_KEY=<your key>`. Don't paste it in chat.
 - [ ] **Step 2: Check that the EU endpoint serves OCR.** Run:
 ```bash
@@ -203,8 +208,8 @@ def _call_mistral(content: bytes, media_type: str) -> ExtractedInvoices:
     else:
         document = {"type": "image_url", "image_url": data_uri}
     try:
-        # ponytail: no retry on 429/5xx - the free tier is ~1 req/s and one
-        # pilot uploads one file at a time; add a backoff if 502s show up.
+        # ponytail: no retry on 429/5xx - one pilot uploads one file at a
+        # time, well under the rate limit; add a backoff if 502s show up.
         response = httpx.post(
             f"{settings.mistral_api_base}/v1/ocr",
             headers={"Authorization": f"Bearer {settings.mistral_api_key}"},
