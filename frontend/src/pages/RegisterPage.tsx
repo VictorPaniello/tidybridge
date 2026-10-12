@@ -8,6 +8,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { PhoneInput } from "../components/PhoneInput";
 import { PasswordRulesList } from "../components/PasswordRulesList";
 import { COUNTRY_CODES } from "../data/countryCodes";
+import { LEGAL_URLS } from "../lib/legal";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -124,13 +125,13 @@ export function RegisterPage() {
             />
             <label htmlFor="agree-terms" className="text-sm text-muted-foreground">
               I agree to the{" "}
-              <Link to="/terms" target="_blank" className="text-ring hover:underline">
+              <a href={LEGAL_URLS.terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 Terms of service
-              </Link>{" "}
+              </a>{" "}
               and{" "}
-              <Link to="/privacy" target="_blank" className="text-ring hover:underline">
+              <a href={LEGAL_URLS.privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 Privacy policy
-              </Link>
+              </a>
               , including that any client data I upload is my own to share.
             </label>
           </div>

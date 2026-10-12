@@ -1,14 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
-import * as auth from "../auth/AuthContext";
-import { Layout } from "../components/Layout";
+import { describe, expect, it } from "vitest";
+import { SiteFooter } from "../site";
 import { DpaPage } from "./DpaPage";
 import { PrivacyPage } from "./PrivacyPage";
 import { TermsPage } from "./TermsPage";
 
 function renderIn(ui: React.ReactElement) {
-  render(<MemoryRouter>{ui}</MemoryRouter>);
+  render(ui);
 }
 
 describe("legal pages", () => {
@@ -56,13 +54,12 @@ describe("legal pages", () => {
     expect(mailtos.every((href) => href === "mailto:hello@tidybridge.dev")).toBe(true);
   });
 
-  it("the footer links to all three", () => {
-    vi.spyOn(auth, "useAuth").mockReturnValue({ user: null, logout: vi.fn() } as never);
-    renderIn(<Layout>content</Layout>);
+  it("the site footer links to all three, on this site", () => {
+    renderIn(<SiteFooter />);
     for (const [name, href] of [
       ["Privacy policy", "/privacy"],
       ["Terms of service", "/terms"],
-      ["Data processing", "/dpa"],
+      ["Data processing agreement", "/dpa"],
     ]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }

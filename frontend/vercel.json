@@ -1,5 +1,22 @@
 {
   "ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- .",
+  "redirects": [
+    {
+      "source": "/privacy",
+      "destination": "https://tidybridge.dev/privacy",
+      "permanent": true
+    },
+    {
+      "source": "/terms",
+      "destination": "https://tidybridge.dev/terms",
+      "permanent": true
+    },
+    {
+      "source": "/dpa",
+      "destination": "https://tidybridge.dev/dpa",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

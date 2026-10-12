@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { LegalSection as Section } from "../components/LegalSection";
+import { LegalSection as Section } from "./LegalSection";
 
 export function TermsPage() {
   return (
@@ -45,9 +44,9 @@ export function TermsPage() {
           contract, their consent, or another valid basis). You're the data controller for
           anything you upload; tidybridge acts only as your processor, on your instructions - see
           the{" "}
-          <Link to="/privacy" className="text-ring hover:underline">
+          <a href="/privacy" className="text-ring hover:underline">
             Privacy policy
-          </Link>{" "}
+          </a>{" "}
           for what that means in practice.
         </p>
         <p className="mt-2">
@@ -57,9 +56,9 @@ export function TermsPage() {
         </p>
         <p className="mt-2">
           The{" "}
-          <Link to="/dpa" className="text-ring hover:underline">
+          <a href="/dpa" className="text-ring hover:underline">
             Data processing agreement
-          </Link>{" "}
+          </a>{" "}
           forms part of these terms as soon as you upload data about other people, and sets out
           how tidybridge handles it as your processor.
         </p>
@@ -100,9 +99,9 @@ export function TermsPage() {
           You can delete an individual client record at any time from the records list, and your
           entire account - along with every client record, upload history entry, and webhook
           delivery it owns - from{" "}
-          <Link to="/settings" className="text-ring hover:underline">
+          <a href="https://app.tidybridge.dev/settings" className="text-ring hover:underline">
             Account settings
-          </Link>
+          </a>
           . This is real, permanent deletion, not a deactivation; there's no way to undo it once
           confirmed, and no way for tidybridge to recover it for you afterward.
         </p>
