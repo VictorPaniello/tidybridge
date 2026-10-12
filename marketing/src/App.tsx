@@ -307,7 +307,7 @@ export default function App() {
           </motion.div>
         </motion.section>
 
-        <section className="py-12 sm:py-16 border-t border-border">
+        <section id="how-it-works" className="py-12 sm:py-16 border-t border-border">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">How it works</h2>
           <motion.ol
             initial={reduce ? false : "hidden"}
@@ -355,7 +355,7 @@ export default function App() {
           </motion.ol>
         </section>
 
-        <section className="py-12 sm:py-16 border-t border-border">
+        <section id="what-it-does" className="py-12 sm:py-16 border-t border-border">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">What it does</h2>
           <ul className="mt-8 divide-y divide-border">
             {CAPABILITIES.map((c, i) => (
@@ -434,23 +434,88 @@ export default function App() {
         </motion.section>
       </main>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto max-w-6xl px-4 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>© {new Date().getFullYear()} Victor Paniello</span>
-          <nav aria-label="Footer" className="flex gap-4">
-            <a href={`${APP_URL}/privacy`} className="rounded-sm py-1 hover:text-foreground transition">
-              Privacy
+      <footer className="border-t border-border overflow-hidden">
+        <nav aria-label="Footer" className="mx-auto max-w-6xl grid sm:grid-cols-3 sm:border-x border-border">
+          {FOOTER_COLUMNS.map((col, i) => (
+            <div
+              key={col.title}
+              className={`px-4 py-8 sm:py-10 ${i > 0 ? "border-t sm:border-t-0 sm:border-l border-border" : ""}`}
+            >
+              <h2 className="text-sm text-muted-foreground">{col.title}</h2>
+              <ul className="mt-4 space-y-2 text-sm">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <a href={link.href} className="rounded-sm py-1 hover:text-ring transition">
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </nav>
+        <div className="border-t border-border">
+          <div className="mx-auto max-w-6xl px-4 pt-8 flex items-center justify-between gap-4 text-xs text-muted-foreground">
+            <span>© {new Date().getFullYear()} Victor Paniello</span>
+            <a
+              href={REPO_URL}
+              aria-label="tidybridge on GitHub"
+              className="rounded-sm p-1 hover:text-foreground transition"
+            >
+              <GitHubIcon className="size-5" />
             </a>
-            <a href={`${APP_URL}/terms`} className="rounded-sm py-1 hover:text-foreground transition">
-              Terms
-            </a>
-            <a href={REPO_URL} className="rounded-sm py-1 hover:text-foreground transition">
-              GitHub
-            </a>
-          </nav>
+          </div>
+          {/* The one oversized element: the header's wordmark, cut off by
+              the page edge. Decorative - the header already names the site. */}
+          <p
+            aria-hidden="true"
+            translate="no"
+            className="select-none text-center font-semibold tracking-[-0.05em] leading-none text-[22vw] lg:text-[16rem] translate-y-[18%] mt-6"
+          >
+            tidy<span className="text-ring">bridge</span>
+          </p>
         </div>
       </footer>
     </div>
+  );
+}
+
+const FOOTER_COLUMNS = [
+  {
+    title: "Product",
+    links: [
+      { label: "How it works", href: "#how-it-works" },
+      { label: "What it does", href: "#what-it-does" },
+      { label: "For gestorías", href: "#gestorias" },
+      { label: "Sign in", href: `${APP_URL}/login` },
+      { label: "Get started", href: `${APP_URL}/register` },
+    ],
+  },
+  {
+    title: "Open source",
+    links: [
+      { label: "tidybridge on GitHub", href: REPO_URL },
+      { label: "tidycsv on GitHub", href: "https://github.com/VictorPaniello/tidycsv" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { label: "Terms of service", href: `${APP_URL}/terms` },
+      { label: "Privacy policy", href: `${APP_URL}/privacy` },
+      { label: "Data processing agreement", href: `${APP_URL}/dpa` },
+      { label: "Contact", href: "mailto:hello@tidybridge.dev" },
+    ],
+  },
+];
+
+// Lucide's "github" line icon, same stroke style as the icons below.
+function GitHubIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+      <path d="M9 18c-4.51 2-5-2-7-2" />
+    </svg>
   );
 }
 
