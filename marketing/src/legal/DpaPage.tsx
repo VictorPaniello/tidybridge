@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { LegalSection as Section } from "../components/LegalSection";
+import { LegalSection as Section } from "./LegalSection";
 
 const linkClass = "text-ring hover:underline";
 
@@ -20,9 +19,9 @@ export function DpaPage() {
       <p>
         This agreement covers the personal data you upload to tidybridge about your own clients
         and suppliers. It forms part of the{" "}
-        <Link to="/terms" className={linkClass}>
+        <a href="/terms" className={linkClass}>
           Terms of service
-        </Link>{" "}
+        </a>{" "}
         and applies automatically as soon as you upload such data, as required by Article 28 of
         the GDPR. If you need a signed copy for your records, email{" "}
         <a className={linkClass} href="mailto:hello@tidybridge.dev">hello@tidybridge.dev</a>.
@@ -38,9 +37,9 @@ export function DpaPage() {
         <p className="mt-2">
           Your own account data (your email, name, password) is a different matter: there,
           tidybridge is the controller, as described in the{" "}
-          <Link to="/privacy" className={linkClass}>
+          <a href="/privacy" className={linkClass}>
             Privacy policy
-          </Link>
+          </a>
           .
         </p>
       </Section>

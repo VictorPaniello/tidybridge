@@ -427,8 +427,9 @@ var must point back at that same deployed URL for CORS and the OAuth
 redirect to work.
 
 **Landing page** (`marketing/`) is a separate, independent React + Vite
-project - not a route inside this app. It's a single static page with no
-auth, no API calls, and no shared build with the app it links to; see
+project - not a route inside this app. A static site (the home page plus
+the legal pages, as Vite multi-page entries) with no auth, no API calls,
+and no shared build with the app it links to; see
 `docs/superpowers/specs/2026-09-13-custom-domain-landing-page-design.md`
 for why. Self-hosted Geist Variable/Geist Mono Variable fonts and small
 `motion/react`-driven touches (a one-time hero entrance, a scroll-reveal
@@ -456,13 +457,15 @@ never affected.
 
 ## Privacy & Terms
 
-Real pages, not placeholders - `/privacy`, `/terms` and `/dpa` on the deployed
-frontend, linked from the footer on every page and from a required
+Real pages, not placeholders - `tidybridge.dev/privacy`, `/terms` and `/dpa`,
+on the landing site (`marketing/src/legal/`, served by Vercel's `cleanUrls`;
+the app's old `app.tidybridge.dev/privacy` etc. redirect there), linked from
+the footer of both sites and from a required
 consent checkbox at both signup paths (email+password registration and
 GitHub OAuth's complete-profile step). Written from what this specific
 codebase actually does (every data category, third party, and retention
 claim traces back to a real field or endpoint), not adapted from a
-generic template - see `frontend/src/pages/PrivacyPage.tsx` and
+generic template - see `marketing/src/legal/PrivacyPage.tsx` and
 `TermsPage.tsx`. Both pages carry their own disclaimer: good-faith and
 technically accurate, not a substitute for independent legal review.
 Invoice uploads (PDF/image) are the one case where uploaded data goes to

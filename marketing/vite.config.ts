@@ -1,6 +1,18 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // Vite's multi-page mode: each HTML file is its own page. Vercel's
+    // cleanUrls (vercel.json) serves privacy.html at /privacy.
+    rollupOptions: {
+      input: ["index.html", "privacy.html", "terms.html", "dpa.html"],
+    },
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
+  },
 });
