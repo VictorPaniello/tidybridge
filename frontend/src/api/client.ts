@@ -70,15 +70,23 @@ interface RequestOptions {
   auth?: boolean;
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { ...options.headers };
-  if (options.auth !== false) {
+// Every call to the API goes through this - the staging gate rejects any
+// request missing its header, so a fetch() that builds its own headers
+// works in production and silently 401s on staging.
+function apiHeaders(auth = true): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (auth) {
     const token = getToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
   if (STAGING_GATE_PASSWORD) {
     headers["X-Staging-Password"] = STAGING_GATE_PASSWORD;
   }
+  return headers;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const headers = { ...options.headers, ...apiHeaders(options.auth !== false) };
 
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? "GET",
@@ -330,9 +338,8 @@ export async function listRecords(
 // real fetch() first.
 export async function exportRecords(ingestionRunId?: string): Promise<void> {
   const filter = ingestionRunId ? `?ingestion_run_id=${ingestionRunId}` : "";
-  const token = getToken();
   const response = await fetch(`${API_URL}/records/export${filter}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: apiHeaders(),
     credentials: "include",
   });
   if (!response.ok) {
