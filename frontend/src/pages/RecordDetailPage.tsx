@@ -12,6 +12,7 @@ import type {
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyButton } from "../components/CopyButton";
 import { Spinner } from "../components/Spinner";
+import { orderFieldNames } from "../lib/fieldNames";
 
 export function RecordDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -431,10 +432,10 @@ function Field({ label, value }: { label: string; value: string | null }) {
 export function RecordFieldsList({ fields }: { fields: Record<string, string | null> }) {
   return (
     <>
-      {Object.entries(fields).map(([key, value]) => (
+      {orderFieldNames(Object.keys(fields)).map((key) => (
         <div key={key}>
           <dt className="text-muted-foreground">{key}</dt>
-          <dd className="font-medium">{value ?? "—"}</dd>
+          <dd className="font-medium">{fields[key] ?? "—"}</dd>
         </div>
       ))}
     </>
@@ -454,14 +455,14 @@ function EditableRecordFieldsList({
 }) {
   return (
     <>
-      {Object.entries(fields).map(([key, value]) => (
+      {orderFieldNames(Object.keys(fields)).map((key) => (
         <div key={key}>
           <label htmlFor={`field-${key}`} className="text-muted-foreground">
             {key}
           </label>
           <input
             id={`field-${key}`}
-            value={value}
+            value={fields[key]}
             onChange={(e) => onChange(key, e.target.value)}
             className="mt-0.5 w-full rounded-md border border-input bg-transparent px-2 py-1 font-medium outline-none focus:ring-2 focus:ring-ring"
           />

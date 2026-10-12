@@ -1,5 +1,5 @@
 import type { ClientRecord } from "../api/types";
-import { humanizeFieldName } from "../lib/fieldNames";
+import { humanizeFieldName, orderFieldNames } from "../lib/fieldNames";
 
 interface Props {
   records: ClientRecord[];
@@ -13,7 +13,9 @@ interface Props {
 // mappingIsDefault (from IngestResult) prompts a review only when this
 // shape's mapping was never explicitly saved (see column-mappings.py).
 export function UploadResultsTable({ records, mappingIsDefault, fingerprint, onReviewMapping }: Props) {
-  const fieldNames = Array.from(new Set(records.flatMap((record) => Object.keys(record.fields))));
+  const fieldNames = orderFieldNames(
+    Array.from(new Set(records.flatMap((record) => Object.keys(record.fields)))),
+  );
 
   return (
     <div>

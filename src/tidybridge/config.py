@@ -74,16 +74,23 @@ class Settings(BaseSettings):
     build_scim_payload), resolved relative to the process's working
     directory - same convention and same reason as schema_path below."""
 
-    anthropic_api_key: str | None = None
+    mistral_api_key: str | None = None
     """Enables invoice extraction (see extract.py): PDF/image uploads to
-    /records/upload are read by Claude into the same rows a CSV would
-    produce. None disables it - a document upload then gets a 400 saying
-    so, and CSV/Excel uploads are unaffected. Same disable-when-unset
-    convention as webhook_url and provisioning_url."""
-    extraction_model: str = "claude-sonnet-5"
-    """Which Claude model extract.py calls. scripts/eval_extraction.py
-    takes --model to compare alternatives against the labeled set before
-    changing this."""
+    /records/upload are read by Mistral Document AI into the same rows a
+    CSV would produce. None disables it - a document upload then gets a
+    400 saying so, and CSV/Excel uploads are unaffected. Same
+    disable-when-unset convention as webhook_url and provisioning_url."""
+    mistral_api_base: str = "https://api.eu.mistral.ai"
+    """The EU endpoint keeps inference in the EU (what /dpa promises).
+    Regional endpoints cost 1.1x list price."""
+    anthropic_api_key: str | None = None
+    """Only for comparing Claude in scripts/eval_extraction.py - never set
+    on a deployed server: /dpa names Mistral as the only LLM
+    sub-processor."""
+    extraction_model: str = "mistral-ocr-4-1"
+    """A claude-* id goes to Anthropic, anything else to Mistral's OCR
+    endpoint. Pinned to a version, not mistral-ocr-latest, so eval results
+    stay comparable. scripts/eval_extraction.py takes --model to compare."""
 
     schema_path: str = "examples/schema.yaml"
     """Path to the tidycsv schema, resolved relative to the process's

@@ -5,7 +5,7 @@ at a new client: take their messy data export, clean it, get it into a real
 database, and notify another system when something new arrives.
 
 Concretely: upload a CSV/Excel file (or an invoice as a PDF or image, read
-by Claude - see [Invoice extraction](#invoice-extraction)) → it's cleaned and validated via
+by Mistral Document AI - see [Invoice extraction](#invoice-extraction)) → it's cleaned and validated via
 [tidycsv](https://github.com/VictorPaniello/tidycsv) → every row is
 persisted to PostgreSQL → a webhook fires for each newly ingested record,
 with every delivery attempt logged (success or failure) for auditability.
@@ -41,7 +41,7 @@ company/client parameter, but because each `ClientRecord` has an
 | `GET` | `/auth/github/authorize` | Start "Sign in with GitHub" (only present if `GITHUB_CLIENT_ID`/`SECRET` are set) |
 | `GET` | `/users/me` | The logged-in engineer's own profile |
 | `DELETE` | `/users/me` | Permanently erase **your own** account and everything it owns (client records, ingestion runs, webhook deliveries, linked OAuth account) - real self-service GDPR erasure, not a request queue |
-| `POST` | `/records/upload` | Upload a CSV/Excel file, or a PDF/image invoice when `ANTHROPIC_API_KEY` is set, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id`. 502 if extraction is temporarily unavailable |
+| `POST` | `/records/upload` | Upload a CSV/Excel file, or a PDF/image invoice when `MISTRAL_API_KEY` is set, clean + persist it (tagged to the caller), fire webhooks for new records - returns an `ingestion_run_id`. 502 if extraction is temporarily unavailable |
 | `GET` | `/column-mappings/{fingerprint}` | Fetch the saved field-mapping resolution for a header shape (see [Dynamic column mapping](#dynamic-column-mapping)) - 404 if this shape has never had one explicitly saved |
 | `PUT` | `/column-mappings/{fingerprint}` | Save (or update) a header shape's field mapping - names, types, `required`/dedup-key flags - for this and every future upload of that exact shape; optionally re-validates an already-ingested run's records against the new mapping |
 | `GET` | `/ingestion-runs` | List **your own** past uploads, paginated - the persisted summary of every upload, not just the one the last `IngestResult` response reported |
@@ -245,22 +245,25 @@ affordance on the record detail page.
 
 ## Invoice extraction
 
-Upload an invoice as a PDF or image and Claude reads its header fields
+Upload an invoice as a PDF or image and Mistral Document AI reads its header fields
 (supplier, tax ID, number, date, currency, net/VAT/withholding/total)
 into the same rows a CSV would produce - one row per invoice, so a PDF
 of several scanned invoices works too. From there it's the normal
 pipeline: mapping, tidycsv validation, dedup on supplier tax ID +
 invoice number, webhooks, provisioning.
 
-Off unless `ANTHROPIC_API_KEY` is set (`EXTRACTION_MODEL` picks the
-model, default `claude-sonnet-5`).
+Off unless `MISTRAL_API_KEY` is set. Mistral Document AI on its EU
+endpoint reads the document into the invoice schema; `EXTRACTION_MODEL`
+picks the model (default `mistral-ocr-4-1`), and a `claude-*` id switches
+to Anthropic for eval comparisons only.
 
 What lands in the review queue (`has_issues`), and why no confidence
 score: model-reported confidence is poorly calibrated, so issues come
 from checks that can be trusted instead - fields the model says it
 couldn't read clearly, a net + VAT - withholding = total arithmetic
 check (withholding exists for Spanish IRPF invoices, which would
-otherwise all fail it), and tidycsv's usual required/format validation.
+otherwise all fail it; models print it as 150 or -150, so it is stored
+with the sign of the net amount), and tidycsv's usual required/format validation.
 
 Accuracy is measured, not assumed: `scripts/eval_extraction.py` runs
 the extractor over hand-labeled invoices in `evals/invoices/` and
@@ -464,7 +467,7 @@ generic template - see `frontend/src/pages/PrivacyPage.tsx` and
 technically accurate, not a substitute for independent legal review.
 Invoice uploads (PDF/image) are the one case where uploaded data goes to
 a third party you didn't configure yourself (unlike webhook/provisioning
-destinations) - they're sent to Anthropic for extraction, disclosed as a
+destinations) - they're sent to Mistral AI (EU) for extraction, disclosed as a
 sub-processor on `/privacy`.
 
 `/dpa` is the GDPR Article 28 data processing agreement for the client
@@ -472,7 +475,7 @@ and invoice data customers upload (tidybridge as their processor),
 adapted from the EU parts of General Legal's CC0
 [`dpa-global`](https://github.com/General-Legal/legal-templates) template.
 It's part of the terms once a customer uploads client data, lists the
-only two sub-processors of that data (Railway in EU West, and Anthropic
+only two sub-processors of that data (Railway in EU West, and Mistral AI
 when extraction is on), and states the transfer safeguard of every US
 provider - each checked on the provider's own site, see
 `docs/superpowers/plans/2026-10-07-legal-update.md`. Everything is hosted
