@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
+import { LEGAL_URLS } from "../lib/legal";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -60,15 +61,15 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-[100rem] px-2 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>© {new Date().getFullYear()} Victor Paniello</span>
           <div className="flex items-center gap-4">
-            <Link to="/privacy" className="hover:text-foreground transition">
+            <a href={LEGAL_URLS.privacy} className="hover:text-foreground transition">
               Privacy policy
-            </Link>
-            <Link to="/terms" className="hover:text-foreground transition">
+            </a>
+            <a href={LEGAL_URLS.terms} className="hover:text-foreground transition">
               Terms of service
-            </Link>
-            <Link to="/dpa" className="hover:text-foreground transition">
+            </a>
+            <a href={LEGAL_URLS.dpa} className="hover:text-foreground transition">
               Data processing
-            </Link>
+            </a>
           </div>
         </div>
       </footer>

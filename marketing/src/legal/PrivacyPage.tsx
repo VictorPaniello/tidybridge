@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-import { LegalSection as Section } from "../components/LegalSection";
+import { LegalSection as Section } from "./LegalSection";
 
 // Written from what this codebase actually does, verified against the
 // source rather than adapted from a generic template - every data
@@ -73,9 +72,9 @@ export function PrivacyPage() {
           this way. tidybridge acts as your <strong>data processor</strong> for this category only
           - storing and, if you configure a webhook, forwarding it on your behalf, on your
           instructions. The terms of that are in the{" "}
-          <Link to="/dpa" className="text-ring hover:underline">
+          <a href="/dpa" className="text-ring hover:underline">
             Data processing agreement
-          </Link>
+          </a>
           .
         </p>
 
@@ -232,9 +231,9 @@ export function PrivacyPage() {
         <p className="mt-2">
           <strong>Your own account</strong> (email, name, phone, password) is different: it's kept
           for as long as you want it, with no automatic expiry, until you delete it yourself from{" "}
-          <Link to="/settings" className="text-ring hover:underline">
+          <a href="https://app.tidybridge.dev/settings" className="text-ring hover:underline">
             Account settings
-          </Link>
+          </a>
           . Deleting your account also immediately erases every client record it owns, rather than
           waiting out the one-year window.
         </p>

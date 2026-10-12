@@ -651,7 +651,8 @@ export function RecordsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={uploading}
-          placeholder="Search by name or email…"
+          placeholder="Search records…"
+          aria-label="Search records"
           className="ml-auto w-full sm:w-64 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
         />
       </div>

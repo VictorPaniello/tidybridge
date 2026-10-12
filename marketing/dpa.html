@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="tidybridge's GDPR Article 28 data processing agreement for the client and invoice data customers upload." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://tidybridge.dev/dpa" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0a09" media="(prefers-color-scheme: dark)" />
+    <title>Data processing agreement - tidybridge</title>
+    <script>
+      // Blocking, runs before first paint - avoids a flash of the wrong
+      // theme. Same localStorage key ThemeToggle.tsx reads/writes. Copied
+      // from frontend/index.html - this site and the app are different
+      // origins, so the two never share this localStorage value, only
+      // the same logic for using it.
+      (function () {
+        var stored = localStorage.getItem("theme");
+        var dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
+    </head>
+  <body>
+    <div id="root" data-page="dpa"></div>
+    <script type="module" src="/src/legal/main.tsx"></script>
+  </body>
+</html>

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { PhoneInput } from "../components/PhoneInput";
 import { COUNTRY_CODES } from "../data/countryCodes";
+import { LEGAL_URLS } from "../lib/legal";
 
 // Reached only via ProtectedRoute redirecting a signed-in user with no
 // first_name here - in practice always a GitHub OAuth signup, since that
@@ -101,13 +102,13 @@ export function CompleteProfilePage() {
             />
             <label htmlFor="agree-terms" className="text-sm text-muted-foreground">
               I agree to the{" "}
-              <Link to="/terms" target="_blank" className="text-ring hover:underline">
+              <a href={LEGAL_URLS.terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 Terms of service
-              </Link>{" "}
+              </a>{" "}
               and{" "}
-              <Link to="/privacy" target="_blank" className="text-ring hover:underline">
+              <a href={LEGAL_URLS.privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 Privacy policy
-              </Link>
+              </a>
               , including that any client data I upload is my own to share.
             </label>
           </div>
