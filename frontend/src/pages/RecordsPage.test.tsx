@@ -261,6 +261,33 @@ describe("RecordsPage", () => {
     expect(screen.queryByRole("link", { name: "EUR" })).not.toBeInTheDocument();
   });
 
+  it("an export error can be dismissed", async () => {
+    vi.spyOn(api, "exportRecords").mockRejectedValue(new Error("network"));
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      {
+        id: "r1",
+        ingestion_run_id: "run-1",
+        source_file: "a.csv",
+        has_issues: false,
+        issues: [],
+        approved_at: null,
+        created_at: new Date().toISOString(),
+        fields: { full_name: "Jane Doe" },
+      },
+    ]);
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Jane Doe");
+    fireEvent.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(await screen.findByText("Export failed.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss error" }));
+    expect(screen.queryByText("Export failed.")).not.toBeInTheDocument();
+  });
+
   it("the mapping-saved banner disappears on its own after a few seconds", () => {
     // Fake timers from before the initial render - the dismiss timer is
     // scheduled during that render's effects, so it has to be fake from
