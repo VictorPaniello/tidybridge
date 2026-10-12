@@ -120,6 +120,21 @@ def test_tax_id_is_normalized_so_dedup_matches(enabled, monkeypatch):
     assert df.at[1, "supplier_tax_id"] == ""  # nothing left -> treated as missing
 
 
+def test_withholding_is_stored_with_one_sign_convention(enabled, monkeypatch):
+    # Printed as "150,00" on one invoice and "-150,00" on the next - both
+    # are stored positive (negative on a credit note), so an export sums right
+    _model_returns(
+        monkeypatch,
+        _invoice(withholding_amount=150.0, total_amount=1060.0),
+        _invoice(withholding_amount=-150.0, total_amount=1060.0),
+        _invoice(
+            net_amount=-1000.0, vat_amount=-210.0, withholding_amount=150.0, total_amount=-1060.0
+        ),
+    )
+    df, _ = extract.extract_invoices("inv.pdf", b"%PDF")
+    assert list(df["withholding_amount"]) == ["150.0", "150.0", "-150.0"]
+
+
 @pytest.mark.parametrize(
     "tax_id",
     [

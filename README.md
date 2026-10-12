@@ -262,8 +262,8 @@ score: model-reported confidence is poorly calibrated, so issues come
 from checks that can be trusted instead - fields the model says it
 couldn't read clearly, a net + VAT - withholding = total arithmetic
 check (withholding exists for Spanish IRPF invoices, which would
-otherwise all fail it; models print it as 150 or -150, so its sign is
-taken from the net amount), and tidycsv's usual required/format validation.
+otherwise all fail it; models print it as 150 or -150, so it is stored
+with the sign of the net amount), and tidycsv's usual required/format validation.
 
 Accuracy is measured, not assumed: `scripts/eval_extraction.py` runs
 the extractor over hand-labeled invoices in `evals/invoices/` and

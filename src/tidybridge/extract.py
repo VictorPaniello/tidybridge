@@ -215,6 +215,17 @@ def _normalize_tax_id(value: str | None) -> str | None:
     return re.sub(r"[^0-9A-Z]", "", value.upper()) or None
 
 
+def _normalize_withholding(invoice: Invoice) -> float | None:
+    """Withholding always shrinks the total's magnitude, but models print
+    it either way ("150,00" or "-150,00"). One convention - positive, or
+    negative on a credit note (sign of net) - so the totals check and any
+    export add up."""
+    w = invoice.withholding_amount
+    if w is None or invoice.net_amount is None:
+        return w
+    return math.copysign(abs(w), invoice.net_amount)
+
+
 _DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
 
 
@@ -254,10 +265,7 @@ def _issues(invoice: Invoice) -> list[dict]:
         )
     net, vat, total = invoice.net_amount, invoice.vat_amount, invoice.total_amount
     if net is not None and vat is not None and total is not None:
-        # Withholding always shrinks the total's magnitude, but models print
-        # it either way ("150,00" or "-150,00"), so take its sign from net -
-        # a credit note's withholding is negative too.
-        expected = net + vat - math.copysign(abs(invoice.withholding_amount or 0.0), net)
+        expected = net + vat - (invoice.withholding_amount or 0.0)
         if abs(expected - total) > _TOTALS_TOLERANCE:
             issues.append(
                 {
@@ -283,7 +291,12 @@ def extract_invoices(
     if not invoices:
         raise ExtractionError(f"No invoice found in {filename!r}")
     invoices = [
-        inv.model_copy(update={"supplier_tax_id": _normalize_tax_id(inv.supplier_tax_id)})
+        inv.model_copy(
+            update={
+                "supplier_tax_id": _normalize_tax_id(inv.supplier_tax_id),
+                "withholding_amount": _normalize_withholding(inv),
+            }
+        )
         for inv in invoices
     ]
 
