@@ -1,6 +1,7 @@
 import type { MouseEvent, PointerEvent } from "react";
 import { motion, useReducedMotion, type HTMLMotionProps, type Variants } from "motion/react";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { Logo } from "./components/Logo";
 
 const APP_URL = "https://app.tidybridge.dev";
 const REPO_URL = "https://github.com/VictorPaniello/tidybridge";
@@ -465,15 +466,11 @@ export default function App() {
               <GitHubIcon className="size-5" />
             </a>
           </div>
-          {/* The one oversized element: the header's wordmark, cut off by
-              the page edge. Decorative - the header already names the site. */}
-          <p
-            aria-hidden="true"
-            translate="no"
-            className="select-none text-center font-semibold tracking-[-0.05em] leading-none text-[22vw] lg:text-[16rem] translate-y-[18%] mt-6"
-          >
-            tidy<span className="text-ring">bridge</span>
-          </p>
+          {/* The one oversized element: the full logo, edge to edge of the
+              content column. Decorative - the header already names the site. */}
+          <div aria-hidden="true" className="mx-auto max-w-6xl px-4 pt-6 pb-10 sm:pb-14">
+            <Logo className="w-full h-auto" />
+          </div>
         </div>
       </footer>
     </div>
