@@ -1,5 +1,7 @@
 # Invoice Extraction Roadmap
 
+> **Status 2026-10-12:** the provider is now **Mistral Document AI (EU)**, not Anthropic: read "Mistral" wherever this says Anthropic or Claude (key, DPA, spend limit, costs). Phase 0 is done except 0.4 (autónomo) and 0.5 (invoices for the eval). Phase 1's code is done and works on staging; still missing are one real invoice end to end and the eval run. Already built from Phase 3: 3.2 (edit/approve), 3.3 (review gate), 3.8 (NIF check). The export now carries invoice fields (groundwork for 2.5). Current state: `docs/superpowers/handoffs/2026-10-12-mistral-release-handoff.md`.
+
 Two goals, in this order:
 1. **Earn an FDE position.** Show a real integration with AI in production, measured by evals, used by a real client.
 2. **Launch a product.** Small Spanish gestorías/asesorías pay monthly to stop typing supplier invoices into their accounting software.
