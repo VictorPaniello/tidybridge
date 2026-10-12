@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import secrets
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
@@ -684,6 +685,7 @@ def _format_issues(issues: list[dict] | None) -> str:
 
 
 _FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+_PLAIN_NUMBER = re.compile(r"[+-]?\d+(?:\.\d+)?")
 
 
 def _csv_safe(value: object) -> object:
@@ -691,12 +693,14 @@ def _csv_safe(value: object) -> object:
     Excel/Sheets, and record fields are attacker-controlled text (an
     invoice's supplier name comes verbatim from the document). Prefixing
     "'" makes the spreadsheet show it as text - OWASP's CSV injection fix.
-    Real numbers ("-150.00", "+34611223344") are left as numbers."""
-    if isinstance(value, str) and value.startswith(_FORMULA_START):
-        try:
-            float(value)
-        except ValueError:
-            return "'" + value
+    Plain numbers ("-150.00", "+34611223344") are left as numbers - matched
+    strictly, since float() also accepts "\t-1", "-1_000" and "-inf"."""
+    if (
+        isinstance(value, str)
+        and value.startswith(_FORMULA_START)
+        and not _PLAIN_NUMBER.fullmatch(value)
+    ):
+        return "'" + value
     return value
 
 

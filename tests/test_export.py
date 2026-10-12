@@ -165,3 +165,14 @@ def test_export_neutralizes_spreadsheet_formulas(client: TestClient):
     assert row["supplier_name"] == "'=HYPERLINK(\"http://evil.example\",\"Click\")"
     assert row["invoice_number"] == "'@SUM(A1)"
     assert row["withholding_amount"] == "-150.00"  # real numbers stay numbers
+
+
+def test_csv_safe_only_trusts_plain_numbers():
+    # float() would accept these, but a spreadsheet doesn't read them as
+    # plain numbers - and a leading tab is itself a formula trigger
+    from tidybridge.main import _csv_safe
+
+    for value in ["\t-1", "-1_000", "-inf", "+nan", "-1\n"]:
+        assert _csv_safe(value) == "'" + value
+    for value in ["-150.00", "+34611223344", "-1060"]:
+        assert _csv_safe(value) == value
