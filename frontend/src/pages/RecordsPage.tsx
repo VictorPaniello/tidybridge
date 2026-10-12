@@ -78,6 +78,27 @@ function SortIcon({ direction }: { direction: SortDirection | null }) {
   );
 }
 
+/** Lucide's "x" icon, inlined - one glyph doesn't justify an icon package. */
+function XIcon({ size = 16, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 function SortableHeader({
   label,
   sortKey,
@@ -214,7 +235,7 @@ export function RecordsPage() {
   }, [location, navigate]);
 
   // Acts like a toast: goes away on its own rather than sitting there
-  // until someone notices the ✕. Re-arms whenever a new summary lands
+  // until someone notices the X. Re-arms whenever a new summary lands
   // (e.g. saving a second mapping in the same visit) rather than only
   // firing once per page load.
   useEffect(() => {
@@ -499,7 +520,7 @@ export function RecordsPage() {
                   style={{ animation: "toast-countdown 6s linear forwards" }}
                 />
               </svg>
-              <span className="relative">✕</span>
+              <XIcon size={12} className="relative" />
             </button>
           </div>
         </div>
@@ -548,7 +569,7 @@ export function RecordsPage() {
               aria-label="Dismiss"
               className="shrink-0 text-muted-foreground hover:text-foreground transition"
             >
-              ✕
+              <XIcon />
             </button>
           </div>
           {lastResult.mapping_is_default && lastResult.records.length > 0 && (
