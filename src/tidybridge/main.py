@@ -716,15 +716,21 @@ def export_records(
         ).scalars()
     }
 
+    # Columns are the records' own fields - client and invoice uploads have
+    # different ones, and a mapping can add custom names - in schema.yaml
+    # order, then any custom names in first-seen order. JSONB doesn't keep
+    # key order, so the schema is the only stable one.
+    schema_order = [f.name for f in load_schema().fields]
+    seen = {name for record in records for name in record.fields}
+    field_names = [name for name in schema_order if name in seen]
+    for record in records:
+        field_names += [name for name in record.fields if name not in field_names]
+
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow(
         [
-            "full_name",
-            "email",
-            "signup_date",
-            "amount",
-            "phone",
+            *field_names,
             "has_issues",
             "issues",
             "approved_at",
@@ -737,11 +743,7 @@ def export_records(
         job = jobs_by_record_id.get(record.id)
         writer.writerow(
             [
-                record.full_name,
-                record.email,
-                record.signup_date,
-                record.amount,
-                record.phone,
+                *(record.fields.get(name) for name in field_names),
                 record.has_issues,
                 _format_issues(record.issues),
                 record.approved_at,

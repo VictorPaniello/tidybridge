@@ -119,3 +119,33 @@ def test_export_requires_auth(client: TestClient):
     unauthenticated = TestClient(app)
     response = unauthenticated.get("/records/export")
     assert response.status_code == 401
+
+
+INVOICE_CSV = (
+    "supplier_name,supplier_tax_id,invoice_number,invoice_date,currency,"
+    "net_amount,vat_amount,withholding_amount,total_amount\n"
+    "Ejemplo SL,B12345674,F-2026-0042,2026-10-03,EUR,1000.00,210.00,150.00,1060.00\n"
+)
+
+
+def test_export_includes_every_field_in_schema_order(client: TestClient):
+    # Invoice fields were missing entirely: the export had five fixed
+    # client columns. Columns now come from the records' own fields.
+    _upload_csv(client, INVOICE_CSV, filename="invoices.csv")
+    _upload_csv(client, CLEAN_AND_FLAGGED_CSV)
+
+    response = client.get("/records/export")
+    header = next(csv.reader(io.StringIO(response.content.decode())))
+    assert header == [
+        "full_name", "email", "signup_date", "amount", "phone",
+        "supplier_name", "supplier_tax_id", "invoice_number", "invoice_date", "currency",
+        "net_amount", "vat_amount", "withholding_amount", "total_amount",
+        "has_issues", "issues", "approved_at",
+        "webhook_status", "webhook_attempt_number", "webhook_available_at",
+    ]  # fmt: skip
+
+    invoice = next(r for r in _parse_csv(response.content) if r["invoice_number"])
+    assert invoice["supplier_tax_id"] == "B12345674"
+    assert invoice["total_amount"] == "1060.00"
+    assert invoice["withholding_amount"] == "150.00"
+    assert invoice["full_name"] == ""  # client columns blank on an invoice row
