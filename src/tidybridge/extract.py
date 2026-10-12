@@ -14,12 +14,14 @@ from __future__ import annotations
 
 import base64
 import logging
+import math
 import re
 from pathlib import Path
 
 import anthropic
+import httpx
 import pandas as pd
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from tidybridge.config import settings
 
@@ -42,8 +44,9 @@ class ExtractionError(ValueError):
 
 
 class ExtractionUnavailableError(RuntimeError):
-    """The extraction service couldn't be reached or errored after the
-    SDK's own retries - a 502, retrying later may well succeed."""
+    """The extraction service couldn't be reached or errored (Anthropic
+    after its SDK's own retries; Mistral calls aren't retried) - a 502,
+    retrying later may well succeed."""
 
 
 class Invoice(BaseModel):
@@ -87,7 +90,76 @@ def is_document(filename: str) -> bool:
     return Path(filename).suffix.lower() in DOCUMENT_MEDIA_TYPES
 
 
+_UNAVAILABLE = "Invoice extraction is temporarily unavailable - please try again in a minute"
+
+
+def _is_claude() -> bool:
+    return settings.extraction_model.startswith("claude")
+
+
+def extraction_enabled() -> bool:
+    return bool(settings.anthropic_api_key if _is_claude() else settings.mistral_api_key)
+
+
 def call_model(content: bytes, media_type: str) -> ExtractedInvoices:
+    """Mistral Document AI (EU) in production; a claude-* extraction_model
+    goes to Anthropic, for eval comparisons only."""
+    if _is_claude():
+        return _call_anthropic(content, media_type)
+    return _call_mistral(content, media_type)
+
+
+def _call_mistral(content: bytes, media_type: str) -> ExtractedInvoices:
+    data_uri = f"data:{media_type};base64,{base64.standard_b64encode(content).decode('ascii')}"
+    if media_type == "application/pdf":
+        document = {"type": "document_url", "document_url": data_uri}
+    else:
+        document = {"type": "image_url", "image_url": data_uri}
+    try:
+        # ponytail: no retry on 429/5xx - one pilot uploads one file at a
+        # time, well under the rate limit; add a backoff if 502s show up.
+        response = httpx.post(
+            f"{settings.mistral_api_base}/v1/ocr",
+            headers={"Authorization": f"Bearer {settings.mistral_api_key}"},
+            json={
+                "model": settings.extraction_model,
+                "document": document,
+                "document_annotation_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "extracted_invoices",
+                        "schema": ExtractedInvoices.model_json_schema(),
+                        "strict": True,
+                    },
+                },
+                "document_annotation_prompt": _PROMPT,
+            },
+            timeout=120,
+        )
+    except httpx.TransportError as exc:
+        raise ExtractionUnavailableError(_UNAVAILABLE) from exc
+    if response.status_code in (400, 422):
+        # The file's fault (corrupt, too many pages, unsupported) - Mistral's
+        # message says which; it never echoes the document's contents.
+        raise ExtractionError(f"The document couldn't be read ({response.text[:300]})")
+    if response.is_error:  # 401/403 bad key, 429 rate or spending limit, 5xx
+        raise ExtractionUnavailableError(_UNAVAILABLE)
+
+    body = response.json()
+    logger.info(
+        "extraction.completed",
+        extra={
+            "model": settings.extraction_model,
+            "pages": body.get("usage_info", {}).get("pages_processed"),
+        },
+    )
+    try:
+        return ExtractedInvoices.model_validate_json(body.get("document_annotation") or "")
+    except ValidationError as exc:
+        raise ExtractionError("The document couldn't be read - no invoice data came back") from exc
+
+
+def _call_anthropic(content: bytes, media_type: str) -> ExtractedInvoices:
     block_type = "document" if media_type == "application/pdf" else "image"
     data = base64.standard_b64encode(content).decode("ascii")
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
@@ -114,9 +186,7 @@ def call_model(content: bytes, media_type: str) -> ExtractedInvoices:
         # fault, not the service's.
         raise ExtractionError(f"The document couldn't be read ({exc.message})") from exc
     except (anthropic.APIStatusError, anthropic.APIConnectionError) as exc:
-        raise ExtractionUnavailableError(
-            "Invoice extraction is temporarily unavailable - please try again in a minute"
-        ) from exc
+        raise ExtractionUnavailableError(_UNAVAILABLE) from exc
 
     # Logs only (no DB column yet) - enough to work out cost per invoice
     # for pricing; a per-user cost dashboard comes with billing (Phase 4).
@@ -184,7 +254,10 @@ def _issues(invoice: Invoice) -> list[dict]:
         )
     net, vat, total = invoice.net_amount, invoice.vat_amount, invoice.total_amount
     if net is not None and vat is not None and total is not None:
-        expected = net + vat - (invoice.withholding_amount or 0.0)
+        # Withholding always shrinks the total's magnitude, but models print
+        # it either way ("150,00" or "-150,00"), so take its sign from net -
+        # a credit note's withholding is negative too.
+        expected = net + vat - math.copysign(abs(invoice.withholding_amount or 0.0), net)
         if abs(expected - total) > _TOTALS_TOLERANCE:
             issues.append(
                 {
@@ -201,7 +274,7 @@ def extract_invoices(
     """Returns (raw rows, issues by row index) - the rows are strings with
     "" for missing values, exactly like load_input(dtype=str,
     keep_default_na=False) gives for a CSV."""
-    if not settings.anthropic_api_key:
+    if not extraction_enabled():
         raise ExtractionError(
             "Invoice extraction isn't enabled on this server - upload a CSV or Excel file instead"
         )
