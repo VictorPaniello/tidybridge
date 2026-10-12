@@ -683,6 +683,23 @@ def _format_issues(issues: list[dict] | None) -> str:
     return "; ".join(f"{issue['field']}: {issue['issue']}" for issue in issues)
 
 
+_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value: object) -> object:
+    """A text cell starting with = + - @ (or tab/CR) runs as a formula in
+    Excel/Sheets, and record fields are attacker-controlled text (an
+    invoice's supplier name comes verbatim from the document). Prefixing
+    "'" makes the spreadsheet show it as text - OWASP's CSV injection fix.
+    Real numbers ("-150.00", "+34611223344") are left as numbers."""
+    if isinstance(value, str) and value.startswith(_FORMULA_START):
+        try:
+            float(value)
+        except ValueError:
+            return "'" + value
+    return value
+
+
 # Registered before GET /records/{record_id} - the literal "export" path
 # would otherwise be shadowed by {record_id} trying (and failing) to
 # parse it as a UUID, the exact class of routing-shadow bug this project
@@ -743,9 +760,9 @@ def export_records(
         job = jobs_by_record_id.get(record.id)
         writer.writerow(
             [
-                *(record.fields.get(name) for name in field_names),
+                *(_csv_safe(record.fields.get(name)) for name in field_names),
                 record.has_issues,
-                _format_issues(record.issues),
+                _csv_safe(_format_issues(record.issues)),
                 record.approved_at,
                 _job_status(job.status, record) if job else "not_configured",
                 job.attempt_number if job else None,

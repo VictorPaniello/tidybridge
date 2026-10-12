@@ -149,3 +149,19 @@ def test_export_includes_every_field_in_schema_order(client: TestClient):
     assert invoice["total_amount"] == "1060.00"
     assert invoice["withholding_amount"] == "150.00"
     assert invoice["full_name"] == ""  # client columns blank on an invoice row
+
+
+def test_export_neutralizes_spreadsheet_formulas(client: TestClient):
+    # Invoice text is written by whoever sent the invoice, and extraction
+    # copies it verbatim - a cell starting with = + - @ would run as a
+    # formula when the gestoría opens the CSV in Excel.
+    _upload_csv(
+        client,
+        "supplier_name,invoice_number,withholding_amount,total_amount\n"
+        '"=HYPERLINK(""http://evil.example"",""Click"")",@SUM(A1),-150.00,+1060\n',
+        filename="evil.csv",
+    )
+    row = _parse_csv(client.get("/records/export").content)[0]
+    assert row["supplier_name"] == "'=HYPERLINK(\"http://evil.example\",\"Click\")"
+    assert row["invoice_number"] == "'@SUM(A1)"
+    assert row["withholding_amount"] == "-150.00"  # real numbers stay numbers
