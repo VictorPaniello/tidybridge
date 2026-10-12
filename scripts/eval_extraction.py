@@ -1,13 +1,16 @@
 """Measure invoice extraction accuracy against hand-labeled documents.
 
 Usage:
-    uv run python scripts/eval_extraction.py [--model claude-sonnet-5]
+    uv run python scripts/eval_extraction.py [--model mistral-ocr-4-1 | --model claude-sonnet-5]
 
 Reads evals/invoices/labels.jsonl - one JSON object per line:
     {"file": "001.pdf", "invoices": [{"invoice_number": "F-1", ...}, ...]}
 with file paths relative to evals/invoices/. Invoices are compared by
-position within a document. Calls the real API (needs ANTHROPIC_API_KEY),
-so every run costs real money - a few cents per document.
+position within a document. Calls the real API, so every run costs real
+money: MISTRAL_API_KEY for a Mistral model (~$5 per 1,000 pages),
+ANTHROPIC_API_KEY for a claude-* one (a few cents per document). Real
+client invoices only with the client's written permission (/dpa section
+on evals).
 
 Writes the per-field accuracy and every mismatch to
 evals/results/<date>-<model>.json, so a prompt or model change can be
