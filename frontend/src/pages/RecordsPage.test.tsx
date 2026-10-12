@@ -216,6 +216,51 @@ describe("RecordsPage", () => {
     expect(screen.getByText("Special")).toBeInTheDocument();
   });
 
+  it("orders invoice columns like the schema and links the supplier name, not the currency", async () => {
+    vi.spyOn(api, "listRecords").mockResolvedValue([
+      {
+        id: "inv-1",
+        ingestion_run_id: "run-1",
+        source_file: "factura.pdf",
+        has_issues: false,
+        issues: [],
+        approved_at: null,
+        created_at: new Date().toISOString(),
+        // Postgres JSONB hands keys back shortest-first, like this
+        fields: {
+          currency: "EUR",
+          net_amount: "1000.00",
+          total_amount: "1060.00",
+          supplier_name: "Ejemplo SL",
+          invoice_number: "F-1",
+          my_custom_field: "x",
+        },
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Ejemplo SL");
+    const headers = screen
+      .getAllByRole("columnheader")
+      .map((th) => th.textContent?.trim())
+      .filter(Boolean);
+    expect(headers.slice(0, 6)).toEqual([
+      "Supplier Name",
+      "Invoice Number",
+      "Currency",
+      "Net Amount",
+      "Total Amount",
+      "My Custom Field",
+    ]);
+    expect(screen.getByRole("link", { name: "Ejemplo SL" })).toHaveAttribute("href", "/records/inv-1");
+    expect(screen.queryByRole("link", { name: "EUR" })).not.toBeInTheDocument();
+  });
+
   it("the mapping-saved banner disappears on its own after a few seconds", () => {
     // Fake timers from before the initial render - the dismiss timer is
     // scheduled during that render's effects, so it has to be fake from

@@ -6,7 +6,7 @@ import { ApiError } from "../api/client";
 import type { ClientRecord, IngestionRun, IngestResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
-import { humanizeFieldName } from "../lib/fieldNames";
+import { humanizeFieldName, isTitleField, orderFieldNames } from "../lib/fieldNames";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
 import { UploadPicker } from "../components/UploadPicker";
@@ -313,7 +313,7 @@ export function RecordsPage() {
         if (!names.includes(k)) names.push(k);
       }
     }
-    return names;
+    return orderFieldNames(names);
   }, [records]);
 
   const sortedRecords = useMemo(() => {
@@ -744,7 +744,7 @@ export function RecordsPage() {
                   </td>
                   {fieldNames.map((name, index) => {
                     const val = r.fields[name];
-                    const isLink = index === 0 || name === "full_name";
+                    const isLink = isTitleField(name, index);
                     return (
                       <td
                         key={name}
