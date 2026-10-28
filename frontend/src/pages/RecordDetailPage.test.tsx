@@ -93,7 +93,7 @@ describe("RecordDetailPage integrations", () => {
     id: "r1",
     ingestion_run_id: "run-1",
     source_file: "factura.pdf",
-    fields: { supplier_name: "Laura Martí Soler" },
+    fields: { supplier_name: "Proveedor Ejemplo" },
     has_issues: false,
     issues: null,
     approved_at: null,
@@ -116,7 +116,7 @@ describe("RecordDetailPage integrations", () => {
     vi.spyOn(api, "getHealth").mockResolvedValue(health());
     mockRecord();
     renderDetail();
-    expect(await screen.findByText("Laura Martí Soler")).toBeInTheDocument();
+    expect(await screen.findByText("Proveedor Ejemplo")).toBeInTheDocument();
     expect(screen.queryByText("Webhook deliveries")).not.toBeInTheDocument();
     expect(screen.queryByText("Provisioning")).not.toBeInTheDocument();
   });
