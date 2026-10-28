@@ -14,6 +14,8 @@ from tidybridge.extract import ExtractedInvoices, ExtractionUnavailableError, In
 _INVOICE = Invoice(
     supplier_name="Acme S.L.",
     supplier_tax_id="B12345674",  # a valid CIF, so it isn't flagged
+    customer_name="Cliente Ejemplo S.A.",
+    customer_tax_id="A12345674",  # valid too
     invoice_number="F-2026-001",
     invoice_date="2026-03-05",
     currency="EUR",

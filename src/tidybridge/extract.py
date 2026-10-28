@@ -21,7 +21,7 @@ from pathlib import Path
 import anthropic
 import httpx
 import pandas as pd
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from tidybridge.config import settings
 
@@ -50,8 +50,19 @@ class ExtractionUnavailableError(RuntimeError):
 
 
 class Invoice(BaseModel):
-    supplier_name: str | None
-    supplier_tax_id: str | None
+    # Two parties, described: with only a supplier slot and no definition,
+    # the model put the "Facturar a" customer there 2 times in 10 on a
+    # plain PDF (2026-10-28 eval) - silently, as a clean record.
+    supplier_name: str | None = Field(
+        description="Who issued the invoice and gets paid (emisor/proveedor) - "
+        "never the party under 'Facturar a', 'Cliente' or 'Destinatario'"
+    )
+    supplier_tax_id: str | None = Field(description="The supplier's NIF/CIF/VAT number")
+    customer_name: str | None = Field(
+        description="Who the invoice is addressed to and pays it - the party "
+        "under 'Facturar a', 'Cliente' or 'Destinatario'"
+    )
+    customer_tax_id: str | None = Field(description="The customer's NIF/CIF/VAT number")
     invoice_number: str | None
     invoice_date: str | None
     """ISO 8601, YYYY-MM-DD."""
@@ -83,7 +94,10 @@ with confidence (blurry, handwritten, ambiguous). Dates on these \
 documents are European (day before month) unless the document clearly \
 says otherwise. Credit notes (facturas rectificativas) are invoices too: \
 give their amounts as negative numbers. If the document contains no \
-invoice, return an empty invoices list."""
+invoice, return an empty invoices list. The supplier is the party that \
+issued the invoice and gets paid; the customer is the party it is \
+addressed to (under "Facturar a", "Cliente" or "Destinatario") - never \
+swap them, whichever looks more like a business."""
 
 
 def is_document(filename: str) -> bool:
@@ -255,12 +269,28 @@ def _issues(invoice: Invoice) -> list[dict]:
         for f in invoice.uncertain_fields
         if f in FIELDS
     ]
-    if invoice.supplier_tax_id and _bad_spanish_tax_id(invoice.supplier_tax_id):
+    # No "-": invoice numbers like "-0042" are real. The export prefixes
+    # every formula-looking cell anyway (main._csv_safe); this just makes
+    # the reviewer look at a document that tried to plant one.
+    issues += [
+        {"field": f, "issue": "starts like a spreadsheet formula - check against the document"}
+        for f in FIELDS
+        if isinstance(value := getattr(invoice, f), str) and value.startswith(("=", "+", "@"))
+    ]
+    for f in ("supplier_tax_id", "customer_tax_id"):
+        if (tax_id := getattr(invoice, f)) and _bad_spanish_tax_id(tax_id):
+            issues.append(
+                {
+                    "field": f,
+                    "issue": "check digit doesn't match - not a valid Spanish NIF/CIF, "
+                    "check against the document",
+                }
+            )
+    if invoice.supplier_tax_id and invoice.supplier_tax_id == invoice.customer_tax_id:
         issues.append(
             {
-                "field": "supplier_tax_id",
-                "issue": "check digit doesn't match - not a valid Spanish NIF/CIF, "
-                "check against the document",
+                "field": "customer_tax_id",
+                "issue": "same tax ID as the supplier - check who issued the invoice",
             }
         )
     net, vat, total = invoice.net_amount, invoice.vat_amount, invoice.total_amount
@@ -294,6 +324,7 @@ def extract_invoices(
         inv.model_copy(
             update={
                 "supplier_tax_id": _normalize_tax_id(inv.supplier_tax_id),
+                "customer_tax_id": _normalize_tax_id(inv.customer_tax_id),
                 "withholding_amount": _normalize_withholding(inv),
             }
         )

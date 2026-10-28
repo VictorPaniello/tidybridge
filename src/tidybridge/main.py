@@ -43,7 +43,7 @@ from tidybridge.auth import (
 from tidybridge.auth_models import User
 from tidybridge.config import settings
 from tidybridge.db import get_db
-from tidybridge.extract import ExtractionError, ExtractionUnavailableError
+from tidybridge.extract import ExtractionError, ExtractionUnavailableError, extraction_enabled
 from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
 from tidybridge.mapping import build_schema, validate_resolution
@@ -308,7 +308,15 @@ if _github_oauth_client is not None:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    # Tells the frontend which features this server has: invoices on upload,
+    # and the webhook/provisioning sections (developer integrations a
+    # gestoría never configures - hidden when unset)
+    return {
+        "status": "ok",
+        "extraction": extraction_enabled(),
+        "webhooks": bool(settings.webhook_url),
+        "provisioning": bool(settings.provisioning_url),
+    }
 
 
 _MAX_UPLOAD_BYTES = settings.max_upload_size_mb * 1024 * 1024
