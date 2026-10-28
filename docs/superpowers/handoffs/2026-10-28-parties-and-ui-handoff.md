@@ -99,6 +99,99 @@ testing - the first retest of #130 hit the old backend by ~1 minute.
 - PRs: (2) i18n + main pages (records, upload history, record detail);
   (3) the rest (login, register, settings) + backend issue codes.
 
+### Pilot readiness: what the app still needs before the first gestoría
+Checked against the code and `plans/2026-09-27-invoice-roadmap.md`.
+Split into what blocks a pilot, what's worth having, and what to **ask**
+the gestorías rather than build.
+
+**A. Blocks a pilot** (the demo works without these)
+1. **Production can't extract.** No Mistral key there until the monthly
+   quota (3.5), because signup is open. Staging is no alternative: its DB
+   isn't in the EU yet, so no real client data there. Cheaper than the
+   quota: **invite-only signup** (an allowlist of emails, env var) plus
+   Mistral's €10 spending cap as the backstop. Small PR, then the
+   production key.
+2. **The original document isn't stored** (3.1). Every issue says "check
+   against the document", but the document is gone after extraction.
+   Reviewing needs the invoice beside the fields (3.4). Without it,
+   review is awkward and it shows in a demo.
+3. **One file per upload, no HEIC** (3.6). Quarter end is 50–200
+   invoices; iPhones save photos as HEIC by default and the picker
+   refuses them. A gestoría trying their own iPhone in a demo fails.
+
+**B. Worth having before the pilot**
+4. **Error alerts.** If an extraction fails for a pilot today, nobody
+   finds out. A simple alert on Railway logs is enough to start.
+
+**C. Ask, don't build** (questions for outreach; answers shape Phase 3+)
+- Invoices with **several VAT rates** (21% + 10%): we store one
+  `vat_amount`; the *libro registro* needs base and cuota per rate.
+- **Grouping by the gestoría's client**: each gestoría handles dozens of
+  autónomos; the app has no such concept.
+- **Issued vs received** invoices; which **accounting software** (2.5);
+  **several users** per gestoría?
+
+**Proposed order:** i18n → original document + side-by-side review
+(3.1 + 3.4) → multi-file + HEIC (3.6) → invite-only signup + production
+key. About 5–6 PRs. **That's the line: then outreach starts**, even with
+things left to improve. Everything in C is the gestorías' call.
+
+### Product docs, brand and marketing (Paney/Pansch style)
+Victor wants Tidybridge documented like `~/Developer/Paney` and
+`~/Developer/Pansch`: `docs/PRD.md`, `TRD.md`, `DESIGN-BRIEF.md`,
+`APP-FLOW.md`, `IMPLEMENTATION-PLAN.md` (Paney also has `DATA-SCHEMA.md`),
+each with figures drawn by `docs/generate.py` into `docs/img/*.png` (screens,
+flows, diagrams, made-up data, real brand fonts, rendered by headless
+Chrome), plus a `Brand/` kit (brand board, logos, symbol, wordmark, icons,
+`generar.py` + export script). Same section skeletons as Paney:
+- **PRD**: problem, who it's for, goals/non-goals, what it does,
+  roadmap, success, constraints, open questions.
+- **TRD**: platform, architecture, decisions, build/deploy, data flow,
+  security and privacy, quality bar, technical debt.
+- **DESIGN-BRIEF**: brief, brand foundations, principles, colour, type,
+  layout, components, key screens, motion, voice and copy, accessibility,
+  assets.
+- **APP-FLOW**: navigation, ways in, journeys (J1 signup → first upload →
+  review → export; quarter-end batch; invoice by email once hello@ exists),
+  screens S01…
+- **IMPLEMENTATION-PLAN**: the phases above, each with time and risks.
+
+**Differences from Paney, decide first:**
+1. **The tidybridge repo is PUBLIC** (Paney/Pansch are private). The
+   TRD, APP-FLOW, DESIGN-BRIEF, IMPLEMENTATION-PLAN and screen images can
+   live in the repo's `docs/`. The **PRD's business parts** (pricing,
+   competitors, pilot targets) and the **marketing plan** should not: put
+   them in the private brand folder.
+2. **The brand mostly exists** in `~/projects/tidybridge-brand` (private):
+   lockup, mark, wordmark, Geist, colours, guidelines page on claude.ai,
+   ES/EN decks for gestorías and FDE, pilot one-pager, LinkedIn banner,
+   avatar, OG image, email signature, outreach guide. Missing vs Paney:
+   a consolidated brand board and a check that the **app UI** uses the brand
+   tokens (the landing does). Don't redo the brand; extend it.
+3. **`tidybridge-brand` has no git and no backup.** Losing the laptop
+   loses the whole kit. First step: `git init` + a **private** GitHub repo.
+
+**Marketing and publicity: a plan to write, not to run yet.** Draft as
+`MARKETING.md` in the brand folder:
+- Audience: Spanish gestorías (ICP: small, 2–10 people, many autónomo
+  clients). A second, technical audience exists (FDE deck, open source).
+- Channels, warmest first: personal network and intros → walk-ins/calls
+  → founder posts on LinkedIn (build in public, the eval numbers, one
+  pilot case study once there is one) → **colegios/asociaciones de
+  gestores administrativos** (talks, newsletters) → partner listings in
+  accounting software marketplaces (once 2.5 exists) → Spanish content/SEO
+  ("automatizar facturas gestoría") → small, high-intent Google Ads only
+  after a pilot converts. Developer side: GitHub README, a "Show HN"-style
+  launch of the open-source pipeline.
+- Rules: **no mass cold email** (LSSI art. 21); B2B prospecting on
+  legitimate interest, with opt-out; never advertise an accuracy number
+  before the ~30-invoice eval exists; "24 h" vs "2 working days" decided
+  first.
+
+**Order:** the PRD (short, it sharpens the outreach questions) and the
+brand-folder backup now; the rest of the docs alongside the build phases;
+don't let docs delay outreach.
+
 ### Victor
 1. Release staging → main (and check both production deployments).
 2. Proton Mail for hello@ (pilots need somewhere to send invoices).
