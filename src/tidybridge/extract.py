@@ -255,6 +255,14 @@ def _issues(invoice: Invoice) -> list[dict]:
         for f in invoice.uncertain_fields
         if f in FIELDS
     ]
+    # No "-": invoice numbers like "-0042" are real. The export prefixes
+    # every formula-looking cell anyway (main._csv_safe); this just makes
+    # the reviewer look at a document that tried to plant one.
+    issues += [
+        {"field": f, "issue": "starts like a spreadsheet formula - check against the document"}
+        for f in FIELDS
+        if isinstance(value := getattr(invoice, f), str) and value.startswith(("=", "+", "@"))
+    ]
     if invoice.supplier_tax_id and _bad_spanish_tax_id(invoice.supplier_tax_id):
         issues.append(
             {
