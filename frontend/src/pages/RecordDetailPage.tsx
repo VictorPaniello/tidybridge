@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyButton } from "../components/CopyButton";
 import { Spinner } from "../components/Spinner";
 import { orderFieldNames } from "../lib/fieldNames";
+import { useHealth } from "../lib/health";
 
 export function RecordDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +36,11 @@ export function RecordDetailPage() {
   const [provisioningReplayError, setProvisioningReplayError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
   const [approveError, setApproveError] = useState<string | null>(null);
+  const health = useHealth();
+  // Developer integrations a gestoría never sets up: shown only where the
+  // server has them configured, or this record already has history there
+  const showWebhooks = health.webhooks || webhooks.length > 0;
+  const showProvisioning = health.provisioning || provisioning.length > 0;
 
   useEffect(() => {
     if (!id) return;
@@ -271,6 +277,7 @@ export function RecordDetailPage() {
         </div>
       )}
 
+      {showWebhooks && (
       <div className="mt-8">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -337,7 +344,9 @@ export function RecordDetailPage() {
           </div>
         )}
       </div>
+      )}
 
+      {showProvisioning && (
       <div className="mt-8">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
@@ -403,11 +412,12 @@ export function RecordDetailPage() {
           </div>
         )}
       </div>
+      )}
 
       <ConfirmDialog
         open={confirmingDelete}
         title="Delete this record?"
-        message="This permanently deletes the record and its webhook delivery history. This cannot be undone."
+        message={`This permanently deletes the record${showWebhooks ? " and its webhook delivery history" : ""}. This cannot be undone.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmingDelete(false)}
       />

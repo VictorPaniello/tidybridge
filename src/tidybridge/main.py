@@ -308,8 +308,15 @@ if _github_oauth_client is not None:
 
 @app.get("/health")
 def health() -> dict:
-    # "extraction" tells the frontend whether to offer invoices on upload
-    return {"status": "ok", "extraction": extraction_enabled()}
+    # Tells the frontend which features this server has: invoices on upload,
+    # and the webhook/provisioning sections (developer integrations a
+    # gestoría never configures - hidden when unset)
+    return {
+        "status": "ok",
+        "extraction": extraction_enabled(),
+        "webhooks": bool(settings.webhook_url),
+        "provisioning": bool(settings.provisioning_url),
+    }
 
 
 _MAX_UPLOAD_BYTES = settings.max_upload_size_mb * 1024 * 1024

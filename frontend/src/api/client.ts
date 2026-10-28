@@ -259,9 +259,13 @@ export async function uploadFile(file: File): Promise<IngestResult> {
   return request<IngestResult>("/records/upload", { method: "POST", body: formData });
 }
 
-// "extraction" is whether this server has an invoice extraction key -
-// the upload button only offers invoices (PDF/images) when it does.
-export async function getHealth(): Promise<{ status: string; extraction: boolean }> {
+// Which features this server has configured - see useHealth().
+export async function getHealth(): Promise<{
+  status: string;
+  extraction: boolean;
+  webhooks: boolean;
+  provisioning: boolean;
+}> {
   return request(`/health`, { auth: false });
 }
 
