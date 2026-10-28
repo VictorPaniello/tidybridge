@@ -109,6 +109,19 @@ def test_uncertain_fields_become_issues_and_unknown_names_are_ignored(enabled, m
     assert [i["field"] for i in issues[0]] == ["invoice_date"]
 
 
+def test_formula_looking_text_is_flagged(enabled, monkeypatch):
+    # The export already neutralizes these (main._csv_safe); flagging them
+    # makes the reviewer look at a document that tried to plant a formula
+    _model_returns(
+        monkeypatch,
+        _invoice(supplier_name="=HYPERLINK(\"http://x\")", invoice_number="@SUM(A1)"),
+        _invoice(supplier_name="+34 Servicios SL"),
+    )
+    _, issues = extract.extract_invoices("inv.pdf", b"%PDF")
+    assert [i["field"] for i in issues[0]] == ["supplier_name", "invoice_number"]
+    assert [i["field"] for i in issues[1]] == ["supplier_name"]
+
+
 def test_tax_id_is_normalized_so_dedup_matches(enabled, monkeypatch):
     _model_returns(
         monkeypatch,
