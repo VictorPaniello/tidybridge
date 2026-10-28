@@ -17,6 +17,7 @@ describe("RecordsPage", () => {
     sessionStorage.clear();
     vi.spyOn(api, "listRecords").mockResolvedValue([]);
     vi.spyOn(api, "listIngestionRuns").mockResolvedValue([]);
+    vi.spyOn(api, "getHealth").mockResolvedValue({ status: "ok", extraction: false });
     vi.spyOn(auth, "useAuth").mockReturnValue({
       user: {
         id: "u1",
@@ -523,5 +524,30 @@ describe("RecordsPage", () => {
     // instantly - wait for that transition instead of asserting absence
     // synchronously.
     await waitForElementToBeRemoved(() => screen.queryByText("Delete (2)"));
+  });
+
+  it("offers only spreadsheets when the server can't extract invoices", async () => {
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    const button = await screen.findByRole("button", { name: "Upload file" });
+    expect(button).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')).toHaveAttribute(
+      "accept",
+      ".csv,.xlsx,.xls",
+    );
+  });
+
+  it("offers invoices too when extraction is on", async () => {
+    vi.spyOn(api, "getHealth").mockResolvedValue({ status: "ok", extraction: true });
+    render(
+      <MemoryRouter>
+        <RecordsPage />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("button", { name: "Upload file or invoice" })).toBeInTheDocument();
+    expect(document.querySelector('input[type="file"]')?.getAttribute("accept")).toContain(".pdf");
   });
 });

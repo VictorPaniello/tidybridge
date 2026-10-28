@@ -298,6 +298,17 @@ export function RecordsPage() {
     loadRuns();
   }, [loadRuns]);
 
+  // Invoices (PDF/images) are only offered where the server can extract
+  // them - otherwise picking one would just end in an error. Off until
+  // known, and off if the check fails.
+  const [extraction, setExtraction] = useState(false);
+  useEffect(() => {
+    api
+      .getHealth()
+      .then((health) => setExtraction(health.extraction === true))
+      .catch(() => setExtraction(false));
+  }, []);
+
   const stats = useMemo(() => {
     const count = (status: Status) => records.filter((r) => statusLabel(r) === status).length;
     return {
@@ -454,7 +465,7 @@ export function RecordsPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp"
+            accept={extraction ? ".csv,.xlsx,.xls,.pdf,.png,.jpg,.jpeg,.webp" : ".csv,.xlsx,.xls"}
             onChange={handleFileChange}
             className="hidden"
           />
@@ -463,7 +474,7 @@ export function RecordsPage() {
             disabled={uploading}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : "Upload file or invoice"}
+            {uploading ? "Uploading…" : extraction ? "Upload file or invoice" : "Upload file"}
           </button>
         </div>
       </div>
