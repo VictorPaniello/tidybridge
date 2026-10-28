@@ -17,8 +17,8 @@ def _invoice(**overrides) -> Invoice:
     base = dict(
         supplier_name="Acme S.L.",
         supplier_tax_id="B12345674",  # a valid CIF - the check digit is 4
-        customer_name="Ferretería Roca e Hijos, S.L.",
-        customer_tax_id="B65432106",  # valid too
+        customer_name="Cliente Ejemplo S.A.",
+        customer_tax_id="A12345674",  # valid too
         invoice_number="F-2026-001",
         invoice_date="2026-03-05",
         currency="EUR",
@@ -134,11 +134,11 @@ def test_same_tax_id_on_both_parties_is_flagged(enabled, monkeypatch):
 def test_customer_tax_id_is_normalized_and_check_digit_validated(enabled, monkeypatch):
     _model_returns(
         monkeypatch,
-        _invoice(customer_tax_id="b-654 321 06"),
-        _invoice(customer_tax_id="B65432107"),  # last digit misread
+        _invoice(customer_tax_id="a-123 456 74"),
+        _invoice(customer_tax_id="A12345675"),  # last digit misread
     )
     df, issues = extract.extract_invoices("inv.pdf", b"%PDF")
-    assert df.at[0, "customer_tax_id"] == "B65432106"
+    assert df.at[0, "customer_tax_id"] == "A12345674"
     assert 0 not in issues
     assert [i["field"] for i in issues[1]] == ["customer_tax_id"]
 
