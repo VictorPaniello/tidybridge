@@ -20,6 +20,24 @@ describe("RecordFieldsList", () => {
   });
 });
 
+const health = (on: { webhooks?: boolean; provisioning?: boolean } = {}) => ({
+  status: "ok",
+  extraction: true,
+  webhooks: false,
+  provisioning: false,
+  ...on,
+});
+
+function renderDetail() {
+  render(
+    <MemoryRouter initialEntries={["/records/r1"]}>
+      <Routes>
+        <Route path="/records/:id" element={<RecordDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("RecordDetailPage approve", () => {
   const flagged: ClientRecord = {
     id: "r1",
@@ -33,6 +51,7 @@ describe("RecordDetailPage approve", () => {
   };
 
   it("approves a flagged record and refreshes the delivery status", async () => {
+    vi.spyOn(api, "getHealth").mockResolvedValue(health({ webhooks: true }));
     vi.spyOn(api, "getRecord").mockResolvedValue(flagged);
     vi.spyOn(api, "getRecordWebhooks").mockResolvedValue([]);
     vi.spyOn(api, "getRecordProvisioning").mockResolvedValue([]);
@@ -66,5 +85,58 @@ describe("RecordDetailPage approve", () => {
     expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
     expect(await screen.findByText("Delivery pending")).toBeInTheDocument();
     expect(webhookStatus).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("RecordDetailPage integrations", () => {
+  const record: ClientRecord = {
+    id: "r1",
+    ingestion_run_id: "run-1",
+    source_file: "factura.pdf",
+    fields: { supplier_name: "Laura Martí Soler" },
+    has_issues: false,
+    issues: null,
+    approved_at: null,
+    created_at: "2026-10-28T10:00:00Z",
+  };
+  const notConfigured = { status: "not_configured" as const, attempt_number: null, available_at: null };
+
+  function mockRecord(webhooks: Awaited<ReturnType<typeof api.getRecordWebhooks>> = []) {
+    vi.spyOn(api, "getRecord").mockResolvedValue(record);
+    vi.spyOn(api, "getRecordWebhooks").mockResolvedValue(webhooks);
+    vi.spyOn(api, "getRecordProvisioning").mockResolvedValue([]);
+    vi.spyOn(api, "getRecordWebhookStatus").mockResolvedValue(notConfigured);
+    vi.spyOn(api, "getRecordProvisioningStatus").mockResolvedValue({
+      ...notConfigured,
+      remote_id: null,
+    });
+  }
+
+  it("hides webhooks and provisioning where the server has neither", async () => {
+    vi.spyOn(api, "getHealth").mockResolvedValue(health());
+    mockRecord();
+    renderDetail();
+    expect(await screen.findByText("Laura Martí Soler")).toBeInTheDocument();
+    expect(screen.queryByText("Webhook deliveries")).not.toBeInTheDocument();
+    expect(screen.queryByText("Provisioning")).not.toBeInTheDocument();
+  });
+
+  it("still shows a record's webhook history after the webhook is removed", async () => {
+    vi.spyOn(api, "getHealth").mockResolvedValue(health());
+    mockRecord([
+      {
+        id: 1,
+        record_id: "r1",
+        url: "https://example.com/hook",
+        attempt_number: 1,
+        attempted_at: "2026-10-28T10:00:00Z",
+        status_code: 200,
+        success: true,
+        error: null,
+      },
+    ]);
+    renderDetail();
+    expect(await screen.findByText("Webhook deliveries")).toBeInTheDocument();
+    expect(screen.queryByText("Provisioning")).not.toBeInTheDocument();
   });
 });

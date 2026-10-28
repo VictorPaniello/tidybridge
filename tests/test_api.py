@@ -18,7 +18,8 @@ def test_health(client: TestClient, monkeypatch):
     monkeypatch.setattr(settings, "extraction_model", "mistral-ocr-test")
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "extraction": False}
+    assert response.json()["status"] == "ok"
+    assert response.json()["extraction"] is False
 
 
 def test_health_says_when_invoice_extraction_is_on(client: TestClient, monkeypatch):
@@ -26,6 +27,14 @@ def test_health_says_when_invoice_extraction_is_on(client: TestClient, monkeypat
     monkeypatch.setattr(settings, "mistral_api_key", "test-key")
     monkeypatch.setattr(settings, "extraction_model", "mistral-ocr-test")
     assert client.get("/health").json()["extraction"] is True
+
+
+def test_health_says_which_integrations_are_configured(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "webhook_url", None)
+    monkeypatch.setattr(settings, "provisioning_url", "http://example.com/Users")
+    body = client.get("/health").json()
+    assert body["webhooks"] is False
+    assert body["provisioning"] is True
 
 
 def test_upload_cleans_and_persists_records(client: TestClient):

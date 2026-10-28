@@ -7,6 +7,7 @@ import type { ClientRecord, IngestionRun, IngestResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
 import { humanizeFieldName, isTitleField, orderFieldNames } from "../lib/fieldNames";
+import { useHealth } from "../lib/health";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
 import { UploadPicker } from "../components/UploadPicker";
@@ -299,15 +300,8 @@ export function RecordsPage() {
   }, [loadRuns]);
 
   // Invoices (PDF/images) are only offered where the server can extract
-  // them - otherwise picking one would just end in an error. Off until
-  // known, and off if the check fails.
-  const [extraction, setExtraction] = useState(false);
-  useEffect(() => {
-    api
-      .getHealth()
-      .then((health) => setExtraction(health.extraction === true))
-      .catch(() => setExtraction(false));
-  }, []);
+  // them - otherwise picking one would just end in an error.
+  const { extraction, webhooks: webhooksOn } = useHealth();
 
   const stats = useMemo(() => {
     const count = (status: Status) => records.filter((r) => statusLabel(r) === status).length;
@@ -818,14 +812,14 @@ export function RecordsPage() {
       <ConfirmDialog
         open={pendingDeleteId !== null}
         title="Delete this record?"
-        message="This permanently deletes the record and its webhook delivery history. This cannot be undone."
+        message={`This permanently deletes the record${webhooksOn ? " and its webhook delivery history" : ""}. This cannot be undone.`}
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
       <ConfirmDialog
         open={pendingBulkDelete}
         title={`Delete ${selectedIds.size} record${selectedIds.size === 1 ? "" : "s"}?`}
-        message="This permanently deletes the selected records and their webhook delivery history. This cannot be undone."
+        message={`This permanently deletes the selected records${webhooksOn ? " and their webhook delivery history" : ""}. This cannot be undone.`}
         onConfirm={confirmBulkDelete}
         onCancel={() => setPendingBulkDelete(false)}
       />
