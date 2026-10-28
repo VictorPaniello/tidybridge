@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from tidybridge.config import settings
 from tidybridge.main import app
 
 FIXTURES = Path(__file__).parent.parent / "examples"
@@ -12,10 +13,19 @@ def _upload(client: TestClient, filename: str = "messy_clients.csv"):
         return client.post("/records/upload", files={"file": (filename, f, "text/csv")})
 
 
-def test_health(client: TestClient):
+def test_health(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "mistral_api_key", None)
+    monkeypatch.setattr(settings, "extraction_model", "mistral-ocr-test")
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "extraction": False}
+
+
+def test_health_says_when_invoice_extraction_is_on(client: TestClient, monkeypatch):
+    # The upload button only offers invoices (PDF/images) when this is true
+    monkeypatch.setattr(settings, "mistral_api_key", "test-key")
+    monkeypatch.setattr(settings, "extraction_model", "mistral-ocr-test")
+    assert client.get("/health").json()["extraction"] is True
 
 
 def test_upload_cleans_and_persists_records(client: TestClient):
