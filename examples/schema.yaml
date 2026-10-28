@@ -32,6 +32,12 @@ fields:
     type: string
     required: true
 
+  - name: customer_name
+    type: string
+
+  - name: customer_tax_id
+    type: string
+
   - name: invoice_number
     type: string
     required: true

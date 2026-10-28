@@ -17,6 +17,8 @@ def _invoice(**overrides) -> Invoice:
     base = dict(
         supplier_name="Acme S.L.",
         supplier_tax_id="B12345674",  # a valid CIF - the check digit is 4
+        customer_name="Ferretería Roca e Hijos, S.L.",
+        customer_tax_id="B65432106",  # valid too
         invoice_number="F-2026-001",
         invoice_date="2026-03-05",
         currency="EUR",
@@ -120,6 +122,32 @@ def test_formula_looking_text_is_flagged(enabled, monkeypatch):
     _, issues = extract.extract_invoices("inv.pdf", b"%PDF")
     assert [i["field"] for i in issues[0]] == ["supplier_name", "invoice_number"]
     assert [i["field"] for i in issues[1]] == ["supplier_name"]
+
+
+def test_same_tax_id_on_both_parties_is_flagged(enabled, monkeypatch):
+    # Supplier and customer read as the same party - one of them is wrong
+    _model_returns(monkeypatch, _invoice(customer_tax_id="b-123 456 74"))
+    _, issues = extract.extract_invoices("inv.pdf", b"%PDF")
+    assert [i["field"] for i in issues[0]] == ["customer_tax_id"]
+
+
+def test_customer_tax_id_is_normalized_and_check_digit_validated(enabled, monkeypatch):
+    _model_returns(
+        monkeypatch,
+        _invoice(customer_tax_id="b-654 321 06"),
+        _invoice(customer_tax_id="B65432107"),  # last digit misread
+    )
+    df, issues = extract.extract_invoices("inv.pdf", b"%PDF")
+    assert df.at[0, "customer_tax_id"] == "B65432106"
+    assert 0 not in issues
+    assert [i["field"] for i in issues[1]] == ["customer_tax_id"]
+
+
+def test_schema_tells_the_model_who_the_supplier_is():
+    # The model can only tell the parties apart by these descriptions
+    props = ExtractedInvoices.model_json_schema()["$defs"]["Invoice"]["properties"]
+    assert "Facturar a" in props["supplier_name"]["description"]
+    assert "Facturar a" in props["customer_name"]["description"]
 
 
 def test_tax_id_is_normalized_so_dedup_matches(enabled, monkeypatch):
