@@ -22,6 +22,8 @@ const SCHEMA_ORDER = [
   "phone",
   "supplier_name",
   "supplier_tax_id",
+  "customer_name",
+  "customer_tax_id",
   "invoice_number",
   "invoice_date",
   "currency",
