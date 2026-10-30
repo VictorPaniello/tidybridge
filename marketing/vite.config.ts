@@ -10,7 +10,7 @@ export default defineConfig({
     // Vite's multi-page mode: each HTML file is its own page. Vercel's
     // cleanUrls (vercel.json) serves privacy.html at /privacy.
     rollupOptions: {
-      input: ["index.html", "privacy.html", "terms.html", "dpa.html"],
+      input: ["index.html", "en/index.html", "privacy.html", "terms.html", "dpa.html"],
     },
   },
   test: {

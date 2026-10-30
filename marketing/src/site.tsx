@@ -4,6 +4,7 @@ import type { MouseEvent, PointerEvent } from "react";
 import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
 import { Logo } from "./components/Logo";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { COPY, home, otherLangHref, pageLang } from "./i18n";
 
 const APP_URL = "https://app.tidybridge.dev";
 export const REPO_URL = "https://github.com/VictorPaniello/tidybridge";
@@ -59,11 +60,21 @@ export function GetStarted(props: { size?: "sm" | "md"; className?: string }) {
 
 export function SiteHeader() {
   const reduce = useReducedMotion();
+  const lang = pageLang();
+  const { nav } = COPY[lang];
+  const base = home(lang);
+  const links = [
+    { label: nav.how, href: `${base}#como-funciona` },
+    { label: nav.security, href: `${base}#seguridad` },
+    { label: nav.faq, href: `${base}#preguntas` },
+  ];
+  const linkClass =
+    "rounded-sm px-1 py-2 text-sm text-muted-foreground hover:text-foreground transition";
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-[color-mix(in_srgb,var(--background)_85%,transparent)] backdrop-blur">
       <div className="mx-auto max-w-6xl px-4 py-2 flex items-center justify-between gap-4">
         <motion.a
-          href="/"
+          href={base}
           initial={reduce ? false : { opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.35, ease: EASE_OUT }}
@@ -72,15 +83,38 @@ export function SiteHeader() {
         >
           tidy<span className="text-ring">bridge</span>
         </motion.a>
-        <nav aria-label="Main" className="flex items-center gap-2 sm:gap-4">
-          <a
-            href="/#gestorias"
-            className="rounded-sm px-1 py-2 text-sm text-muted-foreground hover:text-foreground transition"
-          >
-            For gestorías
+        <nav aria-label={nav.main} className="flex items-center gap-2 sm:gap-4">
+          {links.map((link) => (
+            <a key={link.href} href={link.href} className={`${linkClass} hidden md:inline`}>
+              {link.label}
+            </a>
+          ))}
+          <a href={`${APP_URL}/login`} className={`${linkClass} hidden md:inline`}>
+            {nav.signIn}
           </a>
-          <GetStarted size="sm" className="hidden sm:inline-flex" />
+          <a
+            href={otherLangHref(lang, window.location.pathname)}
+            hrefLang={lang === "es" ? "en" : "es"}
+            lang={lang === "es" ? "en" : "es"}
+            className={linkClass}
+          >
+            {nav.switchTo}
+          </a>
+          <Cta href={`${base}#piloto`} size="sm">
+            {nav.pilot}
+          </Cta>
           <ThemeToggle />
+          {/* Phones: the section links behind a native disclosure, no JS state */}
+          <details className="relative md:hidden">
+            <summary className={`${linkClass} cursor-pointer list-none`}>{nav.menu}</summary>
+            <div className="absolute right-0 mt-2 w-48 rounded-md border border-border bg-card p-2 shadow-lg flex flex-col">
+              {[...links, { label: nav.signIn, href: `${APP_URL}/login` }].map((link) => (
+                <a key={link.href} href={link.href} className={linkClass}>
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </details>
         </nav>
       </div>
     </header>
@@ -88,10 +122,41 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const lang = pageLang();
+  const { footer, nav } = COPY[lang];
+  const base = home(lang);
+  const columns = [
+    {
+      title: footer.product,
+      links: [
+        { label: nav.how, href: `${base}#como-funciona` },
+        { label: nav.security, href: `${base}#seguridad` },
+        { label: nav.faq, href: `${base}#preguntas` },
+        { label: nav.pilot, href: `${base}#piloto` },
+        { label: nav.signIn, href: `${APP_URL}/login` },
+      ],
+    },
+    {
+      title: footer.developers,
+      links: [
+        { label: footer.github, href: REPO_URL },
+        { label: footer.tidycsv, href: "https://github.com/VictorPaniello/tidycsv" },
+      ],
+    },
+    {
+      title: footer.legal,
+      links: [
+        { label: footer.terms, href: "/terms" },
+        { label: footer.privacy, href: "/privacy" },
+        { label: footer.dpa, href: "/dpa" },
+        { label: footer.contact, href: "mailto:hello@tidybridge.dev" },
+      ],
+    },
+  ];
   return (
     <footer className="border-t border-border overflow-hidden">
       <nav aria-label="Footer" className="mx-auto max-w-6xl grid sm:grid-cols-3 sm:border-x border-border">
-        {FOOTER_COLUMNS.map((col, i) => (
+        {columns.map((col, i) => (
           <div
             key={col.title}
             className={`px-4 py-8 sm:py-10 ${i > 0 ? "border-t sm:border-t-0 sm:border-l border-border" : ""}`}
@@ -114,7 +179,7 @@ export function SiteFooter() {
           <span>© {new Date().getFullYear()} Victor Paniello</span>
           <a
             href={REPO_URL}
-            aria-label="tidybridge on GitHub"
+            aria-label={footer.github}
             className="rounded-sm p-1 hover:text-foreground transition"
           >
             <GitHubIcon className="size-5" />
@@ -129,35 +194,6 @@ export function SiteFooter() {
     </footer>
   );
 }
-
-const FOOTER_COLUMNS = [
-  {
-    title: "Product",
-    links: [
-      { label: "How it works", href: "/#how-it-works" },
-      { label: "What it does", href: "/#what-it-does" },
-      { label: "For gestorías", href: "/#gestorias" },
-      { label: "Sign in", href: `${APP_URL}/login` },
-      { label: "Get started", href: `${APP_URL}/register` },
-    ],
-  },
-  {
-    title: "Open source",
-    links: [
-      { label: "tidybridge on GitHub", href: REPO_URL },
-      { label: "tidycsv on GitHub", href: "https://github.com/VictorPaniello/tidycsv" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Terms of service", href: "/terms" },
-      { label: "Privacy policy", href: "/privacy" },
-      { label: "Data processing agreement", href: "/dpa" },
-      { label: "Contact", href: "mailto:hello@tidybridge.dev" },
-    ],
-  },
-];
 
 // Lucide's "github" line icon, same stroke style as the icons below.
 function GitHubIcon({ className }: { className?: string }) {

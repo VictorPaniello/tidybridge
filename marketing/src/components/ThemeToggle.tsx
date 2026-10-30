@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { useCopy } from "../i18n";
 
 function isDarkNow(): boolean {
   return document.documentElement.classList.contains("dark");
 }
 
 export function ThemeToggle() {
+  const copy = useCopy();
   // Mirrors whatever index.html's blocking script already applied on
   // load (see its comment) - this only takes over for changes made
   // *after* mount, it doesn't decide the initial value itself.
@@ -19,8 +21,8 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setDark((d) => !d)}
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-      title={dark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={dark ? copy.nav.theme.light : copy.nav.theme.dark}
+      title={dark ? copy.nav.theme.light : copy.nav.theme.dark}
       className="grid h-10 w-10 place-items-center rounded-md border border-border hover:bg-secondary transition"
     >
       {dark ? <SunIcon /> : <MoonIcon />}
