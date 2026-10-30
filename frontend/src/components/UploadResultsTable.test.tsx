@@ -17,17 +17,17 @@ const record: ClientRecord = {
 describe("UploadResultsTable", () => {
   it("renders one column per distinct field across the upload's records", () => {
     render(<UploadResultsTable records={[record]} />);
-    expect(screen.getByText("Full Name")).toBeInTheDocument();
+    expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
   });
 
   it("shows a review affordance when mappingIsDefault is true", () => {
     render(<UploadResultsTable records={[]} mappingIsDefault fingerprint="abc123" />);
-    expect(screen.getByText(/review the field names/i)).toBeInTheDocument();
+    expect(screen.getByText(/check the fields we detected/i)).toBeInTheDocument();
   });
 
   it("shows no review affordance when mappingIsDefault is false", () => {
     render(<UploadResultsTable records={[]} mappingIsDefault={false} fingerprint="abc123" />);
-    expect(screen.queryByText(/review the field names/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/check the fields we detected/i)).not.toBeInTheDocument();
   });
 });

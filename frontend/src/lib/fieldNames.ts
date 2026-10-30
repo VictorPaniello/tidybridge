@@ -1,3 +1,5 @@
+import { fieldLabel, locale } from "./i18n";
+
 // Column headers come straight from each upload's own field names (set by
 // whoever reviewed that shape's mapping) - "full_name"/"telephone" instead
 // of "Full name"/"Telephone" reads as unfinished next to "Status", which
@@ -9,6 +11,29 @@ export function humanizeFieldName(name: string): string {
     .filter(Boolean)
     .map((word) => word[0].toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+/** A schema field's translated label, else the humanized column name. */
+export function displayFieldName(name: string): string {
+  return fieldLabel(name) ?? humanizeFieldName(name);
+}
+
+const MONEY_FIELDS = new Set(["amount", "net_amount", "vat_amount", "withholding_amount", "total_amount"]);
+const DATE_FIELDS = new Set(["signup_date", "invoice_date"]);
+
+/** Display only: amounts and ISO dates in the UI's language (1.197,80 /
+ * 27/10/2026 in Spanish). Anything else, or anything not shaped like a
+ * plain number/date, is shown exactly as stored. */
+export function formatFieldValue(name: string, value: string | null): string | null {
+  if (value == null) return null;
+  if (MONEY_FIELDS.has(name) && /^-?\d+(\.\d+)?$/.test(value)) {
+    return Number(value).toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (DATE_FIELDS.has(name) && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(locale());
+  }
+  return value;
 }
 
 // Same order as examples/schema.yaml - keep in sync. Record fields come

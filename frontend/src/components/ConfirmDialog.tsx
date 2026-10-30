@@ -1,3 +1,6 @@
+import { t } from "../lib/i18n";
+
+
 // Replaces window.confirm() for destructive actions (record delete) - a
 // native confirm() blocks all further browser events while open (see this
 // project's own browser-automation notes on why that's avoided) and looks
@@ -8,7 +11,7 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Delete",
+  confirmLabel = t("delete"),
   onConfirm,
   onCancel,
 }: {
@@ -43,7 +46,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="rounded-md border border-border px-4 py-2 text-sm hover:bg-secondary transition"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             type="button"

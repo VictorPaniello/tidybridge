@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../lib/i18n";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
@@ -19,7 +20,7 @@ export function Layout({ children }: { children: ReactNode }) {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:text-sm focus:font-medium"
       >
-        Skip to content
+        {t("skipToContent")}
       </a>
       <header className="sticky top-0 z-40 border-b border-border bg-background">
         <div className="mx-auto max-w-[100rem] px-2 py-3 flex flex-wrap items-center justify-between gap-y-2">
@@ -29,14 +30,14 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-2 sm:gap-4 text-sm">
             {user && (
               <Link to="/uploads" className="text-muted-foreground hover:text-foreground transition">
-                Upload history
+                {t("uploadHistory")}
               </Link>
             )}
             {user && (
               <Link
                 to="/settings"
-                aria-label="Account settings"
-                title="Account settings"
+                aria-label={t("accountSettings")}
+                title={t("accountSettings")}
                 className="rounded-md border border-border p-1.5 hover:bg-secondary transition"
               >
                 <ProfileIcon />
@@ -48,7 +49,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 onClick={handleLogout}
                 className="rounded-md border border-border px-3 py-1.5 hover:bg-secondary transition"
               >
-                Log out
+                {t("logOut")}
               </button>
             )}
           </div>
@@ -62,13 +63,13 @@ export function Layout({ children }: { children: ReactNode }) {
           <span>© {new Date().getFullYear()} Victor Paniello</span>
           <div className="flex items-center gap-4">
             <a href={LEGAL_URLS.privacy} className="hover:text-foreground transition">
-              Privacy policy
+              {t("privacyPolicy")}
             </a>
             <a href={LEGAL_URLS.terms} className="hover:text-foreground transition">
-              Terms of service
+              {t("terms")}
             </a>
             <a href={LEGAL_URLS.dpa} className="hover:text-foreground transition">
-              Data processing
+              {t("dataProcessing")}
             </a>
           </div>
         </div>

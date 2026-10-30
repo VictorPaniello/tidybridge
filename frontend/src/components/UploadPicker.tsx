@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { locale, t } from "../lib/i18n";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Link } from "react-router-dom";
 import type { IngestionRun } from "../api/types";
@@ -8,7 +9,7 @@ import type { IngestionRun } from "../api/types";
 const MAX_OPTIONS = 10;
 
 function when(run: IngestionRun): string {
-  return new Date(run.created_at).toLocaleString(undefined, {
+  return new Date(run.created_at).toLocaleString(locale(), {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -100,7 +101,7 @@ export function UploadPicker({
       <button
         ref={triggerRef}
         type="button"
-        aria-label="Filter by upload"
+        aria-label={t("filterByUpload")}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
@@ -117,7 +118,7 @@ export function UploadPicker({
               <span className="text-muted-foreground"> · {when(selected)}</span>
             </>
           ) : (
-            "All uploads"
+            t("allUploads")
           )}
         </span>
         <svg
@@ -138,7 +139,7 @@ export function UploadPicker({
             transition={{ duration: 0.12 }}
             className="absolute left-0 z-20 mt-1 w-full sm:w-80 overflow-hidden rounded-lg border border-border bg-card shadow-lg"
           >
-            <ul id={listId} role="listbox" aria-label="Uploads" className="max-h-80 overflow-y-auto py-1">
+            <ul id={listId} role="listbox" aria-label={t("uploads")} className="max-h-80 overflow-y-auto py-1">
               {options.map((option, i) => {
                 const isSelected = (option?.id ?? null) === (selected?.id ?? null);
                 return (
@@ -159,19 +160,19 @@ export function UploadPicker({
                         <span className="block truncate font-medium">{option.source_file}</span>
                         <span className="block text-xs text-muted-foreground">
                           {when(option)} ·{" "}
-                          <span className="text-primary">{option.rows_clean} clean</span>
+                          <span className="text-primary">{option.rows_clean} {t("clean", { count: option.rows_clean })}</span>
                           {option.rows_flagged > 0 && (
                             <>
                               {" · "}
                               <span className="text-amber-700 dark:text-amber-400">
-                                {option.rows_flagged} flagged
+                                {option.rows_flagged} {t("needReview", { count: option.rows_flagged })}
                               </span>
                             </>
                           )}
                         </span>
                       </span>
                     ) : (
-                      <span className="font-medium">All uploads</span>
+                      <span className="font-medium">{t("allUploads")}</span>
                     )}
                   </li>
                 );
@@ -181,7 +182,7 @@ export function UploadPicker({
               to="/uploads"
               className="block border-t border-border px-3 py-2 text-xs text-ring hover:bg-secondary"
             >
-              See every upload in Upload history →
+              {t("seeAllUploads")}
             </Link>
           </motion.div>
         )}

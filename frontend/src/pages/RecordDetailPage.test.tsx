@@ -8,9 +8,9 @@ import { RecordDetailPage, RecordFieldsList } from "./RecordDetailPage";
 describe("RecordFieldsList", () => {
   it("renders every key in fields, not just a fixed set", () => {
     render(<RecordFieldsList fields={{ full_name: "Jane Doe", age: "30" }} />);
-    expect(screen.getByText("full_name")).toBeInTheDocument();
+    expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
-    expect(screen.getByText("age")).toBeInTheDocument();
+    expect(screen.getByText("Age")).toBeInTheDocument();
     expect(screen.getByText("30")).toBeInTheDocument();
   });
 
@@ -116,7 +116,8 @@ describe("RecordDetailPage integrations", () => {
     vi.spyOn(api, "getHealth").mockResolvedValue(health());
     mockRecord();
     renderDetail();
-    expect(await screen.findByText("Proveedor Ejemplo")).toBeInTheDocument();
+    // Invoices are titled by supplier, not "Unnamed record"
+    expect(await screen.findByRole("heading", { name: "Proveedor Ejemplo" })).toBeInTheDocument();
     expect(screen.queryByText("Webhook deliveries")).not.toBeInTheDocument();
     expect(screen.queryByText("Provisioning")).not.toBeInTheDocument();
   });
