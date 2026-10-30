@@ -147,7 +147,7 @@ def _app_css(t: dict) -> str:
             f".pill{{border-radius:999px;padding:2px 8px;font-size:11px;background:{t['accent']};color:{t['on_accent']}}}"
             f".warn{{background:{t['amber_bg']};color:{t['amber']}}}"
             f".issue{{background:{t['amber_bg']};border:1px solid {t['amber_line']};color:{t['fg']};"
-            f"border-radius:6px;padding:9px 12px}}.focus{{box-shadow:0 0 0 3px {t['accent']}}}")
+            f"border-radius:6px;padding:9px 12px}}")
 
 
 def _app_bar() -> str:
@@ -175,7 +175,7 @@ def screen_html(name: str, theme: str) -> str:
     flagged = sum(1 for s in samples if s["issues"])
     header = ("<div style='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px'>"
               "<h1>Registros</h1><div style='display:flex;gap:8px'>"
-              f"<span class='btn{' focus' if name == 'export' else ''}'>Exportar CSV</span>"
+              "<span class='btn'>Exportar CSV</span>"
               "<span class='btn pri'>Subir archivo o factura</span></div></div>")
     if name == "records":
         body = (header + "<div class='card' style='margin-bottom:14px'><b>3 filas procesadas</b><br>"
@@ -195,15 +195,6 @@ def screen_html(name: str, theme: str) -> str:
                 "corrijas estas incidencias o apruebes el registro tal cual.</p>"
                 "<div class='issue'><b>Fecha</b>: La extracción no está segura: compruébalo con el documento</div>"
                 "<div style='margin-top:12px'><span class='btn pri'>Aprobar</span></div>")
-    elif name == "export":
-        cols = ["supplier_name", "supplier_tax_id", "invoice_number", "invoice_date", "total_amount", "has_issues"]
-        lines = [",".join(cols)] + [
-            ",".join([s["invoice"]["supplier_name"].replace(",", ""), s["invoice"]["supplier_tax_id"],
-                      s["invoice"]["invoice_number"], s["invoice"]["invoice_date"],
-                      f"{s['invoice']['total_amount']:.2f}", str(bool(s["issues"]))]) for s in samples]
-        csv = "<br>".join(esc(line) for line in lines)
-        body = (header + "<div class='card'><div class='sub' style='margin-bottom:8px'>registros.csv</div>"
-                f"<code style='font-size:12px;line-height:1.7'>{csv}</code></div>")
     else:
         raise ValueError(name)
     return _page(_app_bar() + f"<div class='wrap'>{body}</div>", _app_css(t))
@@ -237,7 +228,7 @@ def main() -> None:
     for sample in load_samples():
         size = (760, 700) if sample["id"] == "photo" else (620, 620)
         render(invoice_html(sample), OUT / "samples" / f"{sample['id']}.png", size, chrome)
-    for name, size in (("records", (1100, 430)), ("review", (900, 470)), ("export", (900, 300))):
+    for name, size in (("records", (1100, 430)), ("review", (900, 470))):
         for theme in THEMES:
             render(screen_html(name, theme), OUT / "screens" / f"{name}-{theme}.png", size, chrome)
     print(f"Images written to {OUT / 'samples'} and {OUT / 'screens'}")

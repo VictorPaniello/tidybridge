@@ -27,6 +27,7 @@ const es = {
     signIn: "Iniciar sesión",
     pilot: "Solicitar piloto",
     menu: "Menú",
+    skip: "Saltar al contenido",
     main: "Principal",
     switchTo: "English",
     switchShort: "EN",
@@ -50,21 +51,19 @@ const es = {
   },
   how: {
     title: "Cómo funciona",
+    screenAlt: "La tabla de registros de tidybridge con tres facturas extraídas, una de ellas por revisar",
     steps: [
       {
         title: "Envías las facturas",
         text: "PDFs o fotos del móvil, de uno o de varios clientes.",
-        alt: "Pantalla de subida de tidybridge con un archivo procesado",
       },
       {
         title: "Extraemos y comprobamos",
         text: "Proveedor, cliente, NIF, fechas, base, IVA y retención. Comprobamos el dígito de control del NIF, que los totales cuadren y que no haya facturas repetidas.",
-        alt: "Tabla de registros con las facturas extraídas",
       },
       {
         title: "Revisas y exportas",
         text: "Revisas solo lo marcado y exportas a CSV o Excel para importarlo en tu programa contable.",
-        alt: "Exportación de los registros a CSV",
       },
     ],
   },
@@ -156,6 +155,17 @@ const es = {
     error: "No hemos podido enviar la solicitud. Inténtalo de nuevo o escríbenos a",
     orEmail: "¿Prefieres el email? Escríbenos a",
   },
+  fields: {
+    supplier_name: "Proveedor",
+    supplier_tax_id: "NIF proveedor",
+    invoice_number: "Nº factura",
+    invoice_date: "Fecha",
+    net_amount: "Base imponible",
+    vat_amount: "IVA",
+    withholding_amount: "Retención IRPF",
+    total_amount: "Total",
+    validTaxId: "dígito de control correcto",
+  },
   footer: {
     product: "Producto",
     legal: "Legal",
@@ -180,6 +190,7 @@ const en: Copy = {
     signIn: "Sign in",
     pilot: "Request a pilot",
     menu: "Menu",
+    skip: "Skip to content",
     main: "Main",
     switchTo: "Español",
     switchShort: "ES",
@@ -203,21 +214,19 @@ const en: Copy = {
   },
   how: {
     title: "How it works",
+    screenAlt: "tidybridge's records table with three extracted invoices, one of them flagged for review",
     steps: [
       {
         title: "You send the invoices",
         text: "PDFs or phone photos, from one client or several.",
-        alt: "tidybridge's upload screen with a processed file",
       },
       {
         title: "We extract and check",
         text: "Supplier, customer, tax IDs, dates, net amount, VAT and withholding. We check the tax ID's check digit, that the totals add up, and that no invoice appears twice.",
-        alt: "Records table with the extracted invoices",
       },
       {
         title: "You review and export",
         text: "Review only what's flagged and export to CSV or Excel to import into your accounting software.",
-        alt: "Exporting the records to CSV",
       },
     ],
   },
@@ -308,6 +317,17 @@ const en: Copy = {
     success: "Thank you! We'll write back within 2 working days.",
     error: "We couldn't send your request. Try again or write to",
     orEmail: "Prefer email? Write to",
+  },
+  fields: {
+    supplier_name: "Supplier",
+    supplier_tax_id: "Supplier tax ID",
+    invoice_number: "Invoice no.",
+    invoice_date: "Date",
+    net_amount: "Net",
+    vat_amount: "VAT",
+    withholding_amount: "Withholding",
+    total_amount: "Total",
+    validTaxId: "check digit OK",
   },
   footer: {
     product: "Product",

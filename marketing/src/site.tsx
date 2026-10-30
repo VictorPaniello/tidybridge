@@ -1,6 +1,5 @@
 // Shared by every page of the landing site: the home page (App.tsx) and the
 // legal pages (legal/main.tsx).
-import type { MouseEvent, PointerEvent } from "react";
 import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
 import { Logo } from "./components/Logo";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -11,18 +10,6 @@ export const REPO_URL = "https://github.com/VictorPaniello/tidybridge";
 
 export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 export const SPRING = { type: "spring", stiffness: 400, damping: 25 } as const;
-
-// Hands off the current theme so the app doesn't flash to the wrong one on
-// arrival - localStorage can't do this, tidybridge.dev and app.tidybridge.dev
-// are different origins. The app's own blocking script (frontend/index.html)
-// reads this once, persists it to its own localStorage, and strips it from
-// the URL. Rewrites the href instead of navigating by hand so ctrl-click,
-// middle-click and "open in new tab" keep working: pointerdown runs before
-// any of those, click covers keyboard activation.
-function withTheme(e: MouseEvent<HTMLAnchorElement> | PointerEvent<HTMLAnchorElement>) {
-  const dark = document.documentElement.classList.contains("dark");
-  e.currentTarget.href = `${APP_URL}/register?theme=${dark ? "dark" : "light"}`;
-}
 
 const CTA_STYLES = {
   primary:
@@ -42,19 +29,11 @@ export function Cta({
       whileHover={reduce ? undefined : { y: -2 }}
       whileTap={reduce ? undefined : { y: 0, scale: 0.97 }}
       transition={SPRING}
-      className={`inline-flex items-center rounded-md font-medium transition-[box-shadow,background-color] ${
+      className={`inline-flex items-center whitespace-nowrap rounded-md font-medium transition-[box-shadow,background-color] ${
         size === "sm" ? "px-3 py-1.5 text-sm" : "px-5 py-2.5"
       } ${CTA_STYLES[variant]} ${className}`}
       {...props}
     />
-  );
-}
-
-export function GetStarted(props: { size?: "sm" | "md"; className?: string }) {
-  return (
-    <Cta href={`${APP_URL}/register`} onPointerDown={withTheme} onClick={withTheme} {...props}>
-      Get started
-    </Cta>
   );
 }
 
@@ -96,9 +75,11 @@ export function SiteHeader() {
             href={otherLangHref(lang, window.location.pathname)}
             hrefLang={lang === "es" ? "en" : "es"}
             lang={lang === "es" ? "en" : "es"}
+            aria-label={nav.switchTo}
             className={linkClass}
           >
-            {nav.switchTo}
+            <span className="hidden sm:inline">{nav.switchTo}</span>
+            <span className="sm:hidden">{nav.switchShort}</span>
           </a>
           <Cta href={`${base}#piloto`} size="sm">
             {nav.pilot}
