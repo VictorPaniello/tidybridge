@@ -64,4 +64,15 @@ describe("legal pages", () => {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }
   });
+
+  it("privacy covers the pilot request form and its 12-month retention", () => {
+    renderIn(<PrivacyPage />);
+    expect(screen.getByRole("heading", { name: "4. Pilot requests" })).toBeInTheDocument();
+    expect(screen.getAllByText(/12 months/).length).toBeGreaterThan(0);
+  });
+
+  it("privacy says invoices give both the supplier's and the customer's details", () => {
+    renderIn(<PrivacyPage />);
+    expect(screen.getByText(/supplier's and the customer's name and tax ID/)).toBeInTheDocument();
+  });
 });

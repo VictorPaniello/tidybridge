@@ -7,7 +7,9 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
 
 
 class ClientRecordOut(BaseModel):
@@ -216,3 +218,21 @@ class RecordsPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+_Text200 = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class PilotRequestIn(BaseModel):
+    """The landing's pilot request form. `website` is a honeypot: a hidden
+    field people never fill, so anything in it marks a bot."""
+
+    name: _Text200
+    firm: _Text200
+    email: EmailStr
+    phone: Annotated[str, StringConstraints(strip_whitespace=True, max_length=50)] | None = None
+    volume: Literal["<100", "100-500", "500+"] | None = None
+    message: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)] | None = None
+    language: Literal["es", "en"]
+    privacy_accepted: Literal[True]
+    website: str = ""
