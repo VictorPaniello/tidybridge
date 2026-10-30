@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func, or_
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func, or_
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -120,8 +120,7 @@ class ClientRecord(Base):
     ingestion_run: Mapped[IngestionRun | None] = relationship(back_populates="records")
     source_file: Mapped[str] = mapped_column(String, nullable=False)
     fields: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    """Whatever this upload's shape resolved to - see
-    docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md.
+    """Whatever this upload's shape resolved to.
     No fixed keys; a given record might have "full_name"/"email" (the
     common case, via alias-matching) or something else entirely."""
     has_issues: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -321,3 +320,21 @@ class ProvisioningJob(Base):
     )
     remote_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PilotRequest(Base):
+    """A "Solicitar piloto" form sent from the landing (tidybridge.dev).
+    Not tied to a user - the requester has no account yet. Deleted by the
+    retention sweep like client data."""
+
+    __tablename__ = "pilot_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    firm: Mapped[str] = mapped_column(String(200), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    volume: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str] = mapped_column(String(2), nullable=False)

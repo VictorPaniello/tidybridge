@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { t } from "../lib/i18n";
 
 function isDarkNow(): boolean {
   return document.documentElement.classList.contains("dark");
@@ -19,8 +20,8 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={() => setDark((d) => !d)}
-      aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
-      title={dark ? "Switch to light theme" : "Switch to dark theme"}
+      aria-label={dark ? t("lightTheme") : t("darkTheme")}
+      title={dark ? t("lightTheme") : t("darkTheme")}
       className="rounded-md border border-border p-1.5 hover:bg-secondary transition"
     >
       {dark ? <SunIcon /> : <MoonIcon />}

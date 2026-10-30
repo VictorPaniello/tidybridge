@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../lib/i18n";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { Spinner } from "./Spinner";
@@ -10,7 +11,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
-        <Spinner /> Loading…
+        <Spinner /> {t("loading")}
       </div>
     );
   }

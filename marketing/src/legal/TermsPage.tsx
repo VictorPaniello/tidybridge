@@ -44,7 +44,7 @@ export function TermsPage() {
           contract, their consent, or another valid basis). You're the data controller for
           anything you upload; tidybridge acts only as your processor, on your instructions - see
           the{" "}
-          <a href="/privacy" className="text-ring hover:underline">
+          <a href="/en/privacy" className="text-ring hover:underline">
             Privacy policy
           </a>{" "}
           for what that means in practice.
@@ -56,7 +56,7 @@ export function TermsPage() {
         </p>
         <p className="mt-2">
           The{" "}
-          <a href="/dpa" className="text-ring hover:underline">
+          <a href="/en/dpa" className="text-ring hover:underline">
             Data processing agreement
           </a>{" "}
           forms part of these terms as soon as you upload data about other people, and sets out

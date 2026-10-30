@@ -61,8 +61,8 @@ export function PrivacyPage() {
           who never interacted with tidybridge directly and have no account here.
         </p>
         <p className="mt-2">
-          You can also upload supplier invoices as a PDF or image. The supplier's name, tax ID
-          (for a self-employed supplier, that's their personal tax ID number), invoice number,
+          You can also upload supplier invoices as a PDF or image. The supplier's and the customer's name and tax ID
+          (for a self-employed person, that's their personal tax ID number), invoice number,
           date, and amounts are read from the document and stored the same way.
         </p>
         <p className="mt-2">
@@ -72,7 +72,7 @@ export function PrivacyPage() {
           this way. tidybridge acts as your <strong>data processor</strong> for this category only
           - storing and, if you configure a webhook, forwarding it on your behalf, on your
           instructions. The terms of that are in the{" "}
-          <a href="/dpa" className="text-ring hover:underline">
+          <a href="/en/dpa" className="text-ring hover:underline">
             Data processing agreement
           </a>
           .
@@ -99,6 +99,17 @@ export function PrivacyPage() {
           <strong>Legal basis</strong> for all of these: our legitimate interest in keeping the
           service secure and recoverable (Art. 6(1)(f) GDPR).
         </p>
+        <h3 className="font-medium mt-4 mb-1">4. Pilot requests</h3>
+        <p>
+          If you ask for a free pilot through the form on tidybridge.dev, we store what you send:
+          your name, your firm's name, your email, and optionally your phone number, how many
+          invoices you handle a month and a message. It's used only to answer your request and
+          arrange the pilot, and arrives as an email at hello@tidybridge.dev.{" "}
+          <strong>Legal basis:</strong> steps you ask us to take before a possible contract
+          (Art. 6(1)(b) GDPR). It's kept for <strong>12 months</strong>, then deleted
+          automatically, and you can ask for it to be deleted sooner at hello@tidybridge.dev.
+        </p>
+
         <p className="mt-2">
           Nothing here is used for advertising, analytics, or tracking - there is no analytics
           script, tracking pixel, or third-party embed on this site to opt out of, because none
@@ -121,8 +132,9 @@ export function PrivacyPage() {
             </a>.
           </li>
           <li>
-            <strong>Resend</strong> - sends the "forgot password" email, if you request one, and
-            replies sent from hello@tidybridge.dev. This means your email address, and the reset
+            <strong>Resend</strong> - sends the "forgot password" email, if you request one,
+            replies sent from hello@tidybridge.dev, and the email that delivers a pilot request to
+            hello@tidybridge.dev. This means your email address, and the reset
             link, passes through Resend's systems (based in the United States) to reach your
             inbox. See{" "}
             <a
@@ -236,6 +248,10 @@ export function PrivacyPage() {
           </a>
           . Deleting your account also immediately erases every client record it owns, rather than
           waiting out the one-year window.
+        </p>
+        <p className="mt-2">
+          <strong>Pilot requests</strong> sent through the form on tidybridge.dev are kept for{" "}
+          <strong>12 months</strong>, then deleted automatically by the same scheduled job.
         </p>
         <p className="mt-2">
           Database backups are retained separately for up to 30 days for disaster-recovery

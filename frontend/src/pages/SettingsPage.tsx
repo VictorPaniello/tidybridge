@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getLang, setLang, t, type Lang } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -43,7 +44,7 @@ export function SettingsPage() {
       navigate("/login");
     } catch (err) {
       setDeleteAccountError(
-        err instanceof ApiError ? err.message : "Couldn't delete your account. Try again.",
+        err instanceof ApiError ? err.message : t("deleteAccountFailed"),
       );
       setDeletingAccount(false);
     }
@@ -59,7 +60,7 @@ export function SettingsPage() {
       await updateProfile({ firstName, lastName, phone });
       setSaved(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -71,7 +72,7 @@ export function SettingsPage() {
     setPasswordSaved(false);
 
     if (newPassword !== confirmPassword) {
-      setPasswordError("Passwords don't match.");
+      setPasswordError(t("passwordsDontMatch"));
       return;
     }
 
@@ -90,7 +91,7 @@ export function SettingsPage() {
       setConfirmPassword("");
       setPasswordSaved(true);
     } catch (err) {
-      setPasswordError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setPasswordError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
       setChangingPassword(false);
     }
@@ -99,15 +100,15 @@ export function SettingsPage() {
   return (
     <div className="max-w-sm space-y-12">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Account settings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{t("accountSettings")}</h1>
         <p className="text-muted-foreground mb-8 text-sm">
-          Update the profile details attached to your account.
+          {t("settingsIntro")}
         </p>
 
         <form onSubmit={handleProfileSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="email">
-              Email
+              {t("email")}
             </label>
             <input
               id="email"
@@ -121,7 +122,7 @@ export function SettingsPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="first-name">
-                First name
+                {t("firstName")}
               </label>
               <input
                 id="first-name"
@@ -135,7 +136,7 @@ export function SettingsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="last-name">
-                Last name
+                {t("lastName")}
               </label>
               <input
                 id="last-name"
@@ -157,28 +158,28 @@ export function SettingsPage() {
           />
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-          {saved && !error && <p className="text-sm text-primary">Saved.</p>}
+          {saved && !error && <p className="text-sm text-primary">{t("saved")}</p>}
 
           <button
             type="submit"
             disabled={submitting}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {submitting ? "Saving…" : "Save changes"}
+            {submitting ? t("saving") : t("saveChanges")}
           </button>
         </form>
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold tracking-tight mb-1">Change password</h2>
+        <h2 className="text-lg font-semibold tracking-tight mb-1">{t("changePassword")}</h2>
         <p className="text-muted-foreground mb-6 text-sm">
-          Leave blank if you don't want to change it.
+          {t("leaveBlank")}
         </p>
 
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="new-password">
-              New password
+              {t("newPassword")}
             </label>
             <PasswordInput
               id="new-password"
@@ -191,7 +192,7 @@ export function SettingsPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="confirm-password">
-              Confirm new password
+              {t("confirmNewPassword")}
             </label>
             <PasswordInput
               id="confirm-password"
@@ -203,7 +204,7 @@ export function SettingsPage() {
 
           {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
           {passwordSaved && !passwordError && (
-            <p className="text-sm text-primary">Password changed.</p>
+            <p className="text-sm text-primary">{t("passwordChanged")}</p>
           )}
 
           <button
@@ -211,16 +212,36 @@ export function SettingsPage() {
             disabled={changingPassword || !newPassword}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {changingPassword ? "Changing…" : "Change password"}
+            {changingPassword ? t("changing") : t("changePassword")}
           </button>
         </form>
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold tracking-tight mb-1 text-red-600">Danger zone</h2>
+        <h2 className="text-lg font-semibold tracking-tight mb-1">{t("language")}</h2>
+        <p className="text-muted-foreground mb-4 text-sm">{t("languageIntro")}</p>
+        <select
+          aria-label={t("language")}
+          value={getLang()}
+          onChange={(e) => {
+            setLang(e.target.value as Lang);
+            window.location.reload();
+          }}
+          className="rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="es" style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}>
+            Español
+          </option>
+          <option value="en" style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}>
+            English
+          </option>
+        </select>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight mb-1 text-red-600">{t("dangerZone")}</h2>
         <p className="text-muted-foreground mb-4 text-sm">
-          Permanently deletes your account and every client record, upload history entry, and
-          webhook delivery it owns. This cannot be undone.
+          {t("deleteAccountWarning")}
         </p>
 
         {deleteAccountError && <p className="mb-3 text-sm text-red-600">{deleteAccountError}</p>}
@@ -231,15 +252,15 @@ export function SettingsPage() {
           disabled={deletingAccount}
           className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-4 py-2 text-sm shadow-sm hover:shadow hover:bg-red-50 dark:hover:bg-red-950/30 transition disabled:opacity-50"
         >
-          {deletingAccount ? "Deleting…" : "Delete account"}
+          {deletingAccount ? t("deleting") : t("deleteAccount")}
         </button>
       </div>
 
       <ConfirmDialog
         open={confirmingDeleteAccount}
-        title="Delete your account?"
-        message="This permanently erases your account and every client record, upload, and webhook delivery it owns. This cannot be undone."
-        confirmLabel="Delete account"
+        title={t("deleteAccountTitle")}
+        message={t("deleteAccountWarning")}
+        confirmLabel={t("deleteAccount")}
         onConfirm={handleDeleteAccount}
         onCancel={() => setConfirmingDeleteAccount(false)}
       />

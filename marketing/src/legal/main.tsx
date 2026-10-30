@@ -4,14 +4,22 @@ import { SiteFooter, SiteHeader } from "../site";
 import { DpaPage } from "./DpaPage";
 import { PrivacyPage } from "./PrivacyPage";
 import { TermsPage } from "./TermsPage";
+import { DpaPageEs } from "./es/DpaPage";
+import { PrivacyPageEs } from "./es/PrivacyPage";
+import { TermsPageEs } from "./es/TermsPage";
+import { pageLang } from "../i18n";
 import "../index.css";
 
 // One entry for privacy.html, terms.html and dpa.html - each sets
 // data-page on #root to pick its page.
-const PAGES = { privacy: PrivacyPage, terms: TermsPage, dpa: DpaPage };
+// Spanish at /privacy etc., English at /en/privacy etc. (each HTML sets <html lang>).
+const PAGES = {
+  es: { privacy: PrivacyPageEs, terms: TermsPageEs, dpa: DpaPageEs },
+  en: { privacy: PrivacyPage, terms: TermsPage, dpa: DpaPage },
+};
 
 const root = document.getElementById("root")!;
-const Page = PAGES[root.dataset.page as keyof typeof PAGES];
+const Page = PAGES[pageLang()][root.dataset.page as keyof (typeof PAGES)["es"]];
 
 createRoot(root).render(
   <StrictMode>

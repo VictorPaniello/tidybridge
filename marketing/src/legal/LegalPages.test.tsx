@@ -23,7 +23,7 @@ describe("legal pages", () => {
     renderIn(page);
     expect(screen.getByRole("link", { name: "Data processing agreement" })).toHaveAttribute(
       "href",
-      "/dpa",
+      "/en/dpa",
     );
   });
 
@@ -55,13 +55,25 @@ describe("legal pages", () => {
   });
 
   it("the site footer links to all three, on this site", () => {
+    document.documentElement.lang = "en";
     renderIn(<SiteFooter />);
     for (const [name, href] of [
-      ["Privacy policy", "/privacy"],
-      ["Terms of service", "/terms"],
-      ["Data processing agreement", "/dpa"],
+      ["Privacy policy", "/en/privacy"],
+      ["Terms of service", "/en/terms"],
+      ["Data processing agreement", "/en/dpa"],
     ]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }
+  });
+
+  it("privacy covers the pilot request form and its 12-month retention", () => {
+    renderIn(<PrivacyPage />);
+    expect(screen.getByRole("heading", { name: "4. Pilot requests" })).toBeInTheDocument();
+    expect(screen.getAllByText(/12 months/).length).toBeGreaterThan(0);
+  });
+
+  it("privacy says invoices give both the supplier's and the customer's details", () => {
+    renderIn(<PrivacyPage />);
+    expect(screen.getByText(/supplier's and the customer's name and tax ID/)).toBeInTheDocument();
   });
 });

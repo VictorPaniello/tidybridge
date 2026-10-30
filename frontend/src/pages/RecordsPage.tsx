@@ -6,7 +6,8 @@ import { ApiError } from "../api/client";
 import type { ClientRecord, IngestionRun, IngestResult } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 import { greeting } from "../lib/greeting";
-import { humanizeFieldName, isTitleField, orderFieldNames } from "../lib/fieldNames";
+import { displayFieldName, formatFieldValue, isTitleField, orderFieldNames } from "../lib/fieldNames";
+import { t } from "../lib/i18n";
 import { useHealth } from "../lib/health";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { Spinner } from "../components/Spinner";
@@ -32,6 +33,12 @@ interface SortState {
 function sortValue(record: ClientRecord, key: SortKey): string | number | null {
   if (key === "has_issues") return statusLabel(record);
   return record.fields[key];
+}
+
+// Status values are identifiers (filters, sort); this is what's shown.
+function statusText(status: Status): string {
+  if (status === "Clean") return t("statusClean");
+  return status === "Approved" ? t("statusApproved") : t("statusNeedsReview");
 }
 
 // A flagged record someone approved isn't work to do any more - see the
@@ -107,7 +114,7 @@ function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () =>
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss error"
+        aria-label={t("dismissError")}
         className="shrink-0 opacity-70 hover:opacity-100 transition"
       >
         <XIcon />
@@ -366,7 +373,7 @@ export function RecordsPage() {
       sessionStorage.setItem("tidybridge_last_ingest_result", JSON.stringify(result));
       await Promise.all([load(), loadRuns()]);
     } catch (err) {
-      setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
+      setUploadError(err instanceof ApiError ? err.message : t("uploadFailed"));
     } finally {
       setUploading(false);
     }
@@ -378,7 +385,7 @@ export function RecordsPage() {
     try {
       await api.exportRecords(ingestionRunId ?? undefined);
     } catch (err) {
-      setExportError(err instanceof ApiError ? err.message : "Export failed.");
+      setExportError(err instanceof ApiError ? err.message : t("exportFailed"));
     } finally {
       setExporting(false);
     }
@@ -398,7 +405,7 @@ export function RecordsPage() {
         return next;
       });
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Couldn't delete this record.");
+      alert(err instanceof ApiError ? err.message : t("deleteRecordFailed"));
     }
   }
 
@@ -436,7 +443,7 @@ export function RecordsPage() {
       setSelectedIds(new Set());
     } catch (err) {
       setBulkDeleteError(
-        err instanceof ApiError ? err.message : "Couldn't delete the selected records.",
+        err instanceof ApiError ? err.message : t("deleteRecordsFailed"),
       );
     } finally {
       setBulkDeleting(false);
@@ -447,14 +454,14 @@ export function RecordsPage() {
     <div>
       {user && <p className="text-lg text-muted-foreground mb-1">{greeting(user)}</p>}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Client records</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("records")}</h1>
         <div className="flex gap-2">
           <button
             onClick={handleExport}
             disabled={exporting || uploading || records.length === 0}
             className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary transition disabled:opacity-50"
           >
-            {exporting ? "Exporting…" : "Export CSV"}
+            {exporting ? t("exporting") : t("exportCsv")}
           </button>
           <input
             ref={fileInputRef}
@@ -468,7 +475,7 @@ export function RecordsPage() {
             disabled={uploading}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {uploading ? "Uploading…" : extraction ? "Upload file or invoice" : "Upload file"}
+            {uploading ? t("uploading") : extraction ? t("uploadFileOrInvoice") : t("uploadFile")}
           </button>
         </div>
       </div>
@@ -476,7 +483,7 @@ export function RecordsPage() {
       {uploading && (
         <div className="mb-4 flex items-center gap-3 rounded-md border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground">
           <Spinner className="w-6 h-6 shrink-0" />
-          Cleaning and importing your file - this can take a moment for larger uploads.
+          {t("uploadingNotice")}
         </div>
       )}
 
@@ -490,7 +497,7 @@ export function RecordsPage() {
         <div className="mb-4 rounded-md border border-border bg-secondary/50 px-4 py-3 text-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-medium text-primary mb-1">Mapping saved.</p>
+              <p className="font-medium text-primary mb-1">{t("mappingSaved")}</p>
               {mappingSaveSummary.length > 0 ? (
                 <ul className="list-disc pl-5 space-y-0.5">
                   {mappingSaveSummary.map((line, i) => (
@@ -498,13 +505,13 @@ export function RecordsPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-muted-foreground">No changes.</p>
+                <p className="text-muted-foreground">{t("noChanges")}</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setMappingSaveSummary(null)}
-              aria-label="Dismiss"
+              aria-label={t("dismiss")}
               className="relative shrink-0 grid place-items-center w-6 h-6 text-muted-foreground hover:text-foreground transition"
             >
               {/* Matches the 6s auto-dismiss timer below - purely
@@ -539,33 +546,33 @@ export function RecordsPage() {
         <div className="mb-6 rounded-md border border-border px-4 py-3 text-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-medium mb-1">{lastResult.rows_total} rows processed</p>
+              <p className="font-medium mb-1">{t("rowsProcessed", { count: lastResult.rows_total })}</p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
                 <CountFilter
                   count={lastResult.rows_clean}
-                  label="clean"
+                  label={t("clean", { count: lastResult.rows_clean })}
                   countClassName="text-primary"
                   onClick={() => setFilter("Clean")}
                 />
                 <CountFilter
                   count={lastResult.rows_flagged}
-                  label="flagged"
+                  label={t("needReview", { count: lastResult.rows_flagged })}
                   countClassName="text-amber-700 dark:text-amber-400"
                   // Everything a fresh upload flagged still needs review.
                   onClick={() => setFilter("Needs review")}
                 />
                 <span>
                   <span className="font-medium">{lastResult.rows_dropped_duplicates}</span>{" "}
-                  duplicate{lastResult.rows_dropped_duplicates === 1 ? "" : "s"} skipped
+                  {t("duplicatesSkipped", { count: lastResult.rows_dropped_duplicates })}
                 </span>
                 {lastResult.rows_skipped_existing > 0 && (
                   <span>
                     <span className="font-medium">{lastResult.rows_skipped_existing}</span>{" "}
-                    already ingested
+                    {t("alreadyImported", { count: lastResult.rows_skipped_existing })}
                   </span>
                 )}
                 <Link to={`/uploads`} className="text-ring hover:underline">
-                  View full history
+                  {t("viewHistory")}
                 </Link>
               </div>
             </div>
@@ -575,7 +582,7 @@ export function RecordsPage() {
                 setLastResult(null);
                 sessionStorage.removeItem("tidybridge_last_ingest_result");
               }}
-              aria-label="Dismiss"
+              aria-label={t("dismiss")}
               className="shrink-0 text-muted-foreground hover:text-foreground transition"
             >
               <XIcon />
@@ -607,14 +614,14 @@ export function RecordsPage() {
       {!loading && !error && records.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
           <StatCard
-            label="Total records"
+            label={t("statTotal")}
             value={String(stats.total)}
             active={filter === "all"}
             onClick={() => setFilter("all")}
             disabled={uploading}
           />
           <StatCard
-            label="Clean"
+            label={t("statClean")}
             value={String(stats.clean)}
             valueClassName="text-primary"
             active={filter === "Clean"}
@@ -622,7 +629,7 @@ export function RecordsPage() {
             disabled={uploading}
           />
           <StatCard
-            label="Needs review"
+            label={t("statNeedsReview")}
             active={filter === "Needs review"}
             onClick={() => setFilter("Needs review")}
             disabled={uploading}
@@ -630,7 +637,7 @@ export function RecordsPage() {
             valueClassName="text-amber-700 dark:text-amber-400"
           />
           <StatCard
-            label="Approved"
+            label={t("statApproved")}
             value={String(stats.approved)}
             valueClassName="text-primary"
             active={filter === "Approved"}
@@ -656,24 +663,24 @@ export function RecordsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           disabled={uploading}
-          placeholder="Search records…"
-          aria-label="Search records"
+          placeholder={t("searchRecords")}
+          aria-label={t("searchRecordsLabel")}
           className="ml-auto w-full sm:w-64 rounded-md border border-input bg-transparent px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
         />
       </div>
 
       {loading ? (
         <p className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Spinner /> Loading…
+          <Spinner /> {t("loading")}
         </p>
       ) : error ? (
         <p className="text-red-600 text-sm">{error}</p>
       ) : records.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          No records yet. Upload a CSV or Excel file to get started.
+          {t("noRecordsYet")}
         </p>
       ) : sortedRecords.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No records match this filter/search.</p>
+        <p className="text-muted-foreground text-sm">{t("noMatches")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full text-sm">
@@ -682,7 +689,7 @@ export function RecordsPage() {
                 <th className="px-4 py-2 font-medium w-8 h-10">
                   <input
                     type="checkbox"
-                    aria-label="Select all"
+                    aria-label={t("selectAll")}
                     checked={
                       sortedRecords.length > 0 &&
                       sortedRecords.every((r) => selectedIds.has(r.id))
@@ -693,14 +700,14 @@ export function RecordsPage() {
                 {fieldNames.map((name) => (
                   <SortableHeader
                     key={name}
-                    label={humanizeFieldName(name)}
+                    label={displayFieldName(name)}
                     sortKey={name}
                     sort={sort}
                     onSort={handleSort}
                   />
                 ))}
                 <SortableHeader
-                  label="Status"
+                  label={t("status")}
                   sortKey="has_issues"
                   sort={sort}
                   onSort={handleSort}
@@ -731,7 +738,7 @@ export function RecordsPage() {
                         // reflows the table horizontally either.
                         className="inline-flex items-center h-6 rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 text-xs font-normal shadow-sm hover:shadow transition disabled:opacity-50"
                       >
-                        {bulkDeleting ? "Deleting…" : `Delete (${selectedIds.size})`}
+                        {bulkDeleting ? t("deleting") : t("deleteCount", { count: selectedIds.size })}
                       </motion.button>
                     )}
                   </AnimatePresence>
@@ -747,7 +754,7 @@ export function RecordsPage() {
                   <td className="px-4 py-2">
                     <input
                       type="checkbox"
-                      aria-label={`Select record ${r.id}`}
+                      aria-label={t("selectRecord", { id: r.id })}
                       checked={selectedIds.has(r.id)}
                       onChange={() => toggleSelected(r.id)}
                     />
@@ -762,10 +769,10 @@ export function RecordsPage() {
                       >
                         {isLink ? (
                           <Link to={`/records/${r.id}`} className="hover:underline font-medium">
-                            {val ?? "—"}
+                            {formatFieldValue(name, val) ?? "—"}
                           </Link>
                         ) : (
-                          val ?? "—"
+                          formatFieldValue(name, val) ?? "—"
                         )}
                       </td>
                     );
@@ -773,11 +780,11 @@ export function RecordsPage() {
                   <td className="px-4 py-2">
                     {statusLabel(r) === "Needs review" ? (
                       <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
-                        Needs review
+                        {t("statusNeedsReview")}
                       </span>
                     ) : (
                       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
-                        {statusLabel(r)}
+                        {statusText(statusLabel(r))}
                       </span>
                     )}
                   </td>
@@ -790,7 +797,7 @@ export function RecordsPage() {
                           to={`/records/${r.id}`}
                           className="rounded-md border border-amber-300 dark:border-amber-900 bg-card text-amber-700 dark:text-amber-400 px-2.5 py-1 text-xs shadow-sm transition hover:shadow hover:bg-amber-50 hover:border-amber-400 dark:hover:bg-amber-950/50 dark:hover:border-amber-700"
                         >
-                          Review
+                          {t("review")}
                         </Link>
                       )}
                       <motion.button
@@ -798,7 +805,7 @@ export function RecordsPage() {
                         onClick={() => setPendingDeleteId(r.id)}
                         className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-2.5 py-1 text-xs shadow-sm transition hover:shadow hover:bg-red-50 hover:border-red-400 dark:hover:bg-red-950/50 dark:hover:border-red-700"
                       >
-                        Delete
+                        {t("delete")}
                       </motion.button>
                     </div>
                   </td>
@@ -811,15 +818,15 @@ export function RecordsPage() {
 
       <ConfirmDialog
         open={pendingDeleteId !== null}
-        title="Delete this record?"
-        message={`This permanently deletes the record${webhooksOn ? " and its webhook delivery history" : ""}. This cannot be undone.`}
+        title={t("deleteRecordTitle")}
+        message={webhooksOn ? t("deleteRecordMessageWebhooks") : t("deleteRecordMessage")}
         onConfirm={confirmDelete}
         onCancel={() => setPendingDeleteId(null)}
       />
       <ConfirmDialog
         open={pendingBulkDelete}
-        title={`Delete ${selectedIds.size} record${selectedIds.size === 1 ? "" : "s"}?`}
-        message={`This permanently deletes the selected records${webhooksOn ? " and their webhook delivery history" : ""}. This cannot be undone.`}
+        title={t("deleteRecordsTitle", { count: selectedIds.size })}
+        message={webhooksOn ? t("deleteRecordsMessageWebhooks") : t("deleteRecordsMessage")}
         onConfirm={confirmBulkDelete}
         onCancel={() => setPendingBulkDelete(false)}
       />

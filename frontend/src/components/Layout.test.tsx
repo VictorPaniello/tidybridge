@@ -13,9 +13,9 @@ describe("Layout", () => {
       </MemoryRouter>,
     );
     for (const [name, href] of [
-      ["Privacy policy", "https://tidybridge.dev/privacy"],
-      ["Terms of service", "https://tidybridge.dev/terms"],
-      ["Data processing", "https://tidybridge.dev/dpa"],
+      ["Privacy policy", "https://tidybridge.dev/en/privacy"],
+      ["Terms of service", "https://tidybridge.dev/en/terms"],
+      ["Data processing", "https://tidybridge.dev/en/dpa"],
     ]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }

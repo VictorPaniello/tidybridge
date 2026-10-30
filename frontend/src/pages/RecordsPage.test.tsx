@@ -74,12 +74,12 @@ describe("RecordsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/rows processed/i)).toBeInTheDocument();
+    expect(screen.getByText(/processed/i)).toBeInTheDocument();
     expect(screen.getByText("Review mapping")).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("Dismiss"));
 
-    expect(screen.queryByText(/rows processed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/processed/i)).not.toBeInTheDocument();
     expect(sessionStorage.getItem("tidybridge_last_ingest_result")).toBeNull();
   });
 
@@ -124,7 +124,7 @@ describe("RecordsPage", () => {
     );
     await screen.findByText("Clean Row");
 
-    fireEvent.click(screen.getByRole("button", { name: "1 flagged" }));
+    fireEvent.click(screen.getByRole("button", { name: "1 needs review" }));
     expect(screen.queryByText("Clean Row")).not.toBeInTheDocument();
     expect(screen.getByText("Flagged Row")).toBeInTheDocument();
 
@@ -179,7 +179,7 @@ describe("RecordsPage", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/rows processed/i)).toBeInTheDocument();
+    expect(screen.getByText(/processed/i)).toBeInTheDocument();
     expect(screen.queryByText("Review mapping")).not.toBeInTheDocument();
     expect(screen.queryByText("Jane Doe")).not.toBeInTheDocument();
   });
@@ -209,7 +209,7 @@ describe("RecordsPage", () => {
     );
 
     await screen.findByText("Acme Corp");
-    expect(screen.getByRole("button", { name: /customer name/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^customer/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /deal size/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /custom field/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /status/i })).toBeInTheDocument();
@@ -251,11 +251,11 @@ describe("RecordsPage", () => {
       .map((th) => th.textContent?.trim())
       .filter(Boolean);
     expect(headers.slice(0, 6)).toEqual([
-      "Supplier Name",
-      "Invoice Number",
+      "Supplier",
+      "Invoice no.",
       "Currency",
-      "Net Amount",
-      "Total Amount",
+      "Net",
+      "Total",
       "My Custom Field",
     ]);
     expect(screen.getByRole("link", { name: "Ejemplo SL" })).toHaveAttribute("href", "/records/inv-1");

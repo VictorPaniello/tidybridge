@@ -1,0 +1,65 @@
+[
+  {
+    "id": "clean",
+    "label": { "es": "PDF de una empresa", "en": "A company's PDF" },
+    "image": "/samples/clean.png",
+    "invoice": {
+      "supplier_name": "Papelería Ejemplo, S.L.",
+      "supplier_tax_id": "B12345674",
+      "customer_name": "Cliente Ejemplo, S.A.",
+      "customer_tax_id": "A12345674",
+      "invoice_number": "A-2026-0117",
+      "invoice_date": "2026-10-27",
+      "currency": "EUR",
+      "net_amount": 1130.0,
+      "vat_amount": 237.3,
+      "withholding_amount": null,
+      "total_amount": 1367.3
+    },
+    "issues": []
+  },
+  {
+    "id": "photo",
+    "label": { "es": "Foto de móvil", "en": "Phone photo" },
+    "image": "/samples/photo.png",
+    "invoice": {
+      "supplier_name": "Ana Ejemplo",
+      "supplier_tax_id": "12345678Z",
+      "customer_name": "Cliente Ejemplo, S.A.",
+      "customer_tax_id": "A12345674",
+      "invoice_number": "F-2026-0042",
+      "invoice_date": "2026-10-15",
+      "currency": "EUR",
+      "net_amount": 850.0,
+      "vat_amount": 178.5,
+      "withholding_amount": 127.5,
+      "total_amount": 901.0
+    },
+    "issues": [
+      {
+        "field": "invoice_date",
+        "es": "La fecha estaba poco legible",
+        "en": "The date was hard to read"
+      }
+    ]
+  },
+  {
+    "id": "irpf",
+    "label": { "es": "Autónomo con retención", "en": "Freelancer with withholding" },
+    "image": "/samples/irpf.png",
+    "invoice": {
+      "supplier_name": "Estudio Ejemplo",
+      "supplier_tax_id": "12345678Z",
+      "customer_name": "Cliente Ejemplo, S.A.",
+      "customer_tax_id": "A12345674",
+      "invoice_number": "2026/108",
+      "invoice_date": "2026-10-02",
+      "currency": "EUR",
+      "net_amount": 1000.0,
+      "vat_amount": 210.0,
+      "withholding_amount": 150.0,
+      "total_amount": 1060.0
+    },
+    "issues": []
+  }
+]

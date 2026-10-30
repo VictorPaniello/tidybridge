@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from tidybridge.config import settings
 from tidybridge.db import SessionLocal
-from tidybridge.models import ClientRecord, IngestionRun
+from tidybridge.models import ClientRecord, IngestionRun, PilotRequest
 
 
 def sweep_expired_client_data(db: Session) -> dict[str, int]:
@@ -48,21 +48,29 @@ def sweep_expired_client_data(db: Session) -> dict[str, int]:
             ClientRecord.created_at < cutoff, ClientRecord.ingestion_run_id.is_(None)
         )
     ).rowcount
+    # Pilot requests from the landing form: same 12-month window (/privacy)
+    deleted_pilot_requests = db.execute(
+        delete(PilotRequest).where(PilotRequest.created_at < cutoff)
+    ).rowcount
     db.commit()
 
-    return {"deleted_runs": deleted_runs, "deleted_orphan_records": deleted_orphan_records}
+    return {
+        "deleted_runs": deleted_runs,
+        "deleted_orphan_records": deleted_orphan_records,
+        "deleted_pilot_requests": deleted_pilot_requests,
+    }
 
 
 def run() -> None:
     db = SessionLocal()
     try:
         result = sweep_expired_client_data(db)
-        total = result["deleted_runs"] + result["deleted_orphan_records"]
-        if total:
+        if sum(result.values()):
             print(
                 f"Deleted {result['deleted_runs']} ingestion run(s) (cascading to their "
-                f"records/webhook deliveries) and {result['deleted_orphan_records']} "
-                f"orphaned record(s) older than {settings.client_data_retention_days} days."
+                f"records/webhook deliveries), {result['deleted_orphan_records']} "
+                f"orphaned record(s) and {result['deleted_pilot_requests']} pilot request(s) "
+                f"older than {settings.client_data_retention_days} days."
             )
         else:
             print("No client data older than the retention window to delete.")

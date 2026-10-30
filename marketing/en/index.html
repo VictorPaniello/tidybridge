@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="description"
+      content="tidybridge extracts the data from your clients' supplier invoices (tax IDs, net amount, VAT, withholding) and flags anything doubtful for you to review. For accounting firms. Servers in the EU."
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href="https://tidybridge.dev/en/" />
+    <link rel="alternate" hreflang="es" href="https://tidybridge.dev/" />
+    <link rel="alternate" hreflang="en" href="https://tidybridge.dev/en/" />
+    <link rel="alternate" hreflang="x-default" href="https://tidybridge.dev/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafaf9" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0a09" media="(prefers-color-scheme: dark)" />
+    <title>tidybridge - Your clients' invoices, ready for your accounting software</title>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tidybridge.dev/en/" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:title" content="tidybridge" />
+    <meta
+      property="og:description"
+      content="tidybridge extracts the data from your clients' supplier invoices (tax IDs, net amount, VAT, withholding) and flags anything doubtful for you to review. For accounting firms. Servers in the EU."
+    />
+    <meta property="og:image" content="https://tidybridge.dev/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "tidybridge",
+        "url": "https://tidybridge.dev",
+        "description": "tidybridge extracts the data from your clients' supplier invoices (tax IDs, net amount, VAT, withholding) and flags anything doubtful for you to review. For accounting firms. Servers in the EU.",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web"
+      }
+    </script>
+    <script>
+      // Blocking, runs before first paint - avoids a flash of the wrong
+      // theme. Same localStorage key ThemeToggle.tsx reads/writes. Copied
+      // from frontend/index.html - this site and the app are different
+      // origins, so the two never share this localStorage value, only
+      // the same logic for using it.
+      (function () {
+        var stored = localStorage.getItem("theme");
+        var dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

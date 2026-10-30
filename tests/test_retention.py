@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
 from tidybridge.auth_models import User
-from tidybridge.models import ClientRecord, IngestionRun, WebhookDelivery
+from tidybridge.models import ClientRecord, IngestionRun, PilotRequest, WebhookDelivery
 from tidybridge.retention import sweep_expired_client_data
 
 FIXTURES = Path(__file__).parent.parent / "examples"
@@ -133,3 +133,26 @@ def test_sweep_respects_a_custom_retention_window(client: TestClient, db, monkey
     result = sweep_expired_client_data(db)
 
     assert result["deleted_runs"] == 1
+
+
+def _pilot_request(db, days_old: int) -> None:
+    row = PilotRequest(
+        name="Ana", firm="Gestoría Ejemplo", email="ana@example.com", language="es"
+    )
+    db.add(row)
+    db.commit()
+    _backdate(db, PilotRequest, row.id, days_old)
+
+
+def test_sweep_deletes_pilot_requests_older_than_retention(db):
+    _pilot_request(db, days_old=366)
+    result = sweep_expired_client_data(db)
+    assert result["deleted_pilot_requests"] == 1
+    assert db.execute(select(PilotRequest)).first() is None
+
+
+def test_sweep_keeps_recent_pilot_requests(db):
+    _pilot_request(db, days_old=10)
+    result = sweep_expired_client_data(db)
+    assert result["deleted_pilot_requests"] == 0
+    assert db.execute(select(PilotRequest)).first() is not None

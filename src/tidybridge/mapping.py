@@ -1,7 +1,6 @@
 """Per-upload column mapping: turns whatever columns a raw file has into
 the schema tidycsv needs to clean it, resolved per (owner, header shape)
-rather than fixed globally. tidycsv itself is never modified - see
-docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md."""
+rather than fixed globally. tidycsv itself is never modified."""
 
 from __future__ import annotations
 

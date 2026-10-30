@@ -131,6 +131,11 @@ class Settings(BaseSettings):
     RedirectTransport. Vite's dev server default is the localhost value
     above; production sets the real deployed frontend URL."""
 
+    landing_url: str | None = "http://localhost:5174"
+    """Origin of the landing site (marketing/, tidybridge.dev). Allowed by
+    CORS next to frontend_url so its pilot request form can POST
+    /pilot-requests; it holds no credentials. None allows only the app."""
+
     max_upload_size_mb: int = 10
     """Rejects a /records/upload file larger than this (see main.py) - a
     real client data export is nowhere near this size, and without a cap

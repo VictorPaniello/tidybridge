@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import re
 import secrets
 import uuid
@@ -11,7 +12,16 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -32,6 +42,7 @@ from tidybridge.auth import (
     UserCreate,
     UserRead,
     UserUpdate,
+    _send_email,
     auth_backend,
     current_active_user,
     fastapi_users,
@@ -47,10 +58,12 @@ from tidybridge.extract import ExtractionError, ExtractionUnavailableError, extr
 from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
 from tidybridge.mapping import build_schema, validate_resolution
+from tidybridge.pilot_email import pilot_request_email
 from tidybridge.models import (
     ClientRecord,
     ColumnMapping,
     IngestionRun,
+    PilotRequest,
     ProvisioningAttempt,
     ProvisioningJob,
     WebhookDelivery,
@@ -68,6 +81,7 @@ from tidybridge.schemas import (
     IngestionRunOut,
     IngestionRunsPage,
     IngestResult,
+    PilotRequestIn,
     ProvisioningAttemptOut,
     ProvisioningJobStatusOut,
     RecordsPage,
@@ -115,9 +129,15 @@ app = FastAPI(
 # not "*", since credentialed requests (the Authorization header the SPA
 # sends on every authenticated call) are never allowed with a wildcard
 # origin anyway, and there's exactly one legitimate frontend for this API.
+def cors_origins(*urls: str | None) -> list[str]:
+    """A browser's Origin never ends in "/", so a pasted "https://x.app/"
+    would never match - it did on staging, and every preflight got a 400."""
+    return [url.rstrip("/") for url in urls if url]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=cors_origins(settings.frontend_url, settings.landing_url),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,6 +157,8 @@ app.add_middleware(
 # forwards, not uvicorn's own socket peer (see the Dockerfile's
 # --proxy-headers) - otherwise every request behind that proxy would share
 # one bucket and one abusive caller could rate-limit every legitimate one.
+logger = logging.getLogger(__name__)
+
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -304,6 +326,37 @@ if _github_oauth_client is not None:
         if _route.path == "/authorize":
             _route.endpoint = make_github_authorize_redirect(_github_oauth_client)
     app.include_router(_github_router, prefix="/auth/github", tags=["auth"])
+
+
+PILOT_INBOX = "hello@tidybridge.dev"
+
+
+async def _notify_pilot_request(body: PilotRequestIn) -> None:
+    """Runs after the response, once the row is stored - a failed email
+    never loses the request or shows the visitor an error."""
+    subject, html = pilot_request_email(body, datetime.now(UTC))
+    try:
+        # Reply-To the requester: "Reply" in the inbox answers them directly
+        await _send_email(PILOT_INBOX, subject, html, reply_to=body.email)
+    except Exception:
+        logger.exception("Pilot request notification failed")
+
+
+@app.post("/pilot-requests", status_code=202)
+@limiter.limit("5/hour")
+def create_pilot_request(
+    request: Request,
+    body: PilotRequestIn,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict:
+    """The landing's "Solicitar piloto" form. Public: the requester has no
+    account yet. A filled honeypot gets the same 202, stored nowhere."""
+    if not body.website:
+        db.add(PilotRequest(**body.model_dump(exclude={"privacy_accepted", "website"})))
+        db.commit()
+        background_tasks.add_task(_notify_pilot_request, body)
+    return {"status": "received"}
 
 
 @app.get("/health")

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -6,7 +7,7 @@ import { ApiError } from "../api/client";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { PhoneInput } from "../components/PhoneInput";
 import { COUNTRY_CODES } from "../data/countryCodes";
-import { LEGAL_URLS } from "../lib/legal";
+import { legalUrls } from "../lib/legal";
 
 // Reached only via ProtectedRoute redirecting a signed-in user with no
 // first_name here - in practice always a GitHub OAuth signup, since that
@@ -33,7 +34,7 @@ export function CompleteProfilePage() {
       await updateProfile({ firstName, lastName, phone });
       navigate("/");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -45,17 +46,16 @@ export function CompleteProfilePage() {
         <ThemeToggle />
       </div>
       <div className="mx-auto max-w-sm mt-8">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">One more step</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{t("oneMoreStep")}</h1>
         <p className="text-muted-foreground mb-8 text-sm">
-          {user?.email} signed in with GitHub, which doesn't share a name or phone number - fill
-          those in to continue.
+          {t("githubNoName", { email: user?.email ?? "" })}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="first-name">
-                First name
+                {t("firstName")}
               </label>
               <input
                 id="first-name"
@@ -70,7 +70,7 @@ export function CompleteProfilePage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="last-name">
-                Last name
+                {t("lastName")}
               </label>
               <input
                 id="last-name"
@@ -101,15 +101,15 @@ export function CompleteProfilePage() {
               className="mt-0.5 size-4 shrink-0 rounded border-input outline-none focus:ring-2 focus:ring-ring"
             />
             <label htmlFor="agree-terms" className="text-sm text-muted-foreground">
-              I agree to the{" "}
-              <a href={LEGAL_URLS.terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
-                Terms of service
+              {t("agreeTo")}{" "}
+              <a href={legalUrls().terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
+                {t("terms")}
               </a>{" "}
-              and{" "}
-              <a href={LEGAL_URLS.privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
-                Privacy policy
+              {t("and")}{" "}
+              <a href={legalUrls().privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
+                {t("privacyPolicy")}
               </a>
-              , including that any client data I upload is my own to share.
+              {t("agreeOwnData")}
             </label>
           </div>
 
@@ -120,7 +120,7 @@ export function CompleteProfilePage() {
             disabled={submitting || !agreedToTerms}
             className="w-full rounded-md bg-primary text-primary-foreground py-2 font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {submitting ? "Saving…" : "Continue"}
+            {submitting ? t("saving") : t("continue")}
           </button>
         </form>
       </div>

@@ -6,8 +6,7 @@ const linkClass = "text-ring hover:underline";
 // upload. Adapted from the EU parts of General Legal's CC0 "dpa-global"
 // template (github.com/General-Legal/legal-templates), cut down to what
 // this service actually does. Every security measure and sub-processor
-// below is checked against the code / Railway setup - see
-// docs/superpowers/plans/2026-10-07-legal-update.md. Not legal advice.
+// below is checked against the code / Railway setup. Not legal advice.
 export function DpaPage() {
   return (
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
@@ -19,7 +18,7 @@ export function DpaPage() {
       <p>
         This agreement covers the personal data you upload to tidybridge about your own clients
         and suppliers. It forms part of the{" "}
-        <a href="/terms" className={linkClass}>
+        <a href="/en/terms" className={linkClass}>
           Terms of service
         </a>{" "}
         and applies automatically as soon as you upload such data, as required by Article 28 of
@@ -37,7 +36,7 @@ export function DpaPage() {
         <p className="mt-2">
           Your own account data (your email, name, password) is a different matter: there,
           tidybridge is the controller, as described in the{" "}
-          <a href="/privacy" className={linkClass}>
+          <a href="/en/privacy" className={linkClass}>
             Privacy policy
           </a>
           .
@@ -54,8 +53,8 @@ export function DpaPage() {
           </li>
           <li>
             <strong>Types of data:</strong> names, email addresses, phone numbers, dates, monetary
-            amounts, and from invoices: supplier names, tax IDs (NIF/CIF), invoice numbers, dates
-            and amounts.
+            amounts, and from invoices: supplier and customer names and tax IDs (NIF/CIF),
+            invoice numbers, dates and amounts.
           </li>
           <li>
             <strong>Whose data:</strong> your clients, customers and suppliers.

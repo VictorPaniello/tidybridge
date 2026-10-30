@@ -20,8 +20,7 @@ once from examples/schema.yaml by load_schema()) is now only the *reference*
 mapping.py's default_resolution() consults for alias/type hints - it's no
 longer passed to coerce_and_validate()/flag_duplicates() directly. Each
 upload builds its own dynamic Schema from that shape's resolution (saved, or
-computed fresh) - see
-docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md."""
+computed fresh)."""
 
 from __future__ import annotations
 

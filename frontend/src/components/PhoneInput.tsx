@@ -1,4 +1,5 @@
 import { COUNTRY_CODES } from "../data/countryCodes";
+import { t } from "../lib/i18n";
 
 // Shared by RegisterPage, CompleteProfilePage, and SettingsPage - all three
 // collect the same "dial code + local number" pair the same way, so this
@@ -17,12 +18,12 @@ export function PhoneInput({
   return (
     <div>
       <label className="block text-sm font-medium mb-1" htmlFor="phone">
-        Phone <span className="text-muted-foreground font-normal">(optional)</span>
+        {t("phone")} <span className="text-muted-foreground font-normal">{t("optional")}</span>
       </label>
       <div className="flex gap-2">
         <select
           id="phone-country"
-          aria-label="Country code"
+          aria-label={t("countryCode")}
           value={dialCode}
           onChange={(e) => onDialCodeChange(e.target.value)}
           // bg-background/text-foreground (not bg-transparent) here because
