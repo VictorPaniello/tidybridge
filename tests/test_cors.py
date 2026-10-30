@@ -53,3 +53,13 @@ def test_preflight_from_the_landing_origin_is_allowed():
         headers={"Origin": settings.landing_url, "Access-Control-Request-Method": "POST"},
     )
     assert response.headers["access-control-allow-origin"] == settings.landing_url
+
+
+
+def test_configured_origins_lose_a_trailing_slash():
+    from tidybridge.main import cors_origins
+
+    assert cors_origins("https://app.example", "https://landing.example/", None) == [
+        "https://app.example",
+        "https://landing.example",
+    ]

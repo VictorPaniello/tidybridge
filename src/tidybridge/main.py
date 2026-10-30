@@ -129,9 +129,15 @@ app = FastAPI(
 # not "*", since credentialed requests (the Authorization header the SPA
 # sends on every authenticated call) are never allowed with a wildcard
 # origin anyway, and there's exactly one legitimate frontend for this API.
+def cors_origins(*urls: str | None) -> list[str]:
+    """A browser's Origin never ends in "/", so a pasted "https://x.app/"
+    would never match - it did on staging, and every preflight got a 400."""
+    return [url.rstrip("/") for url in urls if url]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o for o in (settings.frontend_url, settings.landing_url) if o],
+    allow_origins=cors_origins(settings.frontend_url, settings.landing_url),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
