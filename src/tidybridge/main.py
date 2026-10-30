@@ -4,14 +4,25 @@ from __future__ import annotations
 
 import csv
 import io
+import logging
 import re
 import secrets
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
+from html import escape as html_escape
 from typing import Literal
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -32,6 +43,7 @@ from tidybridge.auth import (
     UserCreate,
     UserRead,
     UserUpdate,
+    _send_email,
     auth_backend,
     current_active_user,
     fastapi_users,
@@ -119,7 +131,7 @@ app = FastAPI(
 # origin anyway, and there's exactly one legitimate frontend for this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=[o for o in (settings.frontend_url, settings.landing_url) if o],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -139,6 +151,8 @@ app.add_middleware(
 # forwards, not uvicorn's own socket peer (see the Dockerfile's
 # --proxy-headers) - otherwise every request behind that proxy would share
 # one bucket and one abusive caller could rate-limit every legitimate one.
+logger = logging.getLogger(__name__)
+
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -308,13 +322,45 @@ if _github_oauth_client is not None:
     app.include_router(_github_router, prefix="/auth/github", tags=["auth"])
 
 
+PILOT_INBOX = "hello@tidybridge.dev"
+
+
+async def _notify_pilot_request(body: PilotRequestIn) -> None:
+    """Runs after the response, once the row is stored - a failed email
+    never loses the request or shows the visitor an error."""
+    subject = " ".join(f"Solicitud de piloto: {body.firm}".split())
+    rows = [
+        ("Nombre", body.name),
+        ("Gestoría", body.firm),
+        ("Email", body.email),
+        ("Teléfono", body.phone),
+        ("Facturas al mes", body.volume),
+        ("Idioma", body.language),
+        ("Mensaje", body.message),
+    ]
+    html = "".join(
+        f"<p><b>{label}:</b> {html_escape(value)}</p>" for label, value in rows if value
+    )
+    try:
+        await _send_email(PILOT_INBOX, subject, html)
+    except Exception:
+        logger.exception("Pilot request notification failed")
+
+
 @app.post("/pilot-requests", status_code=202)
-def create_pilot_request(body: PilotRequestIn, db: Session = Depends(get_db)) -> dict:
+@limiter.limit("5/hour")
+def create_pilot_request(
+    request: Request,
+    body: PilotRequestIn,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+) -> dict:
     """The landing's "Solicitar piloto" form. Public: the requester has no
     account yet. A filled honeypot gets the same 202, stored nowhere."""
     if not body.website:
         db.add(PilotRequest(**body.model_dump(exclude={"privacy_accepted", "website"})))
         db.commit()
+        background_tasks.add_task(_notify_pilot_request, body)
     return {"status": "received"}
 
 

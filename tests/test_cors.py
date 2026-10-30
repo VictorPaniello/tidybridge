@@ -43,3 +43,13 @@ def test_content_disposition_is_exposed_to_cross_origin_javascript():
     client = TestClient(app)
     response = client.get("/health", headers={"Origin": settings.frontend_url})
     assert "content-disposition" in response.headers["access-control-expose-headers"].lower()
+
+
+def test_preflight_from_the_landing_origin_is_allowed():
+    # The landing (tidybridge.dev) posts the pilot request form to this API
+    client = TestClient(app)
+    response = client.options(
+        "/pilot-requests",
+        headers={"Origin": settings.landing_url, "Access-Control-Request-Method": "POST"},
+    )
+    assert response.headers["access-control-allow-origin"] == settings.landing_url
