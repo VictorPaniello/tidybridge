@@ -51,6 +51,7 @@ from tidybridge.models import (
     ClientRecord,
     ColumnMapping,
     IngestionRun,
+    PilotRequest,
     ProvisioningAttempt,
     ProvisioningJob,
     WebhookDelivery,
@@ -68,6 +69,7 @@ from tidybridge.schemas import (
     IngestionRunOut,
     IngestionRunsPage,
     IngestResult,
+    PilotRequestIn,
     ProvisioningAttemptOut,
     ProvisioningJobStatusOut,
     RecordsPage,
@@ -304,6 +306,16 @@ if _github_oauth_client is not None:
         if _route.path == "/authorize":
             _route.endpoint = make_github_authorize_redirect(_github_oauth_client)
     app.include_router(_github_router, prefix="/auth/github", tags=["auth"])
+
+
+@app.post("/pilot-requests", status_code=202)
+def create_pilot_request(body: PilotRequestIn, db: Session = Depends(get_db)) -> dict:
+    """The landing's "Solicitar piloto" form. Public: the requester has no
+    account yet. A filled honeypot gets the same 202, stored nowhere."""
+    if not body.website:
+        db.add(PilotRequest(**body.model_dump(exclude={"privacy_accepted", "website"})))
+        db.commit()
+    return {"status": "received"}
 
 
 @app.get("/health")

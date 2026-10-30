@@ -69,6 +69,7 @@ def _clean_tables():
         conn.exec_driver_sql(
             "TRUNCATE webhook_jobs, webhook_deliveries, provisioning_jobs, "
             "provisioning_attempts, client_records, ingestion_runs, column_mappings, "
+            "pilot_requests, "
             "oauth_account, accesstoken, users"
         )
 
