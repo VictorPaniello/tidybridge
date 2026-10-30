@@ -1,5 +1,6 @@
 import type { ClientRecord } from "../api/types";
-import { humanizeFieldName, orderFieldNames } from "../lib/fieldNames";
+import { t } from "../lib/i18n";
+import { displayFieldName, formatFieldValue, orderFieldNames } from "../lib/fieldNames";
 
 interface Props {
   records: ClientRecord[];
@@ -21,9 +22,9 @@ export function UploadResultsTable({ records, mappingIsDefault, fingerprint, onR
     <div>
       {mappingIsDefault && fingerprint && (
         <p className="mb-3 text-sm">
-          New shape - review the field names/types we picked?{" "}
+          {t("newShape")}{" "}
           <button type="button" onClick={onReviewMapping} className="text-ring hover:underline">
-            Review mapping
+            {t("reviewMapping")}
           </button>
         </p>
       )}
@@ -34,7 +35,7 @@ export function UploadResultsTable({ records, mappingIsDefault, fingerprint, onR
               <tr>
                 {fieldNames.map((name) => (
                   <th key={name} className="px-4 py-2 font-medium">
-                    {humanizeFieldName(name)}
+                    {displayFieldName(name)}
                   </th>
                 ))}
               </tr>
@@ -44,7 +45,7 @@ export function UploadResultsTable({ records, mappingIsDefault, fingerprint, onR
                 <tr key={record.id} className="border-t border-border">
                   {fieldNames.map((name) => (
                     <td key={name} className="px-4 py-2 text-muted-foreground">
-                      {record.fields[name] ?? "—"}
+                      {formatFieldValue(name, record.fields[name]) ?? "—"}
                     </td>
                   ))}
                 </tr>

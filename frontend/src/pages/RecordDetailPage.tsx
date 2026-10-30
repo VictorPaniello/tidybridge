@@ -12,7 +12,8 @@ import type {
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CopyButton } from "../components/CopyButton";
 import { Spinner } from "../components/Spinner";
-import { orderFieldNames } from "../lib/fieldNames";
+import { displayFieldName, formatFieldValue, orderFieldNames } from "../lib/fieldNames";
+import { locale, t } from "../lib/i18n";
 import { useHealth } from "../lib/health";
 
 export function RecordDetailPage() {
@@ -63,8 +64,8 @@ export function RecordDetailPage() {
       .catch((err) => {
         setError(
           err instanceof ApiError && err.status === 404
-            ? "Record not found."
-            : "Couldn't load this record.",
+            ? t("recordNotFound")
+            : t("loadRecordFailed"),
         );
       })
       .finally(() => setLoading(false));
@@ -77,7 +78,7 @@ export function RecordDetailPage() {
       await api.deleteRecord(id);
       navigate("/");
     } catch {
-      alert("Couldn't delete this record.");
+      alert(t("deleteRecordFailed"));
     }
   }
 
@@ -110,7 +111,7 @@ export function RecordDetailPage() {
       setEditing(false);
       await refreshJobStatuses(id); // an edit can clear the flags, or the approval
     } catch (err) {
-      setSaveError(err instanceof ApiError ? err.message : "Couldn't save these changes.");
+      setSaveError(err instanceof ApiError ? err.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -135,7 +136,7 @@ export function RecordDetailPage() {
       setRecord(await api.approveRecord(id));
       await refreshJobStatuses(id);
     } catch (err) {
-      setApproveError(err instanceof ApiError ? err.message : "Couldn't approve this record.");
+      setApproveError(err instanceof ApiError ? err.message : t("approveFailed"));
     } finally {
       setApproving(false);
     }
@@ -149,7 +150,7 @@ export function RecordDetailPage() {
       await api.replayWebhook(id);
       setWebhooks(await api.getRecordWebhooks(id)); // refresh to show the new attempt(s)
     } catch (err) {
-      setReplayError(err instanceof ApiError ? err.message : "Couldn't resend the webhook.");
+      setReplayError(err instanceof ApiError ? err.message : t("resendFailed"));
     } finally {
       setReplaying(false);
     }
@@ -164,7 +165,7 @@ export function RecordDetailPage() {
       setProvisioningStatus(status); // freshly-reset job state - the worker hasn't run yet
     } catch (err) {
       setProvisioningReplayError(
-        err instanceof ApiError ? err.message : "Couldn't retry provisioning.",
+        err instanceof ApiError ? err.message : t("retryProvisioningFailed"),
       );
     } finally {
       setReplayingProvisioning(false);
@@ -183,12 +184,12 @@ export function RecordDetailPage() {
   return (
     <div>
       <Link to="/" className="text-sm text-ring hover:underline">
-        ← Back to records
+        {t("backToRecords")}
       </Link>
 
       <div className="mt-4 flex items-start justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {record.fields.full_name ?? "Unnamed record"}
+          {record.fields.full_name ?? record.fields.supplier_name ?? t("unnamedRecord")}
         </h1>
         <div className="flex items-center gap-2">
           {editing ? (
@@ -198,14 +199,14 @@ export function RecordDetailPage() {
                 disabled={saving}
                 className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary transition disabled:opacity-50"
               >
-                Cancel
+                {t("cancel")}
               </button>
               <button
                 onClick={handleSaveEdits}
                 disabled={saving}
                 className="rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? t("saving") : t("saveChanges")}
               </button>
             </>
           ) : (
@@ -214,13 +215,13 @@ export function RecordDetailPage() {
                 onClick={startEditing}
                 className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary transition"
               >
-                Edit
+                {t("edit")}
               </button>
               <button
                 onClick={() => setConfirmingDelete(true)}
                 className="rounded-md border border-red-300 dark:border-red-900 bg-card text-red-600 dark:text-red-400 px-3 py-1.5 text-sm shadow-sm hover:shadow hover:bg-red-50 dark:hover:bg-red-950/30 transition"
               >
-                Delete
+                {t("delete")}
               </button>
             </>
           )}
@@ -238,17 +239,17 @@ export function RecordDetailPage() {
         ) : (
           <RecordFieldsList fields={record.fields} />
         )}
-        <Field label="Source file" value={record.source_file} />
-        <Field label="Ingested" value={new Date(record.created_at).toLocaleString()} />
+        <Field label={t("sourceFile")} value={record.source_file} />
+        <Field label={t("imported")} value={new Date(record.created_at).toLocaleString(locale())} />
       </dl>
 
       {record.has_issues && record.issues && (
         <div className="mt-8">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold">Validation issues</h2>
+            <h2 className="text-sm font-semibold">{t("issues")}</h2>
             {record.approved_at ? (
               <span className="text-xs text-muted-foreground">
-                Approved on {new Date(record.approved_at).toLocaleString()}
+                {t("approvedOn", { date: new Date(record.approved_at).toLocaleString(locale()) })}
               </span>
             ) : (
               <button
@@ -257,13 +258,13 @@ export function RecordDetailPage() {
                 disabled={approving}
                 className="rounded-md border border-border px-3 py-1 text-xs hover:bg-secondary transition disabled:opacity-50"
               >
-                {approving ? "Approving…" : "Approve"}
+                {approving ? t("approving") : t("approve")}
               </button>
             )}
           </div>
           {!record.approved_at && (
             <p className="mb-2 text-xs text-muted-foreground">
-              Not sent anywhere until you fix these or approve the record as is.
+              {t("heldForReview")}
             </p>
           )}
           {approveError && <p className="mb-2 text-sm text-red-600">{approveError}</p>}
@@ -281,7 +282,7 @@ export function RecordDetailPage() {
       <div className="mt-8">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">Webhook deliveries</h2>
+            <h2 className="text-sm font-semibold">{t("webhookDeliveries")}</h2>
             <WebhookStatusBadge status={webhookStatus} />
           </div>
           <button
@@ -290,7 +291,7 @@ export function RecordDetailPage() {
             disabled={replaying}
             className="rounded-md border border-border px-3 py-1 text-xs hover:bg-secondary transition disabled:opacity-50"
           >
-            {replaying ? "Resending…" : "Resend webhook"}
+            {replaying ? t("resending") : t("resendWebhook")}
           </button>
         </div>
         {replayError && (
@@ -298,18 +299,18 @@ export function RecordDetailPage() {
         )}
         {webhooks.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No webhook was configured, or none has been attempted for this record.
+            {t("noWebhookYet")}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full text-sm">
               <thead className="bg-secondary text-left text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Attempt</th>
-                  <th className="px-4 py-2 font-medium">Attempted</th>
+                  <th className="px-4 py-2 font-medium">{t("colAttempt")}</th>
+                  <th className="px-4 py-2 font-medium">{t("colAttempted")}</th>
                   <th className="px-4 py-2 font-medium">URL</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Result</th>
+                  <th className="px-4 py-2 font-medium">{t("colStatus")}</th>
+                  <th className="px-4 py-2 font-medium">{t("colResult")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -317,23 +318,23 @@ export function RecordDetailPage() {
                   <tr key={w.id} className="border-t border-border">
                     <td className="px-4 py-2 text-muted-foreground">#{w.attempt_number}</td>
                     <td className="px-4 py-2 text-muted-foreground">
-                      {new Date(w.attempted_at).toLocaleString()}
+                      {new Date(w.attempted_at).toLocaleString(locale())}
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate max-w-xs" title={w.url}>
                           {w.url}
                         </span>
-                        <CopyButton value={w.url} label="Copy webhook URL" />
+                        <CopyButton value={w.url} label={t("copyWebhookUrl")} />
                       </div>
                     </td>
                     <td className="px-4 py-2">{w.status_code ?? "—"}</td>
                     <td className="px-4 py-2">
                       {w.success ? (
-                        <span className="text-primary">Delivered</span>
+                        <span className="text-primary">{t("delivered")}</span>
                       ) : (
                         <span className="text-red-600" title={w.error ?? undefined}>
-                          Failed
+                          {t("failed")}
                         </span>
                       )}
                     </td>
@@ -350,7 +351,7 @@ export function RecordDetailPage() {
       <div className="mt-8">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold">Provisioning</h2>
+            <h2 className="text-sm font-semibold">{t("provisioning")}</h2>
             <ProvisioningStatusBadge status={provisioningStatus} />
           </div>
           <button
@@ -359,7 +360,7 @@ export function RecordDetailPage() {
             disabled={replayingProvisioning}
             className="rounded-md border border-border px-3 py-1 text-xs hover:bg-secondary transition disabled:opacity-50"
           >
-            {replayingProvisioning ? "Retrying…" : "Retry provisioning"}
+            {replayingProvisioning ? t("retrying") : t("retryProvisioning")}
           </button>
         </div>
         {provisioningReplayError && (
@@ -367,23 +368,22 @@ export function RecordDetailPage() {
         )}
         {provisioningStatus?.remote_id && (
           <p className="mb-2 text-sm text-muted-foreground">
-            Provisioned as <code className="text-foreground">{provisioningStatus.remote_id}</code> on
-            the target system.
+            {t("provisionedAs", { id: provisioningStatus.remote_id })}
           </p>
         )}
         {provisioning.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No provisioning target was configured, or none has been attempted for this record.
+            {t("noProvisioningYet")}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full text-sm">
               <thead className="bg-secondary text-left text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2 font-medium">Attempt</th>
-                  <th className="px-4 py-2 font-medium">Attempted</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Result</th>
+                  <th className="px-4 py-2 font-medium">{t("colAttempt")}</th>
+                  <th className="px-4 py-2 font-medium">{t("colAttempted")}</th>
+                  <th className="px-4 py-2 font-medium">{t("colStatus")}</th>
+                  <th className="px-4 py-2 font-medium">{t("colResult")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -391,17 +391,17 @@ export function RecordDetailPage() {
                   <tr key={p.id} className="border-t border-border">
                     <td className="px-4 py-2 text-muted-foreground">#{p.attempt_number}</td>
                     <td className="px-4 py-2 text-muted-foreground">
-                      {new Date(p.attempted_at).toLocaleString()}
+                      {new Date(p.attempted_at).toLocaleString(locale())}
                     </td>
                     <td className="px-4 py-2">{p.status_code ?? "—"}</td>
                     <td className="px-4 py-2">
                       {p.success ? (
                         <span className="text-primary">
-                          {p.status_code === 409 ? "Already existed" : "Provisioned"}
+                          {p.status_code === 409 ? t("alreadyExisted") : t("provisioned")}
                         </span>
                       ) : (
                         <span className="text-red-600" title={p.error ?? undefined}>
-                          Failed
+                          {t("failed")}
                         </span>
                       )}
                     </td>
@@ -416,8 +416,8 @@ export function RecordDetailPage() {
 
       <ConfirmDialog
         open={confirmingDelete}
-        title="Delete this record?"
-        message={`This permanently deletes the record${showWebhooks ? " and its webhook delivery history" : ""}. This cannot be undone.`}
+        title={t("deleteRecordTitle")}
+        message={showWebhooks ? t("deleteRecordMessageWebhooks") : t("deleteRecordMessage")}
         onConfirm={handleDelete}
         onCancel={() => setConfirmingDelete(false)}
       />
@@ -444,8 +444,8 @@ export function RecordFieldsList({ fields }: { fields: Record<string, string | n
     <>
       {orderFieldNames(Object.keys(fields)).map((key) => (
         <div key={key}>
-          <dt className="text-muted-foreground">{key}</dt>
-          <dd className="font-medium">{fields[key] ?? "—"}</dd>
+          <dt className="text-muted-foreground">{displayFieldName(key)}</dt>
+          <dd className="font-medium">{formatFieldValue(key, fields[key]) ?? "—"}</dd>
         </div>
       ))}
     </>
@@ -468,7 +468,7 @@ function EditableRecordFieldsList({
       {orderFieldNames(Object.keys(fields)).map((key) => (
         <div key={key}>
           <label htmlFor={`field-${key}`} className="text-muted-foreground">
-            {key}
+            {displayFieldName(key)}
           </label>
           <input
             id={`field-${key}`}
@@ -492,21 +492,21 @@ function WebhookStatusBadge({ status }: { status: WebhookJobStatus | null }) {
   if (status.status === "dead") {
     return (
       <span className="rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 px-2 py-0.5 text-xs">
-        Delivery failed permanently
+        {t("deliveryFailedPermanently")}
       </span>
     );
   }
   if (status.status === "done") {
     return (
       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
-        Delivered
+        {t("delivered")}
       </span>
     );
   }
   if (status.status === "awaiting_review") {
     return (
       <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-xs">
-        Awaiting review
+        {t("awaitingReview")}
       </span>
     );
   }
@@ -514,8 +514,8 @@ function WebhookStatusBadge({ status }: { status: WebhookJobStatus | null }) {
   return (
     <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
       {status.attempt_number && status.attempt_number > 1
-        ? `Retrying (attempt ${status.attempt_number})`
-        : "Delivery pending"}
+        ? t("retryingAttempt", { n: status.attempt_number })
+        : t("deliveryPending")}
     </span>
   );
 }
@@ -529,21 +529,21 @@ function ProvisioningStatusBadge({ status }: { status: ProvisioningJobStatus | n
   if (status.status === "dead") {
     return (
       <span className="rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 px-2 py-0.5 text-xs">
-        Provisioning failed permanently
+        {t("provisioningFailedPermanently")}
       </span>
     );
   }
   if (status.status === "done" || status.status === "skipped_exists") {
     return (
       <span className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-xs">
-        {status.status === "done" ? "Provisioned" : "Already existed"}
+        {status.status === "done" ? t("provisioned") : t("alreadyExisted")}
       </span>
     );
   }
   if (status.status === "awaiting_review") {
     return (
       <span className="rounded-full bg-secondary text-muted-foreground px-2 py-0.5 text-xs">
-        Awaiting review
+        {t("awaitingReview")}
       </span>
     );
   }
@@ -551,8 +551,8 @@ function ProvisioningStatusBadge({ status }: { status: ProvisioningJobStatus | n
   return (
     <span className="rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 px-2 py-0.5 text-xs">
       {status.attempt_number && status.attempt_number > 1
-        ? `Retrying (attempt ${status.attempt_number})`
-        : "Provisioning pending"}
+        ? t("retryingAttempt", { n: status.attempt_number })
+        : t("provisioningPending")}
     </span>
   );
 }

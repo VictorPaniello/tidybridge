@@ -5,6 +5,11 @@ import "@testing-library/jest-dom/vitest";
 
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { setLang } from "../lib/i18n";
+
+// The UI defaults to Spanish; the component tests were written against
+// the English text, so they run in English. i18n.test.ts covers Spanish.
+setLang("en");
 
 // React Testing Library normally unmounts and cleans up the DOM after
 // each test automatically, but only when it detects a global afterEach
