@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -32,7 +33,7 @@ export function RegisterPage() {
       await register({ email, password, firstName, lastName, phone });
       navigate("/");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -44,14 +45,14 @@ export function RegisterPage() {
         <ThemeToggle />
       </div>
       <div className="mx-auto max-w-sm mt-8 pb-16">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Create an account</h1>
-        <p className="text-muted-foreground mb-8 text-sm">Start ingesting your own client data.</p>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{t("createAccountTitle")}</h1>
+        <p className="text-muted-foreground mb-8 text-sm">{t("createAccountIntro")}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="first-name">
-                First name
+                {t("firstName")}
               </label>
               <input
                 id="first-name"
@@ -65,7 +66,7 @@ export function RegisterPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="last-name">
-                Last name
+                {t("lastName")}
               </label>
               <input
                 id="last-name"
@@ -88,7 +89,7 @@ export function RegisterPage() {
 
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="email">
-              Email
+              {t("email")}
             </label>
             <input
               id="email"
@@ -102,7 +103,7 @@ export function RegisterPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="password">
-              Password
+              {t("password")}
             </label>
             <PasswordInput
               id="password"
@@ -124,15 +125,15 @@ export function RegisterPage() {
               className="mt-0.5 size-4 shrink-0 rounded border-input outline-none focus:ring-2 focus:ring-ring"
             />
             <label htmlFor="agree-terms" className="text-sm text-muted-foreground">
-              I agree to the{" "}
+              {t("agreeTo")}{" "}
               <a href={LEGAL_URLS.terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
-                Terms of service
+                {t("terms")}
               </a>{" "}
-              and{" "}
+              {t("and")}{" "}
               <a href={LEGAL_URLS.privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
-                Privacy policy
+                {t("privacyPolicy")}
               </a>
-              , including that any client data I upload is my own to share.
+              {t("agreeOwnData")}
             </label>
           </div>
 
@@ -143,14 +144,14 @@ export function RegisterPage() {
             disabled={submitting || !agreedToTerms}
             className="w-full rounded-md bg-primary text-primary-foreground py-2 font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {submitting ? "Creating account…" : "Create account"}
+            {submitting ? t("creatingAccount") : t("createAccount")}
           </button>
         </form>
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          {t("haveAccount")}{" "}
           <Link to="/login" className="text-ring hover:underline">
-            Sign in
+            {t("signIn")}
           </Link>
         </p>
       </div>

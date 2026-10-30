@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { resetPassword, ApiError } from "../api/client";
@@ -21,7 +22,7 @@ export function ResetPasswordPage() {
     setError(null);
 
     if (password !== confirmPassword) {
-      setError("Passwords don't match.");
+      setError(t("passwordsDontMatch"));
       return;
     }
 
@@ -30,10 +31,10 @@ export function ResetPasswordPage() {
       await resetPassword(token!, password);
       navigate("/login", { state: { passwordReset: true } });
     } catch (err) {
-      if (err instanceof ApiError && err.message.includes("reset password bad token")) {
-        setError("This reset link is invalid or has expired. Request a new one below.");
+      if (err instanceof ApiError && err.code === "RESET_PASSWORD_BAD_TOKEN") {
+        setError(t("resetLinkInvalid"));
       } else {
-        setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+        setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
       }
     } finally {
       setSubmitting(false);
@@ -46,28 +47,28 @@ export function ResetPasswordPage() {
         <ThemeToggle />
       </div>
       <div className="mx-auto max-w-sm mt-8">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Choose a new password</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{t("newPasswordTitle")}</h1>
         <p className="text-muted-foreground mb-8 text-sm">
-          This link only works once and expires an hour after it was requested.
+          {t("linkOnce")}
         </p>
 
         {!token ? (
           <div className="space-y-4">
             <p className="text-sm text-red-600">
-              This link is missing its reset token. Request a new one below.
+              {t("linkMissingToken")}
             </p>
             <Link
               to="/forgot-password"
               className="block text-center rounded-md bg-primary text-primary-foreground py-2 font-medium hover:opacity-90 transition"
             >
-              Request a new link
+              {t("requestNewLink")}
             </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="password">
-                New password
+                {t("newPassword")}
               </label>
               <PasswordInput
                 id="password"
@@ -81,7 +82,7 @@ export function ResetPasswordPage() {
 
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="confirm-password">
-                Confirm new password
+                {t("confirmNewPassword")}
               </label>
               <PasswordInput
                 id="confirm-password"
@@ -99,14 +100,14 @@ export function ResetPasswordPage() {
               disabled={submitting}
               className="w-full rounded-md bg-primary text-primary-foreground py-2 font-medium hover:opacity-90 transition disabled:opacity-50"
             >
-              {submitting ? "Resetting…" : "Reset password"}
+              {submitting ? t("resetting") : t("resetPassword")}
             </button>
           </form>
         )}
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
           <Link to="/login" className="text-ring hover:underline">
-            Back to sign in
+            {t("backToSignIn")}
           </Link>
         </p>
       </div>

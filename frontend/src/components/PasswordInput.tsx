@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 
 // Show/hide toggle for a password field, factored out once rather than
 // re-added to each of the six password inputs across Login/Register/
@@ -33,8 +34,8 @@ export function PasswordInput({
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Hide password" : "Show password"}
-        title={visible ? "Hide password" : "Show password"}
+        aria-label={visible ? t("hidePassword") : t("showPassword")}
+        title={visible ? t("hidePassword") : t("showPassword")}
         className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground transition"
       >
         {visible ? <EyeOffIcon /> : <EyeIcon />}

@@ -27,3 +27,41 @@ describe("exportRecords", () => {
     expect(headers["Authorization"]).toBe("Bearer tok");
   });
 });
+
+describe("API errors", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  async function failWith(detail: unknown) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail }), {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+    const api = await import("./client");
+    try {
+      await api.getRecord("r1");
+    } catch (err) {
+      return err as InstanceType<typeof api.ApiError>;
+    }
+    throw new Error("expected the request to fail");
+  }
+
+  it("keeps a sentence as sent - filenames were lowercased and lost their underscores", async () => {
+    const err = await failWith("No invoice found in 'Factura_01.pdf'");
+    expect(err.message).toBe('No invoice found in "Factura_01.pdf"');
+    expect(err.code).toBeUndefined();
+  });
+
+  it("keeps fastapi-users' code next to the worded message", async () => {
+    const err = await failWith("RESET_PASSWORD_BAD_TOKEN");
+    expect(err.code).toBe("RESET_PASSWORD_BAD_TOKEN");
+    expect(err.message).toBe("This reset link is invalid or has expired. Request a new one below.");
+  });
+});

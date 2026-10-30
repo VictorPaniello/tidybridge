@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { t } from "../lib/i18n";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
@@ -22,7 +23,7 @@ export function OAuthCallbackPage() {
     const token = params.get("access_token");
 
     if (!token) {
-      setError("GitHub sign-in didn't return a token. Try again.");
+      setError(t("githubNoToken"));
       return;
     }
 
@@ -37,7 +38,7 @@ export function OAuthCallbackPage() {
     // know or care which case it is.
     loginWithToken(token)
       .then(() => navigate("/", { replace: true }))
-      .catch(() => setError("Couldn't complete sign-in. Try again."));
+      .catch(() => setError(t("signInFailed")));
   }, [loginWithToken, navigate]);
 
   return (
@@ -45,7 +46,7 @@ export function OAuthCallbackPage() {
       {error ? (
         <p className="text-red-600 text-sm">{error}</p>
       ) : (
-        <p className="text-muted-foreground text-sm">Signing you in…</p>
+        <p className="text-muted-foreground text-sm">{t("signingYouIn")}</p>
       )}
     </div>
   );
