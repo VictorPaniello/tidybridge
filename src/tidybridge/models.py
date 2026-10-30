@@ -120,8 +120,7 @@ class ClientRecord(Base):
     ingestion_run: Mapped[IngestionRun | None] = relationship(back_populates="records")
     source_file: Mapped[str] = mapped_column(String, nullable=False)
     fields: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
-    """Whatever this upload's shape resolved to - see
-    docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md.
+    """Whatever this upload's shape resolved to.
     No fixed keys; a given record might have "full_name"/"email" (the
     common case, via alias-matching) or something else entirely."""
     has_issues: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

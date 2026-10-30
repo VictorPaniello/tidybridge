@@ -6,8 +6,7 @@ const linkClass = "text-ring hover:underline";
 // upload. Adapted from the EU parts of General Legal's CC0 "dpa-global"
 // template (github.com/General-Legal/legal-templates), cut down to what
 // this service actually does. Every security measure and sub-processor
-// below is checked against the code / Railway setup - see
-// docs/superpowers/plans/2026-10-07-legal-update.md. Not legal advice.
+// below is checked against the code / Railway setup. Not legal advice.
 export function DpaPage() {
   return (
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
