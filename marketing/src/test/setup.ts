@@ -16,3 +16,18 @@ import { afterEach } from "vitest";
 afterEach(() => {
   cleanup();
 });
+
+// jsdom has no IntersectionObserver, which motion's whileInView needs (every
+// real browser has it). A no-op stand-in: nothing is ever "in view" in tests,
+// so assertions see the DOM as rendered.
+globalThis.IntersectionObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+  root = null;
+  rootMargin = "";
+  thresholds = [];
+} as unknown as typeof IntersectionObserver;

@@ -55,6 +55,7 @@ describe("legal pages", () => {
   });
 
   it("the site footer links to all three, on this site", () => {
+    document.documentElement.lang = "en"; // the legal pages are English until PR 3
     renderIn(<SiteFooter />);
     for (const [name, href] of [
       ["Privacy policy", "/privacy"],
