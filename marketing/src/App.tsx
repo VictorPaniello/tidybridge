@@ -4,6 +4,7 @@ import { Faq } from "./sections/Faq";
 import { Hero } from "./sections/Hero";
 import { HowItWorks } from "./sections/HowItWorks";
 import { Pilot } from "./sections/Pilot";
+import { PilotForm } from "./sections/PilotForm";
 import { Problem } from "./sections/Problem";
 import { Samples } from "./sections/Samples";
 import { Security } from "./sections/Security";
@@ -30,6 +31,7 @@ export default function App() {
         <Pilot />
         <Security />
         <Faq />
+        <PilotForm />
       </main>
       <SiteFooter />
     </div>
