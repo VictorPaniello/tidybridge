@@ -81,8 +81,8 @@ def sent(monkeypatch) -> list[dict]:
     """Records the notification emails instead of calling Resend."""
     calls: list[dict] = []
 
-    async def fake_send_email(to: str, subject: str, html: str) -> None:
-        calls.append({"to": to, "subject": subject, "html": html})
+    async def fake_send_email(to: str, subject: str, html: str, reply_to=None) -> None:
+        calls.append({"to": to, "subject": subject, "html": html, "reply_to": reply_to})
 
     monkeypatch.setattr("tidybridge.main._send_email", fake_send_email)
     return calls
@@ -105,7 +105,7 @@ def test_notification_escapes_and_keeps_subject_on_one_line(db, sent):
 
 
 def test_failed_notification_still_returns_202_and_keeps_the_row(db, monkeypatch):
-    async def broken_send_email(to: str, subject: str, html: str) -> None:
+    async def broken_send_email(to: str, subject: str, html: str, reply_to=None) -> None:
         raise RuntimeError("resend down")
 
     monkeypatch.setattr("tidybridge.main._send_email", broken_send_email)
@@ -125,3 +125,13 @@ def test_sixth_request_in_an_hour_is_rate_limited(db, sent):
     finally:
         limiter.enabled = False
     assert statuses == [202] * 5 + [429]
+
+
+def test_replying_to_the_notification_reaches_the_requester(db, sent):
+    _post({**VALID, "phone": "+34 600 123 456"})
+    [mail] = sent
+    assert mail["reply_to"] == "ana@example.com"
+    assert "Responder a Ana Pérez" in mail["html"]
+    assert 'href="mailto:ana@example.com"' in mail["html"]
+    assert 'href="tel:+34600123456"' in mail["html"]
+    assert "tidybridge.dev/email-logo.png" in mail["html"]

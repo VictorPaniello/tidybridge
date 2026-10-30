@@ -9,7 +9,6 @@ import re
 import secrets
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
-from html import escape as html_escape
 from typing import Literal
 
 import pandas as pd
@@ -59,6 +58,7 @@ from tidybridge.extract import ExtractionError, ExtractionUnavailableError, extr
 from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
 from tidybridge.mapping import build_schema, validate_resolution
+from tidybridge.pilot_email import pilot_request_email
 from tidybridge.models import (
     ClientRecord,
     ColumnMapping,
@@ -328,21 +328,10 @@ PILOT_INBOX = "hello@tidybridge.dev"
 async def _notify_pilot_request(body: PilotRequestIn) -> None:
     """Runs after the response, once the row is stored - a failed email
     never loses the request or shows the visitor an error."""
-    subject = " ".join(f"Solicitud de piloto: {body.firm}".split())
-    rows = [
-        ("Nombre", body.name),
-        ("Gestoría", body.firm),
-        ("Email", body.email),
-        ("Teléfono", body.phone),
-        ("Facturas al mes", body.volume),
-        ("Idioma", body.language),
-        ("Mensaje", body.message),
-    ]
-    html = "".join(
-        f"<p><b>{label}:</b> {html_escape(value)}</p>" for label, value in rows if value
-    )
+    subject, html = pilot_request_email(body, datetime.now(UTC))
     try:
-        await _send_email(PILOT_INBOX, subject, html)
+        # Reply-To the requester: "Reply" in the inbox answers them directly
+        await _send_email(PILOT_INBOX, subject, html, reply_to=body.email)
     except Exception:
         logger.exception("Pilot request notification failed")
 

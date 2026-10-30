@@ -91,7 +91,7 @@ def _email_layout(
 </html>"""
 
 
-async def _send_email(to: str, subject: str, html: str) -> None:
+async def _send_email(to: str, subject: str, html: str, reply_to: str | None = None) -> None:
     """Used by UserManager.on_after_forgot_password below. None of it
     ever propagates as an exception: a failed send shouldn't turn
     forgot-password's always-succeed response (anti-enumeration) into a
@@ -109,7 +109,13 @@ async def _send_email(to: str, subject: str, html: str) -> None:
             response = await client.post(
                 "https://api.resend.com/emails",
                 headers={"Authorization": f"Bearer {settings.resend_api_key}"},
-                json={"from": settings.email_from, "to": [to], "subject": subject, "html": html},
+                json={
+                    "from": settings.email_from,
+                    "to": [to],
+                    "subject": subject,
+                    "html": html,
+                    **({"reply_to": reply_to} if reply_to else {}),
+                },
             )
             response.raise_for_status()
         except httpx.HTTPError:
