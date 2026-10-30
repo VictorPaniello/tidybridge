@@ -1,6 +1,5 @@
 """The review gate: only ready records (no flags, or approved) leave
-tidybridge - see ClientRecord.is_ready() in models.py and the plan in
-docs/superpowers/plans/2026-10-03-review-gate.md."""
+tidybridge - see ClientRecord.is_ready() in models.py."""
 
 from __future__ import annotations
 

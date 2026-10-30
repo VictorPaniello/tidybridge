@@ -20,7 +20,6 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema.
 
-    See docs/superpowers/specs/2026-09-16-dynamic-schema-mapping-design.md.
     One migration, not a phased rollout - add `fields`, backfill every
     existing row's legacy columns into it, then drop those columns, all
     in one shot (this project's scale doesn't need a zero-downtime

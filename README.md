@@ -429,9 +429,7 @@ redirect to work.
 **Landing page** (`marketing/`) is a separate, independent React + Vite
 project - not a route inside this app. A static site (the home page plus
 the legal pages, as Vite multi-page entries) with no auth, no API calls,
-and no shared build with the app it links to; see
-`docs/superpowers/specs/2026-09-13-custom-domain-landing-page-design.md`
-for why. Self-hosted Geist Variable/Geist Mono Variable fonts and small
+and no shared build with the app it links to. Self-hosted Geist Variable/Geist Mono Variable fonts and small
 `motion/react`-driven touches (a one-time hero entrance, a scroll-reveal
 on the capability list, tactile press feedback on both CTAs, all
 respecting `prefers-reduced-motion`) - the hero's own code panel shows
@@ -480,8 +478,7 @@ adapted from the EU parts of General Legal's CC0
 It's part of the terms once a customer uploads client data, lists the
 only two sub-processors of that data (Railway in EU West, and Mistral AI
 when extraction is on), and states the transfer safeguard of every US
-provider - each checked on the provider's own site, see
-`docs/superpowers/plans/2026-10-07-legal-update.md`. Everything is hosted
+provider - each checked on the provider's own site. Everything is hosted
 in Railway's EU West region (Amsterdam).
 
 Data retention is documented exactly as the code behaves: client data
