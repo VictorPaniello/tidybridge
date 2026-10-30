@@ -1,4 +1,4 @@
-import { useCopy } from "../i18n";
+import { legalHref, pageLang, useCopy } from "../i18n";
 import { Section } from "./Section";
 
 export function Security() {
@@ -13,9 +13,8 @@ export function Security() {
           </li>
         ))}
       </ul>
-      {/* Spanish legal pages arrive with PR 3; until then both languages link here */}
       <p className="mt-6 text-sm">
-        <a href="/privacy" className="text-ring hover:underline">
+        <a href={legalHref(pageLang(), "privacy")} className="text-ring hover:underline">
           {security.more}
         </a>
       </p>

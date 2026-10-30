@@ -3,7 +3,7 @@ import { t } from "../lib/i18n";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
-import { LEGAL_URLS } from "../lib/legal";
+import { legalUrls } from "../lib/legal";
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -62,13 +62,13 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-[100rem] px-2 py-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
           <span>© {new Date().getFullYear()} Victor Paniello</span>
           <div className="flex items-center gap-4">
-            <a href={LEGAL_URLS.privacy} className="hover:text-foreground transition">
+            <a href={legalUrls().privacy} className="hover:text-foreground transition">
               {t("privacyPolicy")}
             </a>
-            <a href={LEGAL_URLS.terms} className="hover:text-foreground transition">
+            <a href={legalUrls().terms} className="hover:text-foreground transition">
               {t("terms")}
             </a>
-            <a href={LEGAL_URLS.dpa} className="hover:text-foreground transition">
+            <a href={legalUrls().dpa} className="hover:text-foreground transition">
               {t("dataProcessing")}
             </a>
           </div>

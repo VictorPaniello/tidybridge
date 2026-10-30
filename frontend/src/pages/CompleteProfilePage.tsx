@@ -7,7 +7,7 @@ import { ApiError } from "../api/client";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { PhoneInput } from "../components/PhoneInput";
 import { COUNTRY_CODES } from "../data/countryCodes";
-import { LEGAL_URLS } from "../lib/legal";
+import { legalUrls } from "../lib/legal";
 
 // Reached only via ProtectedRoute redirecting a signed-in user with no
 // first_name here - in practice always a GitHub OAuth signup, since that
@@ -102,11 +102,11 @@ export function CompleteProfilePage() {
             />
             <label htmlFor="agree-terms" className="text-sm text-muted-foreground">
               {t("agreeTo")}{" "}
-              <a href={LEGAL_URLS.terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
+              <a href={legalUrls().terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 {t("terms")}
               </a>{" "}
               {t("and")}{" "}
-              <a href={LEGAL_URLS.privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
+              <a href={legalUrls().privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 {t("privacyPolicy")}
               </a>
               {t("agreeOwnData")}

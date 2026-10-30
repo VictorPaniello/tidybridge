@@ -33,3 +33,19 @@ describe("i18n", () => {
     expect(formatFieldValue("total_amount", "11197.8")).toBe("11,197.80");
   });
 });
+
+describe("legalUrls", () => {
+  afterEach(() => setLang("en"));
+
+  it("links to the legal pages in the app's language", async () => {
+    const { legalUrls } = await import("./legal");
+    setLang("es");
+    expect(legalUrls().privacy).toBe("https://tidybridge.dev/privacy");
+    setLang("en");
+    expect(legalUrls()).toEqual({
+      privacy: "https://tidybridge.dev/en/privacy",
+      terms: "https://tidybridge.dev/en/terms",
+      dpa: "https://tidybridge.dev/en/dpa",
+    });
+  });
+});
