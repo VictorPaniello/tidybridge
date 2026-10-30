@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { t, type TKey } from "../lib/i18n";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError, getColumnMapping, saveColumnMapping } from "../api/client";
 import type { ColumnMapping, FieldResolution, IngestResult } from "../api/types";
@@ -18,12 +19,18 @@ function fieldNameError(name: string | null): string | null {
   if (!name) return null; // empty means "drop this column" - not an error
   return FIELD_NAME_RE.test(name)
     ? null
-    : "Lowercase letters, numbers, underscores only - must start with a letter";
+    : t("fieldNameRule");
 }
 
 // Human-readable diff between what was there before this edit and what's
 // about to be saved - shown to the engineer on the records page after
 // save, since "Saved." alone doesn't tell them what actually changed.
+function typeLabel(type: string | null): string {
+  if (type == null) return "—";
+  const label = t(`type_${type}` as TKey);
+  return label === `type_${type}` ? type : label;
+}
+
 function summarizeChanges(
   oldResolutions: FieldResolution[],
   newResolutions: FieldResolution[],
@@ -39,16 +46,18 @@ function summarizeChanges(
     if (old.target_field !== entry.target_field) {
       changes.push(
         entry.target_field
-          ? `"${entry.raw_column}" now maps to "${entry.target_field}" (was "${old.target_field ?? "unmapped"}")`
-          : `"${entry.raw_column}" is no longer mapped to any field (dropped "${old.target_field}")`,
+          ? t("changeRemapped", { raw: entry.raw_column, to: entry.target_field, from: old.target_field ?? t("unmapped") })
+          : t("changeDropped", { raw: entry.raw_column, from: old.target_field ?? "" }),
       );
     } else if (old.type !== entry.type) {
-      changes.push(`"${entry.target_field}" type changed from ${old.type} to ${entry.type}`);
+      changes.push(
+        t("changeType", { field: entry.target_field ?? "", from: typeLabel(old.type), to: typeLabel(entry.type) }),
+      );
     } else if (Boolean(old.required) !== Boolean(entry.required)) {
       changes.push(
         entry.required
-          ? `"${entry.target_field}" is now required - a blank value will be flagged`
-          : `"${entry.target_field}" is no longer required`,
+          ? t("changeRequired", { field: entry.target_field ?? "" })
+          : t("changeNotRequired", { field: entry.target_field ?? "" }),
       );
     }
   }
@@ -58,8 +67,8 @@ function summarizeChanges(
   if (oldSet.size !== newSet.size || [...oldSet].some((f) => !newSet.has(f))) {
     changes.push(
       newDedupKeyFields.length
-        ? `Duplicate detection now keys on: ${newDedupKeyFields.join(", ")}`
-        : "Duplicate detection is now off (no dedup key fields)",
+        ? t("changeDedupOn", { fields: newDedupKeyFields.join(", ") })
+        : t("changeDedupOff"),
     );
   }
 
@@ -126,8 +135,8 @@ export function ColumnMappingReviewPage({
         }
         setLoadError(
           err instanceof ApiError && err.status === 404
-            ? "Nothing to review yet - upload this shape once more to pick up its mapping."
-            : "Couldn't load this mapping.",
+            ? t("mappingNothingYet")
+            : t("mappingLoadFailed"),
         );
       })
       .finally(() => setLoading(false));
@@ -225,34 +234,34 @@ export function ColumnMappingReviewPage({
       navigate("/", { state: { mappingSaveSummary: changes } });
     } catch (err) {
       setSaveError(
-        err instanceof ApiError ? err.message : "Couldn't save this mapping - try again.",
+        err instanceof ApiError ? err.message : t("mappingSaveFailed"),
       );
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <p className="text-muted-foreground text-sm">Loading…</p>;
+  if (loading) return <p className="text-muted-foreground text-sm">{t("loading")}</p>;
   if (loadError) return <p className="text-red-600 text-sm">{loadError}</p>;
 
   return (
     <div>
       <Link to="/" className="text-sm text-ring hover:underline">
-        ← Back to records
+        {t("backToRecords")}
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight mt-4 mb-1">Review column mapping</h1>
+      <h1 className="text-2xl font-semibold tracking-tight mt-4 mb-1">{t("mappingTitle")}</h1>
       <p className="text-sm text-muted-foreground mb-4">
-        Applies to this upload and future uploads with this exact set of columns.
+        {t("mappingIntro")}
       </p>
       <div className="overflow-x-auto rounded-md border border-border">
         <table className="w-full text-sm">
           <thead className="bg-secondary text-left text-muted-foreground">
             <tr>
-              <th className="px-4 py-2 font-medium">Raw column</th>
-              <th className="px-4 py-2 font-medium">Field name</th>
-              <th className="px-4 py-2 font-medium">Type</th>
-              <th className="px-4 py-2 font-medium">Required</th>
-              <th className="px-4 py-2 font-medium">Dedup key</th>
+              <th className="px-4 py-2 font-medium">{t("colRawColumn")}</th>
+              <th className="px-4 py-2 font-medium">{t("colFieldName")}</th>
+              <th className="px-4 py-2 font-medium">{t("colType")}</th>
+              <th className="px-4 py-2 font-medium">{t("colRequired")}</th>
+              <th className="px-4 py-2 font-medium">{t("colDedupKey")}</th>
             </tr>
           </thead>
           <tbody>
@@ -265,7 +274,7 @@ export function ColumnMappingReviewPage({
                   {entry.raw_column}
                   {sampleValues[entry.raw_column]?.length > 0 && (
                     <div className="text-xs italic truncate max-w-[16rem]">
-                      e.g. {sampleValues[entry.raw_column].join(", ")}
+                      {t("example", { values: sampleValues[entry.raw_column].join(", ") })}
                     </div>
                   )}
                 </td>
@@ -297,13 +306,13 @@ export function ColumnMappingReviewPage({
                     // PhoneInput.tsx's country-code select for the same fix.
                     className="rounded-md border border-input bg-background text-foreground px-2 py-1 outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {FIELD_TYPES.map((t) => (
+                    {FIELD_TYPES.map((type) => (
                       <option
-                        key={t}
-                        value={t}
+                        key={type}
+                        value={type}
                         style={{ backgroundColor: "var(--background)", color: "var(--foreground)" }}
                       >
-                        {t}
+                        {typeLabel(type)}
                       </option>
                     ))}
                   </select>
@@ -338,11 +347,11 @@ export function ColumnMappingReviewPage({
           disabled={saving || hasInvalidFieldName}
           className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50 disabled:hover:opacity-50"
         >
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("saving") : t("save")}
         </button>
         {saveError && <span className="text-sm text-red-600">{saveError}</span>}
         {!saveError && hasInvalidFieldName && (
-          <span className="text-sm text-red-600">Fix the field name errors above before saving.</span>
+          <span className="text-sm text-red-600">{t("fixFieldNames")}</span>
         )}
       </div>
     </div>

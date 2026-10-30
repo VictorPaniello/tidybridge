@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { translateServerText } from "../lib/serverText";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import * as api from "../api/client";
 import { ApiError } from "../api/client";
@@ -271,7 +272,7 @@ export function RecordDetailPage() {
           <ul className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900 divide-y divide-amber-200 dark:divide-amber-900 text-sm">
             {record.issues.map((issue, i) => (
               <li key={i} className="px-4 py-2">
-                <span className="font-medium">{issue.field}</span>: {issue.issue}
+                <span className="font-medium">{displayFieldName(issue.field)}</span>: {translateServerText(issue.issue)}
               </li>
             ))}
           </ul>

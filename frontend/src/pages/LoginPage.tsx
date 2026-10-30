@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -27,7 +28,7 @@ export function LoginPage() {
       await loginWithPassword(email, password);
       navigate("/");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -39,19 +40,19 @@ export function LoginPage() {
         <ThemeToggle />
       </div>
       <div className="mx-auto max-w-sm mt-8">
-        <h1 className="text-2xl font-semibold tracking-tight mb-1">Sign in</h1>
-        <p className="text-muted-foreground mb-8 text-sm">Access your ingested client records.</p>
+        <h1 className="text-2xl font-semibold tracking-tight mb-1">{t("signIn")}</h1>
+        <p className="text-muted-foreground mb-8 text-sm">{t("signInIntro")}</p>
 
         {justReset && (
           <p className="mb-6 text-sm text-primary">
-            Password reset. Sign in with your new password.
+            {t("passwordResetDone")}
           </p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="email">
-              Email
+              {t("email")}
             </label>
             <input
               id="email"
@@ -66,10 +67,10 @@ export function LoginPage() {
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="block text-sm font-medium" htmlFor="password">
-                Password
+                {t("password")}
               </label>
               <Link to="/forgot-password" className="text-xs text-ring hover:underline">
-                Forgot password?
+                {t("forgotPassword")}
               </Link>
             </div>
             <PasswordInput
@@ -88,13 +89,13 @@ export function LoginPage() {
             disabled={submitting}
             className="w-full rounded-md bg-primary text-primary-foreground py-2 font-medium hover:opacity-90 transition disabled:opacity-50"
           >
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? t("signingIn") : t("signIn")}
           </button>
         </form>
 
         <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
           <div className="h-px flex-1 bg-border" />
-          or
+          {t("or")}
           <div className="h-px flex-1 bg-border" />
         </div>
 
@@ -103,13 +104,13 @@ export function LoginPage() {
           className="w-full rounded-md border border-input py-2 font-medium hover:bg-secondary transition flex items-center justify-center gap-2"
         >
           <GitHubIcon />
-          Continue with GitHub
+          {t("continueWithGitHub")}
         </a>
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
-          No account?{" "}
+          {t("noAccount")}{" "}
           <Link to="/register" className="text-ring hover:underline">
-            Register
+            {t("register")}
           </Link>
         </p>
       </div>

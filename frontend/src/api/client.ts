@@ -12,6 +12,8 @@ import type {
   WebhookDelivery,
   WebhookJobStatus,
 } from "./types";
+import { t } from "../lib/i18n";
+import { translateErrorCode, translateServerText } from "../lib/serverText";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const TOKEN_KEY = "tidybridge_token";
@@ -38,11 +40,22 @@ export function clearToken(): void {
 
 export class ApiError extends Error {
   status: number;
+  /** fastapi-users' code (e.g. "RESET_PASSWORD_BAD_TOKEN") when it sent one -
+   * check this, not the translated message. */
+  code?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
+}
+
+function errorCode(body: unknown): string | undefined {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string" && /^[A-Z_]+$/.test(detail)) return detail;
+  const code = (detail as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : undefined;
 }
 
 // fastapi-users' error bodies are either {"detail": "SOME_CODE"} or
@@ -53,11 +66,13 @@ function extractErrorMessage(body: unknown, fallback: string): string {
   if (typeof body === "object" && body !== null && "detail" in body) {
     const detail = (body as { detail: unknown }).detail;
     if (typeof detail === "string") {
-      return detail.replace(/_/g, " ").toLowerCase();
+      // Only bare codes get reworded - lowercasing a sentence mangled
+      // filenames ("factura_01.pdf" became "factura 01.pdf")
+      return /^[A-Z_]+$/.test(detail) ? translateErrorCode(detail) : translateServerText(detail);
     }
     if (typeof detail === "object" && detail !== null && "reason" in detail) {
       const reason = (detail as { reason: unknown }).reason;
-      if (typeof reason === "string") return reason;
+      if (typeof reason === "string") return translateServerText(reason);
     }
   }
   return fallback;
@@ -117,6 +132,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw new ApiError(
       response.status,
       extractErrorMessage(payload, `Request failed with status ${response.status}`),
+      errorCode(payload),
     );
   }
 
@@ -353,7 +369,7 @@ export async function exportRecords(ingestionRunId?: string): Promise<void> {
     credentials: "include",
   });
   if (!response.ok) {
-    throw new ApiError(response.status, "Couldn't export records.");
+    throw new ApiError(response.status, t("exportFailed"));
   }
 
   const blob = await response.blob();

@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { t } from "../lib/i18n";
 
 // Copies `value` to the clipboard, with a brief "Copied!" confirmation
 // swapped in for the icon itself rather than a separate toast - one less
 // moving piece for a single small affordance.
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+export function CopyButton({ value, label }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -22,8 +23,8 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
     <button
       type="button"
       onClick={handleCopy}
-      aria-label={copied ? "Copied" : label}
-      title={copied ? "Copied!" : label}
+      aria-label={copied ? t("copied") : (label ?? t("copy"))}
+      title={copied ? t("copied") : (label ?? t("copy"))}
       className="inline-flex items-center shrink-0 text-muted-foreground hover:text-foreground transition"
     >
       {copied ? <CheckIcon /> : <CopyIcon />}
