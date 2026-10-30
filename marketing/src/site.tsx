@@ -3,7 +3,7 @@
 import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
 import { Logo } from "./components/Logo";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { COPY, home, otherLangHref, pageLang } from "./i18n";
+import { COPY, home, legalHref, otherLangHref, pageLang } from "./i18n";
 
 const APP_URL = "https://app.tidybridge.dev";
 export const REPO_URL = "https://github.com/VictorPaniello/tidybridge";
@@ -127,9 +127,9 @@ export function SiteFooter() {
     {
       title: footer.legal,
       links: [
-        { label: footer.terms, href: "/terms" },
-        { label: footer.privacy, href: "/privacy" },
-        { label: footer.dpa, href: "/dpa" },
+        { label: footer.terms, href: legalHref(lang, "terms") },
+        { label: footer.privacy, href: legalHref(lang, "privacy") },
+        { label: footer.dpa, href: legalHref(lang, "dpa") },
         { label: footer.contact, href: "mailto:hello@tidybridge.dev" },
       ],
     },

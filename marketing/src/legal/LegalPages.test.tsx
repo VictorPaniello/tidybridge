@@ -23,7 +23,7 @@ describe("legal pages", () => {
     renderIn(page);
     expect(screen.getByRole("link", { name: "Data processing agreement" })).toHaveAttribute(
       "href",
-      "/dpa",
+      "/en/dpa",
     );
   });
 
@@ -55,12 +55,12 @@ describe("legal pages", () => {
   });
 
   it("the site footer links to all three, on this site", () => {
-    document.documentElement.lang = "en"; // the legal pages are English until PR 3
+    document.documentElement.lang = "en";
     renderIn(<SiteFooter />);
     for (const [name, href] of [
-      ["Privacy policy", "/privacy"],
-      ["Terms of service", "/terms"],
-      ["Data processing agreement", "/dpa"],
+      ["Privacy policy", "/en/privacy"],
+      ["Terms of service", "/en/terms"],
+      ["Data processing agreement", "/en/dpa"],
     ]) {
       expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
     }

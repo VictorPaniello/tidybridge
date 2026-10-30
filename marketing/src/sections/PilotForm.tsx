@@ -1,5 +1,5 @@
 import { type FormEvent, useRef, useState } from "react";
-import { pageLang, useCopy } from "../i18n";
+import { legalHref, pageLang, useCopy } from "../i18n";
 import { Section } from "./Section";
 
 const INBOX = "hello@tidybridge.dev";
@@ -103,7 +103,7 @@ export function PilotForm() {
             <input type="checkbox" name="privacy" required className="mt-0.5 size-4 shrink-0" />
             <span>
               {form.privacyBefore}
-              <a href="/privacy" className="text-ring hover:underline">
+              <a href={legalHref(lang, "privacy")} className="text-ring hover:underline">
                 {form.privacyLink}
               </a>
               {form.privacyAfter}

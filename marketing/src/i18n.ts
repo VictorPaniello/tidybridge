@@ -13,6 +13,11 @@ export function home(lang: Lang): string {
   return lang === "en" ? "/en/" : "/";
 }
 
+/** A legal page in a language: /privacy (Spanish) or /en/privacy. */
+export function legalHref(lang: Lang, page: "privacy" | "terms" | "dpa"): string {
+  return lang === "en" ? `/en/${page}` : `/${page}`;
+}
+
 /** The same page in the other language: "/" ⇄ "/en/", "/privacy" ⇄ "/en/privacy". */
 export function otherLangHref(lang: Lang, path: string): string {
   if (lang === "en") return path.replace(/^\/en(\/|$)/, "/");

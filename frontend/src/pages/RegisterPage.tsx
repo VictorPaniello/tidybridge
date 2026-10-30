@@ -9,7 +9,7 @@ import { PasswordInput } from "../components/PasswordInput";
 import { PhoneInput } from "../components/PhoneInput";
 import { PasswordRulesList } from "../components/PasswordRulesList";
 import { COUNTRY_CODES } from "../data/countryCodes";
-import { LEGAL_URLS } from "../lib/legal";
+import { legalUrls } from "../lib/legal";
 
 export function RegisterPage() {
   const { register } = useAuth();
@@ -126,11 +126,11 @@ export function RegisterPage() {
             />
             <label htmlFor="agree-terms" className="text-sm text-muted-foreground">
               {t("agreeTo")}{" "}
-              <a href={LEGAL_URLS.terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
+              <a href={legalUrls().terms} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 {t("terms")}
               </a>{" "}
               {t("and")}{" "}
-              <a href={LEGAL_URLS.privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
+              <a href={legalUrls().privacy} target="_blank" rel="noreferrer" className="text-ring hover:underline">
                 {t("privacyPolicy")}
               </a>
               {t("agreeOwnData")}

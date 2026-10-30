@@ -72,7 +72,7 @@ export function PrivacyPage() {
           this way. tidybridge acts as your <strong>data processor</strong> for this category only
           - storing and, if you configure a webhook, forwarding it on your behalf, on your
           instructions. The terms of that are in the{" "}
-          <a href="/dpa" className="text-ring hover:underline">
+          <a href="/en/dpa" className="text-ring hover:underline">
             Data processing agreement
           </a>
           .
