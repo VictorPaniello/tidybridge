@@ -123,3 +123,23 @@ def test_a_second_x_forwarded_for_header_line_is_read_too():
     finally:
         limiter.enabled = False
     assert statuses == [202] * 5 + [429]
+
+
+def test_a_forwarded_header_ending_in_junk_shares_one_bucket():
+    # uvicorn has already rewritten request.client from the caller-written
+    # first entry, so falling back to it would let each request pick a key
+    limiter.enabled = True
+    try:
+        behind_railway = TestClient(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+        statuses = [
+            behind_railway.post(
+                "/pilot-requests",
+                json={"name": "x", "firm": "x", "email": "a@example.com", "language": "es",
+                      "privacy_accepted": True, "website": "bot"},
+                headers={"X-Forwarded-For": f"10.0.1.{i}, not-an-ip"},
+            ).status_code
+            for i in range(6)
+        ]
+    finally:
+        limiter.enabled = False
+    assert statuses == [202] * 5 + [429]

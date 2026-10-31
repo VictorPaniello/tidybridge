@@ -165,12 +165,16 @@ def client_ip(request: Request) -> str:
     caller writes - a fresh fake one per request dodged every limit."""
     # Every header line, not just the first: a caller-sent line may come
     # before the one the proxy adds
-    entries = ",".join(request.headers.getlist("x-forwarded-for")).split(",")
-    last = entries[-1].strip()
+    lines = request.headers.getlist("x-forwarded-for")
+    if not lines:  # no proxy in front: request.client is the real peer
+        return get_remote_address(request)
+    last = ",".join(lines).split(",")[-1].strip()
     try:
         return str(ipaddress.ip_address(last))
-    except ValueError:  # no header, or not an IP
-        return get_remote_address(request)
+    except ValueError:
+        # Fail closed: request.client was already rewritten from the
+        # caller-written first entry, so it can't be trusted here
+        return "unknown"
 
 
 limiter = Limiter(key_func=client_ip, default_limits=["60/minute"])
