@@ -28,6 +28,7 @@ describe("RecordsPage", () => {
         first_name: "Jane",
         last_name: "Doe",
         phone: null,
+        has_password: true,
       },
       loading: false,
       needsProfile: false,

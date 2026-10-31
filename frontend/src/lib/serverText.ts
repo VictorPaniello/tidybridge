@@ -32,6 +32,7 @@ const PATTERNS: [RegExp, TKey, string[]?][] = [
   [/^Password must contain at least one lowercase letter$/, "srv_pwLower"],
   [/^Password must contain at least one digit$/, "srv_pwDigit"],
   [/^Password must contain at least one special character$/, "srv_pwSpecial"],
+  [/^Current password is incorrect$/, "srv_currentPasswordWrong"],
   [/^Record not found$/, "srv_recordNotFound"],
   [/^Ingestion run not found$/, "srv_runNotFound"],
   [/^This record predates per-run schema tracking/, "srv_predatesSchema"],

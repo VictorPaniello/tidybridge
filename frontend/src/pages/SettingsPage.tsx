@@ -3,7 +3,7 @@ import { getLang, setLang, t, type Lang } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { ApiError } from "../api/client";
+import { ApiError, clearToken } from "../api/client";
 import { parsePhone } from "../lib/phone";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { PasswordInput } from "../components/PasswordInput";
@@ -27,10 +27,10 @@ export function SettingsPage() {
 
   // Kept empty after a successful save either way - not worth holding a
   // plaintext password in state any longer than it takes to submit it.
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSaved, setPasswordSaved] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
   if (!user) return null;
@@ -69,7 +69,6 @@ export function SettingsPage() {
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
     setPasswordError(null);
-    setPasswordSaved(false);
 
     if (newPassword !== confirmPassword) {
       setPasswordError(t("passwordsDontMatch"));
@@ -86,13 +85,14 @@ export function SettingsPage() {
         lastName,
         phone: user?.phone ?? undefined,
         password: newPassword,
+        currentPassword,
       });
-      setNewPassword("");
-      setConfirmPassword("");
-      setPasswordSaved(true);
+      // The backend ended every session, this one included - full-page
+      // redirect, same as the API client's own on a 401.
+      clearToken();
+      window.location.assign("/login?password_changed=1");
     } catch (err) {
       setPasswordError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
-    } finally {
       setChangingPassword(false);
     }
   }
@@ -177,6 +177,20 @@ export function SettingsPage() {
         </p>
 
         <form onSubmit={handlePasswordSubmit} className="space-y-4">
+          {user.has_password && (
+            <div>
+              <label className="block text-sm font-medium mb-1" htmlFor="current-password">
+                {t("currentPassword")}
+              </label>
+              <PasswordInput
+                id="current-password"
+                autoComplete="current-password"
+                value={currentPassword}
+                onChange={setCurrentPassword}
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="new-password">
               {t("newPassword")}
@@ -203,13 +217,10 @@ export function SettingsPage() {
           </div>
 
           {passwordError && <p className="text-sm text-red-600">{passwordError}</p>}
-          {passwordSaved && !passwordError && (
-            <p className="text-sm text-primary">{t("passwordChanged")}</p>
-          )}
 
           <button
             type="submit"
-            disabled={changingPassword || !newPassword}
+            disabled={changingPassword || !newPassword || (user.has_password && !currentPassword)}
             className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
           >
             {changingPassword ? t("changing") : t("changePassword")}

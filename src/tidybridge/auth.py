@@ -30,7 +30,8 @@ from fastapi_users.router.oauth import (
 )
 from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
 from httpx_oauth.clients.github import GitHubOAuth2
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, field_validator
+from sqlalchemy import delete
 
 from tidybridge.auth_db import get_access_token_db, get_user_db
 from tidybridge.auth_models import AccessToken, User
@@ -131,6 +132,9 @@ class UserRead(BaseUser[uuid.UUID]):
     first_name: str | None = None
     last_name: str | None = None
     phone: str | None = None
+    # Settings asks for the current password only when one exists - a
+    # GitHub-only account sets its first one without it.
+    has_password: bool = False
 
 
 class UserCreate(BaseUserCreate):
@@ -146,10 +150,27 @@ class UserUpdate(BaseUserUpdate):
     first_name: str | None = Field(default=None, min_length=1, max_length=100)
     last_name: str | None = Field(default=None, min_length=1, max_length=100)
     phone: str | None = Field(default=None, max_length=30)
+    # Checked by UserManager.update() - a stolen session token alone
+    # can't set a new password and lock the owner out.
+    current_password: str | None = None
+
+    @field_validator("email")
+    @classmethod
+    def _email_is_fixed(cls, v: object) -> object:
+        # The email is the invitation (SIGNUP_ALLOWLIST): changing it would
+        # skip the allowlist and free the invited address for someone else.
+        raise ValueError(EMAIL_FIXED)
+
+    def create_update_dict(self) -> dict:
+        update = super().create_update_dict()
+        update.pop("current_password", None)
+        return update
 
 
 # Matched by the frontend's serverText.ts - keep the two in sync.
 SIGNUP_CLOSED = "Signup is by invitation only"
+EMAIL_FIXED = "Email can't be changed"
+CURRENT_PASSWORD_WRONG = "Current password is incorrect"
 
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
@@ -210,6 +231,28 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             oauth_name, access_token, account_id, account_email, *args, **kwargs
         )
 
+    async def update(
+        self,
+        user_update: UserUpdate,
+        user: User,
+        safe: bool = False,
+        request: Request | None = None,
+    ) -> User:
+        if user_update.password is not None and user.has_password:
+            valid, _ = self.password_helper.verify_and_update(
+                user_update.current_password or "", user.hashed_password
+            )
+            if not valid:
+                raise InvalidPasswordException(reason=CURRENT_PASSWORD_WRONG)
+        return await super().update(user_update, user, safe=safe, request=request)
+
+    async def _revoke_sessions(self, user: User) -> None:
+        """Every session, the caller's own included - after a password
+        change or reset, a token stolen before it stops working too."""
+        session = self.user_db.session
+        await session.execute(delete(AccessToken).where(AccessToken.user_id == user.id))
+        await session.commit()
+
     async def on_after_update(
         self, user: User, update_dict: dict, request: Request | None = None
     ) -> None:
@@ -221,6 +264,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         hook, also updated to set this flag."""
         if "password" in update_dict:
             await self.user_db.update(user, {"has_password": True})
+            await self._revoke_sessions(user)
 
     async def forgot_password(self, user: User, request: Request | None = None) -> None:
         """Overrides the base implementation to add one more gate before
@@ -278,6 +322,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         # a cheap defensive backstop rather than relying on that
         # invariant never drifting.
         await self.user_db.update(user, {"has_password": True})
+        await self._revoke_sessions(user)
         logger.info("Password reset completed for %s", user.email)
 
     async def validate_password(self, password: str, user: UserCreate | User) -> None:
