@@ -88,9 +88,14 @@ def sent(monkeypatch) -> list[dict]:
     return calls
 
 
+def _to(sent: list[dict], address: str) -> dict:
+    [mail] = [m for m in sent if m["to"] == address]
+    return mail
+
+
 def test_notification_is_sent_to_hello(db, sent):
     _post(VALID)
-    [mail] = sent
+    mail = _to(sent, "hello@tidybridge.dev")
     assert mail["to"] == "hello@tidybridge.dev"
     assert "Gestoría Ejemplo" in mail["subject"]
     assert "ana@example.com" in mail["html"]
@@ -98,7 +103,7 @@ def test_notification_is_sent_to_hello(db, sent):
 
 def test_notification_escapes_and_keeps_subject_on_one_line(db, sent):
     _post({**VALID, "name": "Ana\nBcc: x", "firm": "<b>Acme</b>\r\nX"})
-    [mail] = sent
+    mail = _to(sent, "hello@tidybridge.dev")
     assert "\n" not in mail["subject"] and "\r" not in mail["subject"]
     assert "&lt;b&gt;Acme" in mail["html"]
     assert "<b>Acme" not in mail["html"]
@@ -129,9 +134,27 @@ def test_sixth_request_in_an_hour_is_rate_limited(db, sent):
 
 def test_replying_to_the_notification_reaches_the_requester(db, sent):
     _post({**VALID, "phone": "+34 600 123 456"})
-    [mail] = sent
+    mail = _to(sent, "hello@tidybridge.dev")
     assert mail["reply_to"] == "ana@example.com"
     assert "Responder a Ana Pérez" in mail["html"]
     assert 'href="mailto:ana@example.com"' in mail["html"]
     assert 'href="tel:+34600123456"' in mail["html"]
     assert "tidybridge.dev/email-logo.png" in mail["html"]
+
+
+def test_the_requester_gets_a_confirmation_in_their_language(db, sent):
+    _post({**VALID, "language": "en"})
+    mail = _to(sent, "ana@example.com")
+    assert mail["reply_to"] == "hello@tidybridge.dev"
+    assert "2 working days" in mail["html"]
+    _post({**VALID, "email": "luis@example.com"})
+    assert "2 días laborables" in _to(sent, "luis@example.com")["html"]
+
+
+def test_the_confirmation_repeats_nothing_the_form_said(db, sent):
+    # Anyone can type someone else's address: whatever they write must not
+    # reach that inbox from our domain
+    _post({**VALID, "name": "Buy now", "firm": "spam.example", "message": "click here"})
+    mail = _to(sent, "ana@example.com")
+    for text in ("Buy now", "spam.example", "click here"):
+        assert text not in mail["html"] and text not in mail["subject"]

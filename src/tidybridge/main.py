@@ -59,7 +59,7 @@ from tidybridge.extract import ExtractionError, ExtractionUnavailableError, extr
 from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
 from tidybridge.mapping import build_schema, validate_resolution
-from tidybridge.pilot_email import pilot_request_email
+from tidybridge.pilot_email import confirmation_email, pilot_request_email
 from tidybridge.models import (
     ClientRecord,
     ColumnMapping,
@@ -358,6 +358,12 @@ async def _notify_pilot_request(body: PilotRequestIn) -> None:
         await _send_email(PILOT_INBOX, subject, html, reply_to=body.email)
     except Exception:
         logger.exception("Pilot request notification failed")
+    # The requester's confirmation: fixed text, Reply-To hello@ (see pilot_email)
+    subject, html = confirmation_email(body.language)
+    try:
+        await _send_email(body.email, subject, html, reply_to=PILOT_INBOX)
+    except Exception:
+        logger.exception("Pilot request confirmation failed")
 
 
 @app.post("/pilot-requests", status_code=202)
