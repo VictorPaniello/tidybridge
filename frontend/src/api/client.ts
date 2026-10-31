@@ -244,6 +244,8 @@ export interface ProfileUpdate {
   // same UserManager.validate_password override the registration policy
   // uses - no backend change needed to support changing it here.
   password?: string;
+  // Required by the backend with `password` whenever the account has one.
+  currentPassword?: string;
 }
 
 // PATCH /users/me is fastapi-users' generic update route - accepts a
@@ -258,7 +260,9 @@ export async function updateProfile(input: ProfileUpdate): Promise<CurrentUser> 
       first_name: input.firstName,
       last_name: input.lastName,
       phone: input.phone || null,
-      ...(input.password ? { password: input.password } : {}),
+      ...(input.password
+        ? { password: input.password, current_password: input.currentPassword }
+        : {}),
     }),
   });
 }

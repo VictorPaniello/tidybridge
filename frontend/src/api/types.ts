@@ -162,4 +162,7 @@ export interface CurrentUser {
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
+  // False for a GitHub-only account: Settings then sets a first password
+  // without asking for a current one.
+  has_password: boolean;
 }
