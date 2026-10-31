@@ -393,6 +393,8 @@ def health() -> dict:
         "extraction": extraction_enabled(),
         "webhooks": bool(settings.webhook_url),
         "provisioning": bool(settings.provisioning_url),
+        # Whether /auth/github/* exists - the login page hides the button otherwise
+        "github": _github_oauth_client is not None,
     }
 
 

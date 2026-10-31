@@ -17,7 +17,7 @@ describe("RecordsPage", () => {
     sessionStorage.clear();
     vi.spyOn(api, "listRecords").mockResolvedValue([]);
     vi.spyOn(api, "listIngestionRuns").mockResolvedValue([]);
-    vi.spyOn(api, "getHealth").mockResolvedValue({ status: "ok", extraction: false, webhooks: false, provisioning: false });
+    vi.spyOn(api, "getHealth").mockResolvedValue({ status: "ok", extraction: false, webhooks: false, provisioning: false, github: false });
     vi.spyOn(auth, "useAuth").mockReturnValue({
       user: {
         id: "u1",
@@ -541,7 +541,7 @@ describe("RecordsPage", () => {
   });
 
   it("offers invoices too when extraction is on", async () => {
-    vi.spyOn(api, "getHealth").mockResolvedValue({ status: "ok", extraction: true, webhooks: false, provisioning: false });
+    vi.spyOn(api, "getHealth").mockResolvedValue({ status: "ok", extraction: true, webhooks: false, provisioning: false, github: false });
     render(
       <MemoryRouter>
         <RecordsPage />
