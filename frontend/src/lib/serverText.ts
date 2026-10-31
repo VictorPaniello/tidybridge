@@ -32,6 +32,10 @@ const PATTERNS: [RegExp, TKey, string[]?][] = [
   [/^Password must contain at least one lowercase letter$/, "srv_pwLower"],
   [/^Password must contain at least one digit$/, "srv_pwDigit"],
   [/^Password must contain at least one special character$/, "srv_pwSpecial"],
+  [/^Record not found$/, "srv_recordNotFound"],
+  [/^Ingestion run not found$/, "srv_runNotFound"],
+  [/^This record predates per-run schema tracking/, "srv_predatesSchema"],
+  [/^Signup is by invitation only$/, "srv_signupClosed"],
 ];
 
 export function translateServerText(text: string): string {
@@ -45,6 +49,6 @@ export function translateServerText(text: string): string {
 /** fastapi-users sends bare codes like "LOGIN_BAD_CREDENTIALS". */
 export function translateErrorCode(code: string): string {
   const text = t(`code_${code}` as TKey);
-  // No translation: the old behaviour, "login bad credentials"
-  return text === `code_${code}` ? code.replace(/_/g, " ").toLowerCase() : text;
+  // No translation: a generic message, never the raw code
+  return text === `code_${code}` ? t("err_generic") : text;
 }

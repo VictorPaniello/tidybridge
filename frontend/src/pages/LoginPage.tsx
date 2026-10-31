@@ -6,15 +6,19 @@ import { useAuth } from "../auth/AuthContext";
 import { githubAuthorizeUrl, ApiError } from "../api/client";
 import { PasswordInput } from "../components/PasswordInput";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useHealth } from "../lib/health";
 
 export function LoginPage() {
   const { loginWithPassword } = useAuth();
+  const { github } = useHealth();
   const navigate = useNavigate();
   const location = useLocation();
   // Set by ResetPasswordPage's navigate() after a successful reset - state
   // rather than a query param so it can't be bookmarked/shared and shown
   // to someone who didn't just reset anything.
   const justReset = Boolean((location.state as { passwordReset?: boolean } | null)?.passwordReset);
+  // Set by the API client's full-page redirect on a 401 (no router there)
+  const expired = new URLSearchParams(location.search).has("expired");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +51,10 @@ export function LoginPage() {
           <p className="mb-6 text-sm text-primary">
             {t("passwordResetDone")}
           </p>
+        )}
+
+        {expired && !justReset && (
+          <p className="mb-6 text-sm text-muted-foreground">{t("err_sessionExpired")}</p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,19 +101,23 @@ export function LoginPage() {
           </button>
         </form>
 
-        <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="h-px flex-1 bg-border" />
-          {t("or")}
-          <div className="h-px flex-1 bg-border" />
-        </div>
+        {github && (
+          <>
+            <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="h-px flex-1 bg-border" />
+              {t("or")}
+              <div className="h-px flex-1 bg-border" />
+            </div>
 
-        <a
-          href={githubAuthorizeUrl()}
-          className="w-full rounded-md border border-input py-2 font-medium hover:bg-secondary transition flex items-center justify-center gap-2"
-        >
-          <GitHubIcon />
-          {t("continueWithGitHub")}
-        </a>
+            <a
+              href={githubAuthorizeUrl()}
+              className="w-full rounded-md border border-input py-2 font-medium hover:bg-secondary transition flex items-center justify-center gap-2"
+            >
+              <GitHubIcon />
+              {t("continueWithGitHub")}
+            </a>
+          </>
+        )}
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
           {t("noAccount")}{" "}
