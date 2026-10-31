@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
 import logging
 import re
 import secrets
@@ -153,13 +154,30 @@ app.add_middleware(
 # safety net, with a much stricter limit specifically on /login and
 # /register - the two endpoints a brute-force or credential-stuffing
 # attempt would actually hammer. Keyed on the caller's IP; this relies on
-# get_remote_address reading the real client IP from what Railway's proxy
-# forwards, not uvicorn's own socket peer (see the Dockerfile's
-# --proxy-headers) - otherwise every request behind that proxy would share
-# one bucket and one abusive caller could rate-limit every legitimate one.
+# the real client IP, not uvicorn's own socket peer - otherwise every request
+# behind Railway's proxy would share one bucket.
 logger = logging.getLogger(__name__)
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+def client_ip(request: Request) -> str:
+    """The IP Railway's proxy saw: the LAST X-Forwarded-For entry. uvicorn's
+    --forwarded-allow-ips='*' makes request.client the FIRST entry, which the
+    caller writes - a fresh fake one per request dodged every limit."""
+    # Every header line, not just the first: a caller-sent line may come
+    # before the one the proxy adds
+    lines = request.headers.getlist("x-forwarded-for")
+    if not lines:  # no proxy in front: request.client is the real peer
+        return get_remote_address(request)
+    last = ",".join(lines).split(",")[-1].strip()
+    try:
+        return str(ipaddress.ip_address(last))
+    except ValueError:
+        # Fail closed: request.client was already rewritten from the
+        # caller-written first entry, so it can't be trusted here
+        return "unknown"
+
+
+limiter = Limiter(key_func=client_ip, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
