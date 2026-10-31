@@ -11,3 +11,4 @@ dist
 # is bun-specific and shouldn't coexist as a second source of truth.
 bun.lock
 bun.lockb
+*.tsbuildinfo

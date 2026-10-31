@@ -295,6 +295,16 @@ const es = {
   code_RESET_PASSWORD_BAD_TOKEN: "Este enlace no es válido o ha caducado. Pide uno nuevo abajo.",
   code_UPDATE_USER_EMAIL_ALREADY_EXISTS: "Ya existe una cuenta con este email.",
   code_OAUTH_USER_ALREADY_EXISTS: "Ya existe una cuenta con este email. Inicia sesión con tu contraseña.",
+  srv_recordNotFound: "Este registro ya no existe. Puede que se haya borrado.",
+  srv_runNotFound: "Esta subida ya no existe. Puede que se haya borrado.",
+  srv_predatesSchema: "Este registro es antiguo y no se puede editar: bórralo y vuelve a subir el archivo.",
+  err_generic: "Algo ha fallado. Inténtalo de nuevo; si sigue pasando, escríbenos a hello@tidybridge.dev.",
+  err_server: "Algo ha fallado por nuestra parte. Inténtalo de nuevo en unos minutos; si sigue pasando, escríbenos a hello@tidybridge.dev.",
+  err_sessionExpired: "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+  err_tooMany: "Demasiados intentos. Espera un minuto y vuelve a probar.",
+  err_invalidInput: "Revisa los datos del formulario: hay alguno que no es válido.",
+  err_offline: "No hay conexión con el servidor. Comprueba tu conexión a internet y vuelve a intentarlo.",
+  code_OAUTH_NOT_AVAILABLE_EMAIL: "Tu cuenta de GitHub no comparte ningún email. Regístrate con email y contraseña.",
 };
 
 type Key = keyof typeof es;
@@ -579,6 +589,16 @@ const en: Record<Key, string> = {
   code_RESET_PASSWORD_BAD_TOKEN: "This reset link is invalid or has expired. Request a new one below.",
   code_UPDATE_USER_EMAIL_ALREADY_EXISTS: "An account with this email already exists.",
   code_OAUTH_USER_ALREADY_EXISTS: "An account with this email already exists. Sign in with your password.",
+  srv_recordNotFound: "This record no longer exists. It may have been deleted.",
+  srv_runNotFound: "This upload no longer exists. It may have been deleted.",
+  srv_predatesSchema: "This record is too old to edit: delete it and upload the file again.",
+  err_generic: "Something went wrong. Try again; if it keeps happening, email us at hello@tidybridge.dev.",
+  err_server: "Something went wrong on our side. Try again in a few minutes; if it keeps happening, email us at hello@tidybridge.dev.",
+  err_sessionExpired: "Your session has expired. Please sign in again.",
+  err_tooMany: "Too many attempts. Wait a minute and try again.",
+  err_invalidInput: "Check the form: some of the details aren't valid.",
+  err_offline: "Can't reach the server. Check your internet connection and try again.",
+  code_OAUTH_NOT_AVAILABLE_EMAIL: "Your GitHub account doesn't share an email. Sign up with email and password instead.",
 };
 
 export type Lang = "es" | "en";
