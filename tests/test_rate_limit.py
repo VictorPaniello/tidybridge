@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from tidybridge.main import app, limiter
 
@@ -76,3 +77,69 @@ def test_register_is_rate_limited_after_repeated_attempts():
 
     assert statuses[:5] == [201, 201, 201, 201, 201]
     assert statuses[5] == 429
+
+
+def test_a_spoofed_x_forwarded_for_does_not_dodge_the_limit():
+    # Behind Railway, X-Forwarded-For is "<whatever the client sent>, <real IP>".
+    # Only the last entry is Railway's; a new fake first entry per request
+    # must not give each request its own bucket.
+    limiter.enabled = True
+    try:
+        # The same proxy handling as production (Dockerfile: --proxy-headers
+        # --forwarded-allow-ips='*')
+        behind_railway = TestClient(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+        statuses = [
+            behind_railway
+            .post(
+                "/pilot-requests",
+                json={"name": "x", "firm": "x", "email": "a@example.com", "language": "es",
+                      "privacy_accepted": True, "website": "bot"},
+                headers={"X-Forwarded-For": f"10.0.0.{i}, 203.0.113.7"},
+            )
+            .status_code
+            for i in range(6)
+        ]
+    finally:
+        limiter.enabled = False
+    assert statuses == [202] * 5 + [429]
+
+
+def test_a_second_x_forwarded_for_header_line_is_read_too():
+    # If the caller sends its own X-Forwarded-For line and the proxy adds
+    # another, the proxy's is the last one - reading only the first line
+    # would hand the key back to the caller.
+    limiter.enabled = True
+    try:
+        behind_railway = TestClient(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+        statuses = [
+            behind_railway.post(
+                "/pilot-requests",
+                json={"name": "x", "firm": "x", "email": "a@example.com", "language": "es",
+                      "privacy_accepted": True, "website": "bot"},
+                headers=[("X-Forwarded-For", f"10.0.0.{i}"), ("X-Forwarded-For", "203.0.113.8")],
+            ).status_code
+            for i in range(6)
+        ]
+    finally:
+        limiter.enabled = False
+    assert statuses == [202] * 5 + [429]
+
+
+def test_a_forwarded_header_ending_in_junk_shares_one_bucket():
+    # uvicorn has already rewritten request.client from the caller-written
+    # first entry, so falling back to it would let each request pick a key
+    limiter.enabled = True
+    try:
+        behind_railway = TestClient(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+        statuses = [
+            behind_railway.post(
+                "/pilot-requests",
+                json={"name": "x", "firm": "x", "email": "a@example.com", "language": "es",
+                      "privacy_accepted": True, "website": "bot"},
+                headers={"X-Forwarded-For": f"10.0.1.{i}, not-an-ip"},
+            ).status_code
+            for i in range(6)
+        ]
+    finally:
+        limiter.enabled = False
+    assert statuses == [202] * 5 + [429]

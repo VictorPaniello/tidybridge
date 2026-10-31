@@ -58,3 +58,34 @@ def pilot_request_email(body: PilotRequestIn, received: datetime) -> tuple[str, 
 <p style="max-width:560px;margin:12px auto 0;color:{MUTED};font-size:12px;text-align:center">Recibida el {when} · Enviada desde el formulario de tidybridge.dev</p>
 </div>"""
     return subject, html
+
+
+CONFIRMATION = {
+    "es": (
+        "Hemos recibido tu solicitud de piloto",
+        "Gracias por tu interés en tidybridge. Hemos recibido tu solicitud de piloto "
+        "y te escribimos en 2 días laborables.",
+        "Si tienes cualquier pregunta mientras tanto, responde a este correo.",
+    ),
+    "en": (
+        "We've received your pilot request",
+        "Thanks for your interest in tidybridge. We've received your pilot request "
+        "and will write back within 2 working days.",
+        "If you have any questions in the meantime, just reply to this email.",
+    ),
+}
+
+
+def confirmation_email(language: str) -> tuple[str, str]:
+    """Returns (subject, html) for the requester. Fixed text only: anyone can
+    type someone else's address, so nothing they wrote goes into it."""
+    subject, lead, reply = CONFIRMATION.get(language, CONFIRMATION["es"])
+    html = f"""<div style="background:#fafaf9;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid {LINE};border-radius:10px">
+<tr><td style="padding:24px 28px 8px"><img src="{LOGO_URL}" width="32" height="32" alt="tidybridge" style="display:block"></td></tr>
+<tr><td style="padding:8px 28px 24px;font-size:15px;line-height:1.5;color:{INK}"><h1 style="margin:0 0 12px;font-size:20px">{subject}</h1>
+<p style="margin:0 0 12px">{lead}</p><p style="margin:0;color:{MUTED}">{reply}</p></td></tr>
+</table>
+<p style="max-width:560px;margin:12px auto 0;color:{MUTED};font-size:12px;text-align:center">tidybridge.dev</p>
+</div>"""
+    return subject, html
