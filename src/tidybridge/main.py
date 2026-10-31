@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import ipaddress
 import logging
 import re
 import secrets
@@ -162,10 +163,14 @@ def client_ip(request: Request) -> str:
     """The IP Railway's proxy saw: the LAST X-Forwarded-For entry. uvicorn's
     --forwarded-allow-ips='*' makes request.client the FIRST entry, which the
     caller writes - a fresh fake one per request dodged every limit."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[-1].strip()
-    return get_remote_address(request)
+    # Every header line, not just the first: a caller-sent line may come
+    # before the one the proxy adds
+    entries = ",".join(request.headers.getlist("x-forwarded-for")).split(",")
+    last = entries[-1].strip()
+    try:
+        return str(ipaddress.ip_address(last))
+    except ValueError:  # no header, or not an IP
+        return get_remote_address(request)
 
 
 limiter = Limiter(key_func=client_ip, default_limits=["60/minute"])

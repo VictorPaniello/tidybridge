@@ -102,3 +102,24 @@ def test_a_spoofed_x_forwarded_for_does_not_dodge_the_limit():
     finally:
         limiter.enabled = False
     assert statuses == [202] * 5 + [429]
+
+
+def test_a_second_x_forwarded_for_header_line_is_read_too():
+    # If the caller sends its own X-Forwarded-For line and the proxy adds
+    # another, the proxy's is the last one - reading only the first line
+    # would hand the key back to the caller.
+    limiter.enabled = True
+    try:
+        behind_railway = TestClient(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+        statuses = [
+            behind_railway.post(
+                "/pilot-requests",
+                json={"name": "x", "firm": "x", "email": "a@example.com", "language": "es",
+                      "privacy_accepted": True, "website": "bot"},
+                headers=[("X-Forwarded-For", f"10.0.0.{i}"), ("X-Forwarded-For", "203.0.113.8")],
+            ).status_code
+            for i in range(6)
+        ]
+    finally:
+        limiter.enabled = False
+    assert statuses == [202] * 5 + [429]
