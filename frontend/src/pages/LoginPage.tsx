@@ -15,6 +15,8 @@ export function LoginPage() {
   // rather than a query param so it can't be bookmarked/shared and shown
   // to someone who didn't just reset anything.
   const justReset = Boolean((location.state as { passwordReset?: boolean } | null)?.passwordReset);
+  // Set by the API client's full-page redirect on a 401 (no router there)
+  const expired = new URLSearchParams(location.search).has("expired");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +49,10 @@ export function LoginPage() {
           <p className="mb-6 text-sm text-primary">
             {t("passwordResetDone")}
           </p>
+        )}
+
+        {expired && !justReset && (
+          <p className="mb-6 text-sm text-muted-foreground">{t("err_sessionExpired")}</p>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">

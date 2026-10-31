@@ -281,7 +281,7 @@ export function RecordsPage() {
     try {
       setRecords(await api.listRecords(undefined, ingestionRunId ?? undefined));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't load records.");
+      setError(err instanceof ApiError ? err.message : t("err_generic"));
     } finally {
       setLoading(false);
     }

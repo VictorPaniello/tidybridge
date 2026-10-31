@@ -27,6 +27,9 @@ const BACKEND_TEXTS = [
   "Invoice extraction is temporarily unavailable - please try again in a minute",
   "Invoice extraction isn't enabled on this server - upload a CSV or Excel file instead",
   "This record is flagged - fix or approve it first",
+  "Record not found",
+  "Ingestion run not found",
+  "This record predates per-run schema tracking and can't be edited in place - delete it and re-upload instead.",
   "Password must be at least 8 characters long",
   "Password must contain at least one uppercase letter",
   "Password must contain at least one lowercase letter",
@@ -64,6 +67,6 @@ describe("translateErrorCode", () => {
   it("words known codes and falls back for unknown ones", () => {
     setLang("es");
     expect(translateErrorCode("LOGIN_BAD_CREDENTIALS")).toBe("Email o contraseña incorrectos.");
-    expect(translateErrorCode("VERIFY_USER_BAD_TOKEN")).toBe("verify user bad token");
+    expect(translateErrorCode("VERIFY_USER_BAD_TOKEN")).toMatch(/hello@tidybridge.dev/);
   });
 });

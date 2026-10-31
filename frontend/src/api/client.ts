@@ -60,22 +60,25 @@ function errorCode(body: unknown): string | undefined {
 
 // fastapi-users' error bodies are either {"detail": "SOME_CODE"} or
 // {"detail": {"code": "SOME_CODE", "reason": "human sentence"}}; plain
-// FastAPI HTTPException bodies are {"detail": "human sentence"}. This
-// covers all three rather than assuming one shape.
-function extractErrorMessage(body: unknown, fallback: string): string {
-  if (typeof body === "object" && body !== null && "detail" in body) {
-    const detail = (body as { detail: unknown }).detail;
-    if (typeof detail === "string") {
-      // Only bare codes get reworded - lowercasing a sentence mangled
-      // filenames ("factura_01.pdf" became "factura 01.pdf")
-      return /^[A-Z_]+$/.test(detail) ? translateErrorCode(detail) : translateServerText(detail);
-    }
-    if (typeof detail === "object" && detail !== null && "reason" in detail) {
-      const reason = (detail as { reason: unknown }).reason;
-      if (typeof reason === "string") return translateServerText(reason);
-    }
+// FastAPI HTTPException bodies are {"detail": "human sentence"}. A client
+// must always get a sentence they can act on or pass on: anything we
+// haven't translated becomes a generic message (raw body in the console).
+function extractErrorMessage(status: number, body: unknown): string {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  const reason = (detail as { reason?: unknown } | null)?.reason;
+  const text = typeof detail === "string" ? detail : typeof reason === "string" ? reason : null;
+  if (status === 401) return t("err_sessionExpired");
+  if (status === 429) return t("err_tooMany");
+  if (text !== null) {
+    // Only bare codes get reworded - lowercasing a sentence mangled
+    // filenames ("factura_01.pdf" became "factura 01.pdf")
+    if (/^[A-Z_]+$/.test(text) && typeof detail === "string") return translateErrorCode(text);
+    const translated = translateServerText(text);
+    if (translated !== text) return translated;
   }
-  return fallback;
+  console.warn("Untranslated API error", status, body);
+  if (status === 422) return t("err_invalidInput");
+  return status >= 500 ? t("err_server") : t("err_generic");
 }
 
 interface RequestOptions {
@@ -103,21 +106,35 @@ function apiHeaders(auth = true): Record<string, string> {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers = { ...options.headers, ...apiHeaders(options.auth !== false) };
 
-  const response = await fetch(`${API_URL}${path}`, {
-    method: options.method ?? "GET",
-    body: options.body,
-    headers,
-    // Cross-origin (frontend and API are different origins), so fetch's
-    // default credentials mode ("same-origin") would silently drop any
-    // Set-Cookie response header instead of storing it. Only cookie in
-    // play is the GitHub OAuth CSRF token /auth/github/authorize sets
-    // (see auth.py) - regular auth doesn't use cookies at all, it's the
-    // bearer token in the Authorization header - but without this, that
-    // cookie never gets stored and the OAuth callback 400s with
-    // OAUTH_INVALID_STATE. The backend's CORS config already sets
-    // allow_credentials=True to allow this.
-    credentials: "include",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      method: options.method ?? "GET",
+      body: options.body,
+      headers,
+      // Cross-origin (frontend and API are different origins), so fetch's
+      // default credentials mode ("same-origin") would silently drop any
+      // Set-Cookie response header instead of storing it. Only cookie in
+      // play is the GitHub OAuth CSRF token /auth/github/authorize sets
+      // (see auth.py) - regular auth doesn't use cookies at all, it's the
+      // bearer token in the Authorization header - but without this, that
+      // cookie never gets stored and the OAuth callback 400s with
+      // OAUTH_INVALID_STATE. The backend's CORS config already sets
+      // allow_credentials=True to allow this.
+      credentials: "include",
+    });
+  } catch {
+    // fetch only throws when there's no response at all (offline, DNS, CORS)
+    throw new ApiError(0, t("err_offline"));
+  }
+
+  // A signed-in request rejected as unauthenticated: the session expired
+  // (or the account was deleted elsewhere). Drop the token and go to the
+  // login page instead of leaving the user on a page that can't load.
+  if (response.status === 401 && options.auth !== false && getToken()) {
+    clearToken();
+    window.location.assign("/login?expired=1");
+  }
 
   if (response.status === 204) {
     return undefined as T;
@@ -131,7 +148,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      extractErrorMessage(payload, `Request failed with status ${response.status}`),
+      extractErrorMessage(response.status, payload),
       errorCode(payload),
     );
   }
