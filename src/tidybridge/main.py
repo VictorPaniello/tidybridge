@@ -153,13 +153,22 @@ app.add_middleware(
 # safety net, with a much stricter limit specifically on /login and
 # /register - the two endpoints a brute-force or credential-stuffing
 # attempt would actually hammer. Keyed on the caller's IP; this relies on
-# get_remote_address reading the real client IP from what Railway's proxy
-# forwards, not uvicorn's own socket peer (see the Dockerfile's
-# --proxy-headers) - otherwise every request behind that proxy would share
-# one bucket and one abusive caller could rate-limit every legitimate one.
+# the real client IP, not uvicorn's own socket peer - otherwise every request
+# behind Railway's proxy would share one bucket.
 logger = logging.getLogger(__name__)
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+
+def client_ip(request: Request) -> str:
+    """The IP Railway's proxy saw: the LAST X-Forwarded-For entry. uvicorn's
+    --forwarded-allow-ips='*' makes request.client the FIRST entry, which the
+    caller writes - a fresh fake one per request dodged every limit."""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[-1].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=client_ip, default_limits=["60/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
