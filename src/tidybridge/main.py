@@ -313,9 +313,12 @@ def delete_own_account(
     db.commit()
 
 
-app.include_router(
-    fastapi_users.get_users_router(UserRead, UserUpdate), prefix="/users", tags=["users"]
-)
+_users_router = fastapi_users.get_users_router(UserRead, UserUpdate)
+for _route in _users_router.routes:
+    # PATCH checks current_password - same brute-force surface as /login
+    if _route.path == "/me" and "PATCH" in _route.methods:
+        _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
+app.include_router(_users_router, prefix="/users", tags=["users"])
 
 _github_oauth_client = get_github_oauth_client()
 if _github_oauth_client is not None:

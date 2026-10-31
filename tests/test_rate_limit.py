@@ -143,3 +143,20 @@ def test_a_forwarded_header_ending_in_junk_shares_one_bucket():
     finally:
         limiter.enabled = False
     assert statuses == [202] * 5 + [429]
+
+
+def test_current_password_guessing_is_rate_limited(client: TestClient):
+    """PATCH /users/me checks current_password - a stolen session token
+    mustn't get 60 guesses a minute where /login allows 5."""
+    wrong = {"password": "Proveedor-Ejemplo-2!", "current_password": "Wrong-1!"}
+    limiter.enabled = True
+    try:
+        statuses = [
+            client.patch("/users/me", json=wrong).status_code
+            for _ in range(6)
+        ]
+    finally:
+        limiter.enabled = False
+
+    assert statuses[:5] == [400, 400, 400, 400, 400]
+    assert statuses[5] == 429
