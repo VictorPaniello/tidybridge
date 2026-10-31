@@ -10,7 +10,7 @@ import re
 import uuid
 
 import httpx
-from fastapi import Body, Depends, Request, Response
+from fastapi import Body, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
 from fastapi_users import BaseUserManager, FastAPIUsers, InvalidPasswordException, UUIDIDMixin
@@ -148,6 +148,10 @@ class UserUpdate(BaseUserUpdate):
     phone: str | None = Field(default=None, max_length=30)
 
 
+# Matched by the frontend's serverText.ts - keep the two in sync.
+SIGNUP_CLOSED = "Signup is by invitation only"
+
+
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # Signs the (separate, short-lived) tokens for password-reset emails -
     # its own secret, not jwt_secret, so a leak of one doesn't also hand
@@ -176,8 +180,35 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         landing here always means a real, user-chosen password exists -
         has_password records that (see auth_models.py's docstring on it
         and forgot_password() below, which relies on it)."""
+        if not settings.signup_allowed(user_create.email):
+            raise HTTPException(status_code=403, detail=SIGNUP_CLOSED)
         user = await super().create(user_create, safe=safe, request=request)
         return await self.user_db.update(user, {"has_password": True})
+
+    async def oauth_callback(
+        self,
+        oauth_name: str,
+        access_token: str,
+        account_id: str,
+        account_email: str,
+        *args,
+        **kwargs,
+    ) -> User:
+        """Same invite-only gate as create() for any provider's first
+        sign-in. Only a brand-new account is refused: someone who already
+        has this OAuth account, or a user with this email, falls through to
+        the library's own handling unchanged."""
+        if not settings.signup_allowed(account_email):
+            try:
+                await self.get_by_oauth_account(oauth_name, account_id)
+            except fastapi_users_exceptions.UserNotExists:
+                try:
+                    await self.get_by_email(account_email)
+                except fastapi_users_exceptions.UserNotExists:
+                    raise HTTPException(status_code=403, detail=SIGNUP_CLOSED) from None
+        return await super().oauth_callback(
+            oauth_name, access_token, account_id, account_email, *args, **kwargs
+        )
 
     async def on_after_update(
         self, user: User, update_dict: dict, request: Request | None = None

@@ -28,6 +28,7 @@ const BACKEND_TEXTS = [
   "Invoice extraction isn't enabled on this server - upload a CSV or Excel file instead",
   "This record is flagged - fix or approve it first",
   "Record not found",
+  "Signup is by invitation only",
   "Ingestion run not found",
   "This record predates per-run schema tracking and can't be edited in place - delete it and re-upload instead.",
   "Password must be at least 8 characters long",

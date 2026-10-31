@@ -298,6 +298,7 @@ export async function getHealth(): Promise<{
   extraction: boolean;
   webhooks: boolean;
   provisioning: boolean;
+  github: boolean;
 }> {
   return request(`/health`, { auth: false });
 }

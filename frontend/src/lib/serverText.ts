@@ -35,6 +35,7 @@ const PATTERNS: [RegExp, TKey, string[]?][] = [
   [/^Record not found$/, "srv_recordNotFound"],
   [/^Ingestion run not found$/, "srv_runNotFound"],
   [/^This record predates per-run schema tracking/, "srv_predatesSchema"],
+  [/^Signup is by invitation only$/, "srv_signupClosed"],
 ];
 
 export function translateServerText(text: string): string {

@@ -6,7 +6,17 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
+### Added
+- **Invite-only signup.** `SIGNUP_ALLOWLIST` (comma-separated emails,
+  case-insensitive; unset keeps registration open) gates email+password
+  registration and the first sign-in through any OAuth provider with a
+  403 "Signup is by invitation only", shown in Spanish/English with a
+  pointer to request the pilot. Existing users always get back in.
+
 ### Fixed
+- **The "Continue with GitHub" button only shows when GitHub OAuth is
+  configured.** `/health` now reports `github`; before, the button showed
+  everywhere and led to a 404 without it.
 - **Legal pages and landing copy match what the product does.** DPA: no
   webhook forwarding on the hosted service; eval use of invoices only with
   written permission; breach notice "where possible within 48 hours"; a

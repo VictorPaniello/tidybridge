@@ -25,6 +25,7 @@ const health = (on: { webhooks?: boolean; provisioning?: boolean } = {}) => ({
   extraction: true,
   webhooks: false,
   provisioning: false,
+  github: false,
   ...on,
 });
 

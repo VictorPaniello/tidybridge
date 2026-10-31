@@ -32,6 +32,7 @@ class Settings(BaseSettings):
         if v.startswith("postgresql://"):
             return "postgresql+psycopg://" + v[len("postgresql://") :]
         return v
+
     webhook_url: str | None = None
     """Where to POST a notification when a new record is ingested. If unset,
     webhook delivery is skipped entirely (logged, not silently dropped)."""
@@ -121,6 +122,16 @@ class Settings(BaseSettings):
     """GitHub OAuth App credentials (Settings > Developer settings > OAuth
     Apps in GitHub). None disables the "Sign in with GitHub" flow - email +
     password login still works without them."""
+
+    signup_allowlist: str = ""
+    """Comma-separated emails allowed to create an account (case-
+    insensitive). Empty leaves registration open - local dev and staging.
+    Checked in auth.py's UserManager for both email+password signup and
+    any OAuth provider's first sign-in; existing users are never blocked."""
+
+    def signup_allowed(self, email: str) -> bool:
+        allowed = {e.strip().lower() for e in self.signup_allowlist.split(",") if e.strip()}
+        return not allowed or email.strip().lower() in allowed
 
     frontend_url: str = "http://localhost:5173"
     """Origin of the frontend SPA (frontend/). Used two ways: (1) CORS -

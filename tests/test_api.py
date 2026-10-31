@@ -37,6 +37,15 @@ def test_health_says_which_integrations_are_configured(client: TestClient, monke
     assert body["provisioning"] is True
 
 
+def test_health_says_whether_github_login_is_available(client: TestClient, monkeypatch):
+    import tidybridge.main as main_module
+
+    monkeypatch.setattr(main_module, "_github_oauth_client", None)
+    assert client.get("/health").json()["github"] is False
+    monkeypatch.setattr(main_module, "_github_oauth_client", object())
+    assert client.get("/health").json()["github"] is True
+
+
 def test_upload_cleans_and_persists_records(client: TestClient):
     response = _upload(client)
     assert response.status_code == 200
