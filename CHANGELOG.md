@@ -13,6 +13,12 @@ nothing has been tagged as a release yet, so everything below is under
   invitation. Signing in from a link now returns to that page.
 
 ### Security
+- **Upload limits beyond the 10 MB cap.** A CSV/Excel upload with more
+  than 5,000 rows, or an `.xlsx` that would unzip to more than 100 MB, is
+  refused with 413 before anything is processed or stored (both
+  configurable: `MAX_UPLOAD_ROWS`, `MAX_UNCOMPRESSED_MB`). Messages in
+  Spanish and English. The DPA, privacy and terms pages now describe
+  invite-only accounts and these limits instead of registration.
 - **A deployed API won't start with a default secret.** If `JWT_SECRET`
   or `PASSWORD_RESET_SECRET` is missing on Railway (the public default in
   `config.py` would be used) or both are equal, startup fails and Railway

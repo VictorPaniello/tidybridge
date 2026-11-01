@@ -11,7 +11,7 @@ export function PrivacyPage() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Privacy policy</h1>
-        <p className="text-muted-foreground">Last updated: October 2026</p>
+        <p className="text-muted-foreground">Last updated: November 2026</p>
       </div>
 
       <Section title="Who's responsible for your data">
@@ -92,8 +92,8 @@ export function PrivacyPage() {
           </li>
         </ul>
         <p className="mt-2">
-          Your IP address is used, in memory only, to rate-limit logins, registrations and
-          uploads, and may appear in the hosting provider's request logs. The server's own logs
+          Your IP address is used, in memory only, to rate-limit logins, account activations
+          and uploads, and may appear in the hosting provider's request logs. The server's own logs
           record events such as a password reset, which can include your email address; the
           hosting provider keeps logs for a limited time. Database backups are kept for 30 days.{" "}
           <strong>Legal basis</strong> for all of these: our legitimate interest in keeping the

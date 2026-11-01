@@ -5,7 +5,7 @@ export function TermsPage() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Terms of service</h1>
-        <p className="text-muted-foreground">Last updated: October 2026</p>
+        <p className="text-muted-foreground">Last updated: November 2026</p>
       </div>
 
       <Section title="What this is">
@@ -89,7 +89,7 @@ export function TermsPage() {
           <li>Violate any applicable law, or the rights of the people whose data you upload.</li>
         </ul>
         <p className="mt-2">
-          Reasonable rate limits apply to registration and login specifically (5 attempts/minute)
+          Reasonable rate limits apply to login and account activation specifically (5 attempts/minute)
           to deter abuse - see the README's Security section for the exact mechanism.
         </p>
       </Section>

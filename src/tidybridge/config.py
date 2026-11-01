@@ -150,6 +150,17 @@ class Settings(BaseSettings):
     the whole file is read into memory before tidycsv/pandas ever sees it,
     which makes an oversized upload a cheap way to flood the service."""
 
+    max_upload_rows: int = 5000
+    """Rejects a CSV/Excel upload with more rows than this (413, see
+    ingest.py). Ingest runs a dedup query per row in one transaction, so a
+    10 MB CSV of ~a million short rows would tie up the API and DB for
+    minutes. A gestoría's quarter is hundreds of invoices."""
+
+    max_uncompressed_mb: int = 100
+    """Rejects an .xlsx whose contents add up to more than this once
+    unzipped (413) - a 10 MB upload can expand to gigabytes of XML, all
+    loaded into memory by pandas. Checked before reading it."""
+
     backup_dir: str = "/data/backups"
     """Where scripts/backup_db.py writes dumps - a Railway Volume mounted
     on the backup service (see README's Backups section), not the app's

@@ -837,7 +837,11 @@ Found via a deliberate review, not a user report:
   into memory before tidycsv/pandas ever saw it. Fixed: reads in bounded
   1 MB chunks and rejects (413) as soon as `max_upload_size_mb` (default
   10) is crossed, rather than trusting the client-controlled
-  `Content-Length` header.
+  `Content-Length` header. The bytes cap alone left two gaps, closed later:
+  an `.xlsx` that unzips to gigabytes (now refused from the zip directory
+  past `max_uncompressed_mb`, default 100, before pandas reads it) and a
+  CSV with ~a million short rows tying up the API and DB (now refused past
+  `max_upload_rows`, default 5000). Both 413, nothing stored.
 - **No rate limiting** on `/auth/jwt/login` or `/auth/register` -
   unthrottled brute-force and credential-stuffing. Fixed with
   [slowapi](https://github.com/laurentS/slowapi): 5/minute on those two

@@ -24,9 +24,11 @@ computed fresh)."""
 
 from __future__ import annotations
 
+import io
 import logging
 import tempfile
 import uuid
+import zipfile
 from pathlib import Path
 from typing import NamedTuple
 
@@ -62,6 +64,28 @@ class UnreadableFileError(ValueError):
     upload_records (main.py) can turn *this* into a 400 without also
     catching an unrelated ValueError raised somewhere else in the ingest
     pipeline and misreporting it as a bad-file problem."""
+
+
+class UploadTooLargeError(ValueError):
+    """Over max_upload_rows or max_uncompressed_mb (config.py) - a 413 in
+    upload_records (main.py), not a 400: the file is fine, just too big."""
+
+
+def _check_xlsx_uncompressed_size(filename: str, content: bytes) -> None:
+    """An .xlsx is a zip. The sizes in its directory are what zipfile (and
+    so openpyxl) will actually inflate each member to, never more, so
+    summing them bounds the memory a read can take without decompressing
+    anything. A corrupt zip is left for load_input to report as unreadable."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            total = sum(info.file_size for info in zf.infolist())
+    except zipfile.BadZipFile:
+        return
+    if total > settings.max_uncompressed_mb * 1024 * 1024:
+        raise UploadTooLargeError(
+            f"{filename!r} is too large once uncompressed "
+            f"(over {settings.max_uncompressed_mb} MB)"
+        )
 
 
 class IngestOutcome(NamedTuple):
@@ -128,6 +152,10 @@ def ingest_file(
             raw, extraction_issues = extract_invoices(filename, content)
         else:
             suffix = Path(filename).suffix or ".csv"
+            # By content, not extension: pandas picks the Excel reader from
+            # the bytes, so a zip named .xls (or .XLSX) is read just the same.
+            if content.startswith(b"PK\x03\x04"):
+                _check_xlsx_uncompressed_size(filename, content)
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
                 tmp.write(content)
                 tmp_path = Path(tmp.name)
@@ -149,6 +177,12 @@ def ingest_file(
                 ) from exc
             finally:
                 tmp_path.unlink(missing_ok=True)
+
+        if len(raw) > settings.max_upload_rows:
+            raise UploadTooLargeError(
+                f"Too many rows: {len(raw)} (the limit is {settings.max_upload_rows} "
+                "per upload) - split the file and upload the parts"
+            )
 
         fingerprint = compute_fingerprint(list(raw.columns))
         sample_values = _sample_raw_values(raw)

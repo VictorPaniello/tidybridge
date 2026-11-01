@@ -20,6 +20,8 @@ const PATTERNS: [RegExp, TKey, string[]?][] = [
   [/^phone number too short$/, "srv_shortPhone"],
   [/^Couldn't read ['"](.+)['"] as a CSV or Excel file/, "srv_unreadable", ["file"]],
   [/^File exceeds the (\d+) MB upload limit$/, "srv_tooBig", ["mb"]],
+  [/^Too many rows: (\d+) \(the limit is (\d+) per upload\)/, "srv_tooManyRows", ["rows", "max"]],
+  [/^['"](.+)['"] is too large once uncompressed \(over (\d+) MB\)$/, "srv_tooBigUncompressed", ["file", "mb"]],
   [/^No invoice found in ['"](.+)['"]$/, "srv_noInvoice", ["file"]],
   [/^The document couldn't be read/, "srv_docUnreadable"],
   [/^The document was declined by the extraction model$/, "srv_declined"],

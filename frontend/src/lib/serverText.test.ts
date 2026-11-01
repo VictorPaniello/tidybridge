@@ -20,6 +20,8 @@ const BACKEND_TEXTS = [
   "phone number too short",
   "Couldn't read 'factura_01.csv' as a CSV or Excel file - make sure it's not empty or corrupted, and that its extension matches its actual format (ParserError: x)",
   "File exceeds the 10 MB upload limit",
+  "Too many rows: 6000 (the limit is 5000 per upload) - split the file and upload the parts",
+  "'clientes.xlsx' is too large once uncompressed (over 100 MB)",
   "No invoice found in 'factura_01.pdf'",
   "The document couldn't be read ({\"detail\": \"bad pdf\"})",
   "The document was declined by the extraction model",
