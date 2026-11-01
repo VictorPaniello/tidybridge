@@ -56,26 +56,20 @@ def test_login_is_rate_limited_after_repeated_attempts():
     assert statuses[5] == 429
 
 
-def test_register_is_rate_limited_after_repeated_attempts():
+def test_accept_invite_is_rate_limited_after_repeated_attempts():
     limiter.enabled = True
     try:
         client = TestClient(app)
         statuses = [
             client.post(
-                "/auth/register",
-                json={
-                    "email": f"ratelimit-{i}@example.com",
-                    "password": "Some-Password-123!",
-                    "first_name": "Rate",
-                    "last_name": "Limit",
-                },
+                "/auth/accept-invite", json={"token": "guess", "password": "Some-Password-123!"}
             ).status_code
-            for i in range(6)
+            for _ in range(6)
         ]
     finally:
         limiter.enabled = False
 
-    assert statuses[:5] == [201, 201, 201, 201, 201]
+    assert statuses[:5] == [400, 400, 400, 400, 400]
     assert statuses[5] == 429
 
 

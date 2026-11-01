@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api/client";
@@ -26,20 +26,9 @@ describe("LoginPage", () => {
     expect(screen.queryByText(t("continueWithGitHub"))).not.toBeInTheDocument();
   });
 
-  it("offers to resend the confirmation email when the account isn't verified", async () => {
+  it("points visitors without an account to the pilot form, not a signup page", async () => {
     vi.spyOn(api, "getHealth").mockResolvedValue(health(false));
-    const loginWithPassword = vi.fn().mockRejectedValue(new api.ApiError(400, "x", "LOGIN_USER_NOT_VERIFIED"));
-    vi.spyOn(auth, "useAuth").mockReturnValue({ loginWithPassword } as unknown as ReturnType<typeof auth.useAuth>);
-    const resend = vi.spyOn(api, "requestVerifyToken").mockResolvedValue();
-    render(
-      <MemoryRouter initialEntries={[{ pathname: "/login", state: { verifyEmailSent: "ana@example.com" } }]}>
-        <LoginPage />
-      </MemoryRouter>,
-    );
-    fireEvent.change(screen.getByLabelText(t("password")), { target: { value: "Proveedor-Ejemplo-1!" } });
-    fireEvent.submit(screen.getByLabelText(t("email")).closest("form")!);
-    fireEvent.click(await screen.findByText(t("resendVerifyEmail")));
-    expect(resend).toHaveBeenCalledWith("ana@example.com");
-    expect(await screen.findByText(t("verifyEmailResent"))).toBeInTheDocument();
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    expect(screen.getByText(t("requestPilot")).closest("a")).toHaveAttribute("href", expect.stringMatching(/#piloto$/));
   });
 });

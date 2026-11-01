@@ -46,6 +46,7 @@ describe("legalUrls", () => {
       privacy: "https://tidybridge.dev/en/privacy",
       terms: "https://tidybridge.dev/en/terms",
       dpa: "https://tidybridge.dev/en/dpa",
+      pilot: "https://tidybridge.dev/en/#piloto",
     });
   });
 });

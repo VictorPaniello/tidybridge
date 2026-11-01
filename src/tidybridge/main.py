@@ -40,10 +40,10 @@ from tidycsv.cleaner import coerce_and_validate, map_columns
 # imported somewhere in this chain to know about them.
 import tidybridge.auth_models  # noqa: F401
 from tidybridge.auth import (
-    UserCreate,
     UserRead,
     UserUpdate,
     _send_email,
+    accept_invite_handler,
     auth_backend,
     current_active_user,
     fastapi_users,
@@ -259,11 +259,12 @@ for _route in _jwt_router.routes:
         _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
 app.include_router(_jwt_router, prefix="/auth/jwt", tags=["auth"])
 
-_register_router = fastapi_users.get_register_router(UserRead, UserCreate)
-for _route in _register_router.routes:
-    if _route.path == "/register":
-        _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
-app.include_router(_register_router, prefix="/auth", tags=["auth"])
+# No /auth/register: accounts are created only by scripts/invite.py, and
+# the invitee sets their password here. Strict limit - a brute-force
+# surface against the invitation token, same as /reset-password.
+app.post("/auth/accept-invite", tags=["auth"])(
+    limiter.limit(_STRICT_AUTH_LIMIT)(accept_invite_handler)
+)
 
 # Both routes get the strict limit: /forgot-password because it's the
 # enumeration/spam-mail surface (an attacker hammering it either floods a
@@ -284,13 +285,6 @@ for _route in _reset_router.routes:
     elif _route.path == "/reset-password":
         _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
 app.include_router(_reset_router, prefix="/auth", tags=["auth"])
-
-# /request-verify-token sends mail (same spam surface as /forgot-password),
-# /verify is a brute-force surface against the token.
-_verify_router = fastapi_users.get_verify_router(UserRead)
-for _route in _verify_router.routes:
-    _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
-app.include_router(_verify_router, prefix="/auth", tags=["auth"])
 
 # Registered *before* the generic users router below, and matched on the
 # literal path "/users/me" - fastapi-users' own router already has a
@@ -344,8 +338,6 @@ if _github_oauth_client is not None:
         # with GitHub using the same email gets linked to that same
         # account instead of silently creating a second one.
         associate_by_email=True,
-        # GitHub already confirmed the email - no second verification.
-        is_verified_by_default=True,
     )
     # /authorize's own default response is JSON (meant to be fetch()'d by
     # a SPA), which breaks the CSRF cookie it sets under third-party-

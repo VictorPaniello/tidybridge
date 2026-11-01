@@ -10,6 +10,7 @@ import re
 import uuid
 
 import httpx
+import jwt
 from fastapi import Body, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from fastapi.security import OAuth2PasswordBearer
@@ -28,7 +29,8 @@ from fastapi_users.router.oauth import (
     generate_csrf_token,
     generate_state_token,
 )
-from fastapi_users.schemas import BaseUser, BaseUserCreate, BaseUserUpdate
+from fastapi_users.jwt import decode_jwt
+from fastapi_users.schemas import BaseUser, BaseUserUpdate
 from httpx_oauth.clients.github import GitHubOAuth2
 from pydantic import EmailStr, Field, field_validator
 from sqlalchemy import delete
@@ -124,26 +126,14 @@ async def _send_email(to: str, subject: str, html: str, reply_to: str | None = N
 
 
 class UserRead(BaseUser[uuid.UUID]):
-    # None for any user who never went through UserCreate below - notably
-    # every GitHub OAuth signup, since fastapi-users' oauth_callback
-    # creates the user directly and never touches UserCreate/validate_
-    # password's sibling validation. The frontend's greeting falls back to
-    # the email in that case rather than assuming this is always set.
+    # None until set on /complete-profile - invited accounts start without
+    # them. The frontend's greeting falls back to the email meanwhile.
     first_name: str | None = None
     last_name: str | None = None
     phone: str | None = None
     # Settings asks for the current password only when one exists - a
     # GitHub-only account sets its first one without it.
     has_password: bool = False
-
-
-class UserCreate(BaseUserCreate):
-    # Required for email+password registration (this drives the frontend's
-    # "Hola, {first_name}{last_name[0]}" greeting) - phone stays optional,
-    # nothing in this project actually needs it yet.
-    first_name: str = Field(min_length=1, max_length=100)
-    last_name: str = Field(min_length=1, max_length=100)
-    phone: str | None = Field(default=None, max_length=30)
 
 
 class UserUpdate(BaseUserUpdate):
@@ -157,8 +147,8 @@ class UserUpdate(BaseUserUpdate):
     @field_validator("email")
     @classmethod
     def _email_is_fixed(cls, v: object) -> object:
-        # The email is the invitation (SIGNUP_ALLOWLIST): changing it would
-        # skip the allowlist and free the invited address for someone else.
+        # The email is the invitation (scripts/invite.py): changing it would
+        # free the invited address for someone else.
         raise ValueError(EMAIL_FIXED)
 
     def create_update_dict(self) -> dict:
@@ -184,28 +174,10 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # claim keeps one from being replayed as the other.
     reset_password_token_secret = settings.password_reset_secret
     verification_token_secret = settings.password_reset_secret
-    # fastapi-users' default is 1 hour - fine for a reset someone is
-    # actively waiting on, too short for a verification email that may
-    # sit in an inbox (or spam) until the next day.
-    verification_token_lifetime_seconds = 60 * 60 * 24
-
-    async def create(
-        self,
-        user_create: UserCreate,
-        safe: bool = False,
-        request: Request | None = None,
-    ) -> User:
-        """Only reached by email+password registration (fastapi-users'
-        /auth/register route) - a GitHub OAuth signup never calls this,
-        it creates the row directly via user_db.create() inside
-        oauth_callback() with a random, nobody-knows-it password. So
-        landing here always means a real, user-chosen password exists -
-        has_password records that (see auth_models.py's docstring on it
-        and forgot_password() below, which relies on it)."""
-        if not settings.signup_allowed(user_create.email):
-            raise HTTPException(status_code=403, detail=SIGNUP_CLOSED)
-        user = await super().create(user_create, safe=safe, request=request)
-        return await self.user_db.update(user, {"has_password": True})
+    # The verification token is the invitation link (invite() below):
+    # 7 days, so a firm that opens it next week still gets in. Expired?
+    # Run scripts/invite.py again.
+    verification_token_lifetime_seconds = 60 * 60 * 24 * 7
 
     async def oauth_callback(
         self,
@@ -216,18 +188,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         *args,
         **kwargs,
     ) -> User:
-        """Same invite-only gate as create() for any provider's first
-        sign-in. Only a brand-new account is refused: someone who already
-        has this OAuth account, or a user with this email, falls through to
-        the library's own handling unchanged."""
-        if not settings.signup_allowed(account_email):
+        """Accounts only come from invite() - an OAuth sign-in never
+        creates one. Someone who already has this OAuth account, or a user
+        with this email, falls through to the library's own handling."""
+        try:
+            await self.get_by_oauth_account(oauth_name, account_id)
+        except fastapi_users_exceptions.UserNotExists:
             try:
-                await self.get_by_oauth_account(oauth_name, account_id)
+                await self.get_by_email(account_email)
             except fastapi_users_exceptions.UserNotExists:
-                try:
-                    await self.get_by_email(account_email)
-                except fastapi_users_exceptions.UserNotExists:
-                    raise HTTPException(status_code=403, detail=SIGNUP_CLOSED) from None
+                raise HTTPException(status_code=403, detail=SIGNUP_CLOSED) from None
         return await super().oauth_callback(
             oauth_name, access_token, account_id, account_email, *args, **kwargs
         )
@@ -317,37 +287,78 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             ),
         )
 
-    async def on_after_register(self, user: User, request: Request | None = None) -> None:
-        """Fires for /auth/register and for a brand-new OAuth signup.
-        The OAuth router is registered with is_verified_by_default=True
-        (the provider already confirmed the email), so request_verify()
-        raises UserAlreadyVerified there and nothing is sent."""
+    async def invite(self, email: str) -> None:
+        """The only way an account is created (scripts/invite.py). The
+        account starts unverified with an unusable random password; the
+        emailed link (on_after_request_verify) is where the invitee sets
+        their own - so whoever chooses the password is whoever reads that
+        inbox, and nobody can claim an invited address ahead of the firm.
+        Re-running it for a pending invite just sends a fresh link."""
         try:
-            await self.request_verify(user, request)
-        except fastapi_users_exceptions.UserAlreadyVerified:
-            pass
+            user = await self.get_by_email(email)
+        except fastapi_users_exceptions.UserNotExists:
+            user = await self.user_db.create(
+                {
+                    "email": email,
+                    "hashed_password": self.password_helper.hash(
+                        self.password_helper.generate()
+                    ),
+                }
+            )
+        await self.request_verify(user)  # raises UserAlreadyVerified if accepted
 
     async def on_after_request_verify(
         self, user: User, token: str, request: Request | None = None
     ) -> None:
-        verify_url = f"{settings.frontend_url}/verify-email?token={token}"
+        invite_url = f"{settings.frontend_url}/accept-invite?token={token}"
         await _send_email(
             user.email,
-            "Verify your tidybridge email",
+            "Your tidybridge invitation",
             _email_layout(
-                preheader="Confirm your email to start using tidybridge",
-                heading="Verify your email",
-                intro_html="<p>Confirm this is your email address to finish setting up "
-                "your tidybridge account.</p>",
-                cta_text="Verify your email",
-                cta_url=verify_url,
-                note_html="This link expires in 24 hours. If you didn't create a "
-                "tidybridge account, you can safely ignore this email.",
+                preheader="Set your password to start using tidybridge",
+                heading="You're invited to tidybridge",
+                intro_html="<p>An account has been created for this email address. "
+                "Choose a password to start using it.</p>",
+                cta_text="Set your password",
+                cta_url=invite_url,
+                note_html="This link expires in 7 days and can only be used once. If "
+                "you weren't expecting it, you can safely ignore this email.",
             ),
         )
 
-    async def on_after_verify(self, user: User, request: Request | None = None) -> None:
-        logger.info("Email verified for %s", user.email)
+    async def accept_invite(self, token: str, password: str) -> User:
+        """Checks the invitation token, then sets the password and marks
+        the account verified in one write - never verified without a
+        password the invitee chose. Raises fastapi-users' InvalidVerifyToken
+        / UserAlreadyVerified (single use) / InvalidPasswordException."""
+        try:
+            data = decode_jwt(
+                token, self.verification_token_secret, [self.verification_token_audience]
+            )
+            user = await self.get(self.parse_id(data["sub"]))
+        except (
+            jwt.PyJWTError,
+            KeyError,
+            fastapi_users_exceptions.InvalidID,
+            fastapi_users_exceptions.UserNotExists,
+        ):
+            raise fastapi_users_exceptions.InvalidVerifyToken() from None
+        if data.get("email") != user.email:
+            raise fastapi_users_exceptions.InvalidVerifyToken()
+        if user.is_verified:
+            raise fastapi_users_exceptions.UserAlreadyVerified()
+        await self.validate_password(password, user)
+        user = await self.user_db.update(
+            user,
+            {
+                "hashed_password": self.password_helper.hash(password),
+                "is_verified": True,
+                "has_password": True,
+            },
+        )
+        await self._revoke_sessions(user)
+        logger.info("Invitation accepted for %s", user.email)
+        return user
 
     async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
         # Already True by the time this fires (forgot_password() above
@@ -358,11 +369,11 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         await self._revoke_sessions(user)
         logger.info("Password reset completed for %s", user.email)
 
-    async def validate_password(self, password: str, user: UserCreate | User) -> None:
+    async def validate_password(self, password: str, user: User) -> None:
         """fastapi-users applies no strength requirement by default (a
         one-character password was accepted before this override - found
         in a security review). Overriding this is the documented extension
-        point, called on both registration and password change."""
+        point, called on accepting an invite, reset and password change."""
         if len(password) < MIN_PASSWORD_LENGTH:
             raise InvalidPasswordException(
                 reason=f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
@@ -495,12 +506,36 @@ async def forgot_password_handler(
     except fastapi_users_exceptions.UserNotExists:
         return {"oauth_only": False}
 
-    oauth_only = not user.has_password
+    # A pending invite has no password either, but isn't GitHub-only - it
+    # gets the generic answer (its way in is the invitation link).
+    oauth_only = not user.has_password and user.is_verified
     try:
         await user_manager.forgot_password(user, request)
     except fastapi_users_exceptions.UserInactive:
         pass
     return {"oauth_only": oauth_only}
+
+
+async def accept_invite_handler(
+    request: Request,
+    token: str = Body(...),
+    password: str = Body(...),
+    user_manager: UserManager = Depends(get_user_manager),
+) -> UserRead:
+    """POST /auth/accept-invite (main.py) - the invitation link's page.
+    Errors use fastapi-users' own codes so the frontend's existing
+    translations apply."""
+    try:
+        user = await user_manager.accept_invite(token, password)
+    except fastapi_users_exceptions.InvalidVerifyToken:
+        raise HTTPException(400, detail="VERIFY_USER_BAD_TOKEN") from None
+    except fastapi_users_exceptions.UserAlreadyVerified:
+        raise HTTPException(400, detail="VERIFY_USER_ALREADY_VERIFIED") from None
+    except InvalidPasswordException as e:
+        raise HTTPException(
+            400, detail={"code": "RESET_PASSWORD_INVALID_PASSWORD", "reason": e.reason}
+        ) from None
+    return UserRead.model_validate(user)
 
 
 def get_github_oauth_client() -> GitHubOAuth2 | None:

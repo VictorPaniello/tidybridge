@@ -12,23 +12,13 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from conftest import mark_verified
+from conftest import create_user
 
 
 def _register_and_login(client: TestClient) -> str:
     email = f"logout-{uuid.uuid4()}@example.com"
     password = "Test-Password-Not-Real-123!"
-    resp = client.post(
-        "/auth/register",
-        json={
-            "email": email,
-            "password": password,
-            "first_name": "Logout",
-            "last_name": "Test",
-        },
-    )
-    assert resp.status_code == 201, resp.text
-    mark_verified(email)
+    create_user(email, password)
 
     resp = client.post("/auth/jwt/login", data={"username": email, "password": password})
     assert resp.status_code == 200, resp.text
@@ -63,17 +53,7 @@ def test_logging_out_does_not_affect_a_different_session():
 
     email = f"multi-session-{uuid.uuid4()}@example.com"
     password = "Test-Password-Not-Real-123!"
-    resp = client_a.post(
-        "/auth/register",
-        json={
-            "email": email,
-            "password": password,
-            "first_name": "Multi",
-            "last_name": "Session",
-        },
-    )
-    assert resp.status_code == 201, resp.text
-    mark_verified(email)
+    create_user(email, password)
 
     token_a = client_a.post(
         "/auth/jwt/login", data={"username": email, "password": password}

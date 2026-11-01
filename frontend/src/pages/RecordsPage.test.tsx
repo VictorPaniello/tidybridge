@@ -34,7 +34,6 @@ describe("RecordsPage", () => {
       needsProfile: false,
       loginWithPassword: vi.fn(),
       loginWithToken: vi.fn(),
-      register: vi.fn(),
       updateProfile: vi.fn(),
       deleteAccount: vi.fn(),
       logout: vi.fn(),

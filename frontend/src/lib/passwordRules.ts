@@ -1,6 +1,6 @@
 // Mirrors the backend's UserManager.validate_password (auth.py) -
 // client-side hints only, the backend re-validates and remains the actual
-// source of truth. Shared by RegisterPage (new account) and SettingsPage
+// source of truth. Shared by AcceptInvitePage (new account) and SettingsPage
 // (changing an existing password) rather than duplicated between them.
 export const PASSWORD_RULES = [
   { test: (p: string) => p.length >= 8, label: "ruleLength" },

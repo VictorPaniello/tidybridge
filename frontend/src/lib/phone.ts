@@ -1,7 +1,7 @@
 import { COUNTRY_CODES } from "../data/countryCodes";
 
 // Phone is stored as a single "<dial code> <number>" string (see
-// RegisterPage/CompleteProfilePage) - this splits it back into the two
+// CompleteProfilePage) - this splits it back into the two
 // pieces SettingsPage's form needs to pre-fill. Matches on "<dial code> "
 // with the trailing space so "+1 5551234" (US) can't be mistaken for a
 // prefix of "+1242 5551234" (Bahamas) - dial codes that share a prefix

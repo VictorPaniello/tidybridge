@@ -2,7 +2,7 @@ import { PASSWORD_RULES } from "../lib/passwordRules";
 import { t } from "../lib/i18n";
 
 // Live checklist against PASSWORD_RULES, shown under a password field as
-// it's typed. Shared by RegisterPage, SettingsPage, and ResetPasswordPage -
+// it's typed. Shared by AcceptInvitePage, SettingsPage, and ResetPasswordPage -
 // same rendering, only the password value being checked differs.
 export function PasswordRulesList({ password }: { password: string }) {
   return (

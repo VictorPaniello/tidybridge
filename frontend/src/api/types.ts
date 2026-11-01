@@ -157,8 +157,8 @@ export interface CurrentUser {
   is_active: boolean;
   is_superuser: boolean;
   is_verified: boolean;
-  // null for any user who never went through /auth/register - notably
-  // every GitHub OAuth signup (see the backend's UserRead docstring).
+  // null until set on /complete-profile - invited accounts start without
+  // them (see the backend's UserRead).
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
