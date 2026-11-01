@@ -25,4 +25,10 @@ describe("LoginPage", () => {
     await vi.waitFor(() => expect(getHealth).toHaveBeenCalled());
     expect(screen.queryByText(t("continueWithGitHub"))).not.toBeInTheDocument();
   });
+
+  it("points visitors without an account to the pilot form, not a signup page", async () => {
+    vi.spyOn(api, "getHealth").mockResolvedValue(health(false));
+    render(<MemoryRouter><LoginPage /></MemoryRouter>);
+    expect(screen.getByText(t("requestPilot")).closest("a")).toHaveAttribute("href", expect.stringMatching(/#piloto$/));
+  });
 });

@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import * as api from "../api/client";
-import type { ProfileUpdate, RegisterInput } from "../api/client";
+import type { ProfileUpdate } from "../api/client";
 import type { CurrentUser } from "../api/types";
 
 interface AuthState {
@@ -16,7 +16,6 @@ interface AuthState {
   needsProfile: boolean;
   loginWithPassword: (email: string, password: string) => Promise<void>;
   loginWithToken: (token: string) => Promise<void>;
-  register: (input: RegisterInput) => Promise<void>;
   // Used both by CompleteProfilePage (the forced GitHub-OAuth-signup flow)
   // and SettingsPage (editing an already-complete profile) - same
   // PATCH /users/me underneath either way.
@@ -61,11 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshUser();
   }, [refreshUser]);
 
-  const register = useCallback(async (input: RegisterInput) => {
-    await api.register(input);
-    await loginWithPassword(input.email, input.password);
-  }, [loginWithPassword]);
-
   const updateProfile = useCallback(async (input: ProfileUpdate) => {
     setUser(await api.updateProfile(input));
   }, []);
@@ -103,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         needsProfile,
         loginWithPassword,
         loginWithToken,
-        register,
         updateProfile,
         logout,
         deleteAccount,

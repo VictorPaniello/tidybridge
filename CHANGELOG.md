@@ -6,14 +6,15 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
-### Added
-- **Invite-only signup.** `SIGNUP_ALLOWLIST` (comma-separated emails,
-  case-insensitive; unset keeps registration open) gates email+password
-  registration and the first sign-in through any OAuth provider with a
-  403 "Signup is by invitation only", shown in Spanish/English with a
-  pointer to request the pilot. Existing users always get back in.
-
 ### Security
+- **Accounts are invite-only, activated from the invitation email.**
+  `/auth/register` is gone; `scripts/invite.py <email>` creates the
+  account and emails a 7-day, single-use link where the invitee sets
+  their password (re-run it to send a fresh link). Until then the account
+  can't sign in and every API route returns 403. Nobody can claim an
+  invited address or choose its password without reading that inbox, and
+  "Sign in with GitHub" never creates an account. Replaces
+  `SIGNUP_ALLOWLIST`. Existing accounts are marked active by a migration.
 - **Account settings can't be used to take over or re-gift an account.**
   `PATCH /users/me` rejects an email change (422 - the email is the
   invitation; changing it skipped `SIGNUP_ALLOWLIST` and freed the invited

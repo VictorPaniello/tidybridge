@@ -156,29 +156,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return payload as T;
 }
 
-export interface RegisterInput {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-}
-
-export async function register(input: RegisterInput): Promise<void> {
-  await request<void>("/auth/register", {
-    method: "POST",
-    auth: false,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: input.email,
-      password: input.password,
-      first_name: input.firstName,
-      last_name: input.lastName,
-      phone: input.phone || null,
-    }),
-  });
-}
-
 export async function login(email: string, password: string): Promise<string> {
   // fastapi-users' JWT login route is OAuth2PasswordRequestForm-shaped:
   // application/x-www-form-urlencoded with a "username" field (the email),
@@ -224,6 +201,18 @@ export async function forgotPassword(email: string): Promise<{ oauthOnly: boolea
 // `reason` extractErrorMessage already surfaces).
 export async function resetPassword(token: string, password: string): Promise<void> {
   await request<void>("/auth/reset-password", {
+    method: "POST",
+    auth: false,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+}
+
+// The invitation link's page (scripts/invite.py emails it). Throws ApiError
+// VERIFY_USER_BAD_TOKEN (invalid/expired), VERIFY_USER_ALREADY_VERIFIED
+// (already used) or RESET_PASSWORD_INVALID_PASSWORD (with its `reason`).
+export async function acceptInvite(token: string, password: string): Promise<void> {
+  await request<void>("/auth/accept-invite", {
     method: "POST",
     auth: false,
     headers: { "Content-Type": "application/json" },

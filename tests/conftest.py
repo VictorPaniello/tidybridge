@@ -21,11 +21,17 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from fastapi_users.jwt import generate_jwt
+from fastapi_users.manager import VERIFY_USER_TOKEN_AUDIENCE
+from fastapi_users.password import PasswordHelper
+
 import tidybridge.auth_models  # noqa: F401 - registers users/oauth_account on Base.metadata
+from tidybridge.auth_models import User
+from tidybridge.config import settings
 from tidybridge.db import SessionLocal, engine, get_db
 from tidybridge.main import app, limiter
 
-# The real strict rate limit on /auth/register and /auth/jwt/login (see
+# The real strict rate limit on /auth/jwt/login and friends (see
 # main.py) would otherwise reject most of this suite - almost every test
 # registers and logs in its own engineer via `client`/`other_client`,
 # easily exceeding 5/minute across a full run. Rate limiting itself is
@@ -91,9 +97,39 @@ def _override_get_db() -> None:
         session.close()
 
 
+def create_user(email: str, password: str, *, verified: bool = True) -> uuid.UUID:
+    """Writes the account row directly - stands in for scripts/invite.py +
+    accepting the invite (that flow has its own test, test_invites.py).
+    verified=False gives a pending invite with no usable password."""
+    user_id = uuid.uuid4()
+    with SessionLocal() as session:
+        session.add(
+            User(
+                id=user_id,
+                email=email,
+                hashed_password=PasswordHelper().hash(password),
+                is_verified=verified,
+                has_password=verified,
+                first_name="Test" if verified else None,
+                last_name="Engineer" if verified else None,
+            )
+        )
+        session.commit()
+    return user_id
+
+
+def invite_token(user_id: uuid.UUID, email: str) -> str:
+    """The same token UserManager.invite() emails."""
+    return generate_jwt(
+        {"sub": str(user_id), "email": email, "aud": VERIFY_USER_TOKEN_AUDIENCE},
+        settings.password_reset_secret,
+        3600,
+    )
+
+
 def _authenticated_client() -> TestClient:
     """A TestClient logged in as a fresh, real engineer - goes through the
-    actual register + JWT login endpoints rather than bypassing auth, so
+    actual JWT login endpoint rather than bypassing auth, so
     every test that uses one of these also exercises the real auth path
     production traffic goes through."""
     app.dependency_overrides[get_db] = _override_get_db
@@ -101,16 +137,7 @@ def _authenticated_client() -> TestClient:
 
     email = f"test-{uuid.uuid4()}@example.com"
     password = "Test-Password-Not-Real-123!"
-    register_resp = test_client.post(
-        "/auth/register",
-        json={
-            "email": email,
-            "password": password,
-            "first_name": "Test",
-            "last_name": "Engineer",
-        },
-    )
-    assert register_resp.status_code == 201, register_resp.text
+    create_user(email, password)
 
     login_resp = test_client.post(
         "/auth/jwt/login", data={"username": email, "password": password}

@@ -40,10 +40,10 @@ from tidycsv.cleaner import coerce_and_validate, map_columns
 # imported somewhere in this chain to know about them.
 import tidybridge.auth_models  # noqa: F401
 from tidybridge.auth import (
-    UserCreate,
     UserRead,
     UserUpdate,
     _send_email,
+    accept_invite_handler,
     auth_backend,
     current_active_user,
     fastapi_users,
@@ -251,17 +251,20 @@ async def require_staging_gate_password(request: Request, call_next):
 
 _STRICT_AUTH_LIMIT = "5/minute"
 
-_jwt_router = fastapi_users.get_auth_router(auth_backend)
+# requires_verification: login for an unverified account is refused with
+# LOGIN_USER_NOT_VERIFIED (see current_active_user).
+_jwt_router = fastapi_users.get_auth_router(auth_backend, requires_verification=True)
 for _route in _jwt_router.routes:
     if _route.path == "/login":
         _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
 app.include_router(_jwt_router, prefix="/auth/jwt", tags=["auth"])
 
-_register_router = fastapi_users.get_register_router(UserRead, UserCreate)
-for _route in _register_router.routes:
-    if _route.path == "/register":
-        _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
-app.include_router(_register_router, prefix="/auth", tags=["auth"])
+# No /auth/register: accounts are created only by scripts/invite.py, and
+# the invitee sets their password here. Strict limit - a brute-force
+# surface against the invitation token, same as /reset-password.
+app.post("/auth/accept-invite", tags=["auth"])(
+    limiter.limit(_STRICT_AUTH_LIMIT)(accept_invite_handler)
+)
 
 # Both routes get the strict limit: /forgot-password because it's the
 # enumeration/spam-mail surface (an attacker hammering it either floods a
@@ -313,7 +316,7 @@ def delete_own_account(
     db.commit()
 
 
-_users_router = fastapi_users.get_users_router(UserRead, UserUpdate)
+_users_router = fastapi_users.get_users_router(UserRead, UserUpdate, requires_verification=True)
 for _route in _users_router.routes:
     # PATCH checks current_password - same brute-force surface as /login
     if _route.path == "/me" and "PATCH" in _route.methods:
