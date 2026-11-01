@@ -36,7 +36,9 @@ company/client parameter, but because each `ClientRecord` has an
 | Method | Path | What it does |
 |---|---|---|
 | `GET` | `/health` | Liveness check |
-| `POST` | `/auth/register` | Create an account (email + password) - 403 for emails not in `SIGNUP_ALLOWLIST` when it is set |
+| `POST` | `/auth/accept-invite` | Set the password from an invitation link (`token` + `password`) - activates the account. There is no public registration: accounts come from `scripts/invite.py` |
+| `GET` | `/pilot-requests/{id}` | Admin only (`is_superuser`): a pilot request's name, firm and email |
+| `POST` | `/pilot-requests/{id}/invite` | Admin only: send that requester an invitation (same as `scripts/invite.py`) - 409 once they've activated |
 | `POST` | `/auth/jwt/login` | Log in, get back a bearer token |
 | `GET` | `/auth/github/authorize` | Start "Sign in with GitHub" (only present if `GITHUB_CLIENT_ID`/`SECRET` are set) |
 | `GET` | `/users/me` | The logged-in engineer's own profile |
@@ -69,8 +71,13 @@ rather than hand-rolled password hashing/JWT/OAuth - real production
 systems don't reinvent this. Two ways in, both landing on the same kind of
 account:
 
-- **Email + password**: `POST /auth/register` (now also requires
-  `first_name`/`last_name`; `phone` is optional), then
+- **Email + password**: an invitation (`python scripts/invite.py
+  <email>`, in production `railway run python scripts/invite.py <email>`)
+  creates the account and emails a 7-day link; the invitee sets their
+  password on `/accept-invite` (`POST /auth/accept-invite`). The pilot
+  request email's "Invitar a tidybridge" button does the same from
+  `/pilot-invite/<id>`, for an admin account only - set it once with
+  `UPDATE users SET is_superuser = true WHERE email = '<you>'`. Then
   `POST /auth/jwt/login` (form-encoded `username`/`password`) for a
   bearer token in the response body
 - **GitHub OAuth** (optional - only enabled when `GITHUB_CLIENT_ID`/
@@ -354,9 +361,8 @@ delivery history and an inline Edit affordance for correcting a flagged
 record's fields, an upload history page, and an account settings page
 (profile fields + change password).
 
-**GitHub OAuth signups must complete their profile before anything else
-is usable.** That flow bypasses `/auth/register` entirely (fastapi-users
-creates the user directly), so a GitHub signup only ever has an email -
+**New accounts must complete their profile before anything else is
+usable.** An invitation only carries the email, so -
 `ProtectedRoute` redirects to `/complete-profile` for every guarded route
 until `first_name` is set (`PATCH /users/me`).
 
@@ -497,7 +503,7 @@ Deployed on [Railway](https://railway.app): a Postgres instance and this
 service in the same project. Environment variables (`DATABASE_URL`,
 `WEBHOOK_URL`, `WEBHOOK_SECRET`, `JWT_SECRET`, `PASSWORD_RESET_SECRET`,
 `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `RESEND_API_KEY`,
-`EMAIL_FROM`, `SIGNUP_ALLOWLIST`) are set in Railway's dashboard, never committed.
+`EMAIL_FROM`) are set in Railway's dashboard, never committed.
 
 Uvicorn runs with `--proxy-headers --forwarded-allow-ips='*'` (see the
 Dockerfile) - without it, every request looks like plain `http://` to the
@@ -773,17 +779,10 @@ project's own code or in actually deploying it:
   multi-tenant version would move this to a background worker with
   durable retry state, so a process restart mid-retry can't lose an
   in-flight attempt the way it currently could.
-- No email verification - fastapi-users supports it, but this project
-  deliberately doesn't enforce it: real Resend delivery only reaches the
-  Resend account's own address without a verified custom domain (see
-  [Frontend](#frontend)'s forgot-password caveat), and requiring
-  verification with delivery that broken would permanently lock out
-  every real registrant but the account owner. Considered and reverted
-  after confirming the delivery limitation against real production
-  sends - worth revisiting once a domain is verified. Password-reset
-  **is** implemented despite the same delivery caveat, since a failed
-  reset only leaves someone unable to self-serve a new password, it
-  never locks them out of an account they already had access to. A
+- No fallback if invitation email delivery breaks - an account can only
+  be activated through its emailed link, so `EMAIL_FROM` must use the
+  domain verified on Resend, or nobody but the Resend account owner can
+  ever get in. A
   GitHub-OAuth-only account is deliberately refused a reset token - see
   `UserManager.forgot_password()` in `auth.py` - since there's no real
   password on that account to reset, only Settings (while signed in) can

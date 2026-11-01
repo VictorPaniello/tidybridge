@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { githubAuthorizeUrl, ApiError } from "../api/client";
+import { legalUrls } from "../lib/legal";
 import { PasswordInput } from "../components/PasswordInput";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useHealth } from "../lib/health";
@@ -16,12 +17,18 @@ export function LoginPage() {
   // Set by ResetPasswordPage's navigate() after a successful reset - state
   // rather than a query param so it can't be bookmarked/shared and shown
   // to someone who didn't just reset anything.
-  const justReset = Boolean((location.state as { passwordReset?: boolean } | null)?.passwordReset);
+  const state = location.state as
+    | { passwordReset?: boolean; inviteAccepted?: boolean; email?: string; from?: string }
+    | null;
+  const justReset = Boolean(state?.passwordReset);
+  // Set by AcceptInvitePage
+  const inviteAccepted = Boolean(state?.inviteAccepted);
   // Set by the API client's full-page redirect on a 401 (no router there)
   const expired = new URLSearchParams(location.search).has("expired");
   // Set by SettingsPage's redirect after a password change
   const passwordChanged = new URLSearchParams(location.search).has("password_changed");
-  const [email, setEmail] = useState("");
+  // Set by AcceptInvitePage: the account just activated
+  const [email, setEmail] = useState(state?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -32,7 +39,8 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await loginWithPassword(email, password);
-      navigate("/");
+      // Only in-app paths (set by ProtectedRoute), never an external URL
+      navigate(state?.from?.startsWith("/") && !state.from.startsWith("//") ? state.from : "/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
@@ -54,6 +62,8 @@ export function LoginPage() {
             {t("passwordResetDone")}
           </p>
         )}
+
+        {inviteAccepted && <p className="mb-6 text-sm text-primary">{t("inviteAcceptedSignIn")}</p>}
 
         {passwordChanged && (
           <p className="mb-6 text-sm text-primary">{t("passwordChangedSignIn")}</p>
@@ -91,6 +101,7 @@ export function LoginPage() {
               id="password"
               required
               autoComplete="current-password"
+              autoFocus={Boolean(state?.email)}
               value={password}
               onChange={setPassword}
             />
@@ -127,9 +138,9 @@ export function LoginPage() {
 
         <p className="mt-8 text-center text-sm text-muted-foreground">
           {t("noAccount")}{" "}
-          <Link to="/register" className="text-ring hover:underline">
-            {t("register")}
-          </Link>
+          <a href={legalUrls().pilot} className="text-ring hover:underline">
+            {t("requestPilot")}
+          </a>
         </p>
       </div>
     </div>

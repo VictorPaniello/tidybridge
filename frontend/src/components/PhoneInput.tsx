@@ -1,9 +1,8 @@
 import { COUNTRY_CODES } from "../data/countryCodes";
 import { t } from "../lib/i18n";
 
-// Shared by RegisterPage, CompleteProfilePage, and SettingsPage - all three
-// collect the same "dial code + local number" pair the same way, so this
-// used to be copy-pasted three times.
+// Shared by CompleteProfilePage and SettingsPage - both collect the same
+// "dial code + local number" pair the same way.
 export function PhoneInput({
   dialCode,
   phoneNumber,

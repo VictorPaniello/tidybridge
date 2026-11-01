@@ -8,18 +8,14 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from tidybridge.config import settings
+from conftest import create_user
 
 PASSWORD = "Proveedor-Ejemplo-1!"
 NEW_PASSWORD = "Proveedor-Ejemplo-2!"
 
 
 def _register(client: TestClient, email: str) -> None:
-    resp = client.post(
-        "/auth/register",
-        json={"email": email, "password": PASSWORD, "first_name": "Ana", "last_name": "Ejemplo"},
-    )
-    assert resp.status_code == 201, resp.text
+    create_user(email, PASSWORD)
 
 
 def _login(client: TestClient, email: str, password: str = PASSWORD) -> dict:
@@ -28,24 +24,17 @@ def _login(client: TestClient, email: str, password: str = PASSWORD) -> dict:
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
 
 
-def test_email_cannot_be_changed_and_invitation_stays_used(monkeypatch):
+def test_email_cannot_be_changed():
     from tidybridge.main import app
 
     client = TestClient(app)
     invited = f"invited-{uuid.uuid4()}@example.com"
-    monkeypatch.setattr(settings, "signup_allowlist", invited)
     _register(client, invited)
     auth = _login(client, invited)
 
     resp = client.patch("/users/me", headers=auth, json={"email": "other@example.com"})
     assert resp.status_code == 422
     assert client.get("/users/me", headers=auth).json()["email"] == invited
-
-    again = client.post(
-        "/auth/register",
-        json={"email": invited, "password": PASSWORD, "first_name": "X", "last_name": "Y"},
-    )
-    assert again.status_code == 400  # REGISTER_USER_ALREADY_EXISTS
 
 
 def test_password_change_requires_the_current_password():

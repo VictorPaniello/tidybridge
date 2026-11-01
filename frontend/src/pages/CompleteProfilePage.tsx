@@ -10,8 +10,8 @@ import { COUNTRY_CODES } from "../data/countryCodes";
 import { legalUrls } from "../lib/legal";
 
 // Reached only via ProtectedRoute redirecting a signed-in user with no
-// first_name here - in practice always a GitHub OAuth signup, since that
-// flow bypasses /auth/register's required first_name/last_name entirely.
+// first_name here - every invited account on its first sign-in, since an
+// invitation only carries the email.
 // Nothing else in the app is reachable until this is filled in (see
 // AuthContext's needsProfile).
 export function CompleteProfilePage() {
