@@ -123,6 +123,7 @@ configure_logging()
 # enable_api_docs=False there) - see its own docstring in config.py for
 # why: not a security boundary, just no reason to leave the whole API
 # schema publicly browsable once this is actually live.
+settings.require_real_secrets()  # deployed with a public default secret -> don't start
 app = FastAPI(
     title="tidybridge",
     docs_url="/docs" if settings.enable_api_docs else None,
