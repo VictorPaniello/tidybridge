@@ -6,6 +6,12 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
+### Added
+- **Invite a pilot request in one click.** The pilot request email now
+  leads with "Invitar a tidybridge" (reply is secondary); it opens an
+  admin-only page (`is_superuser`) with a confirm button that sends the
+  invitation. Signing in from a link now returns to that page.
+
 ### Security
 - **Accounts are invite-only, activated from the invitation email.**
   `/auth/register` is gone; `scripts/invite.py <email>` creates the

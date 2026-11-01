@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as api from "../api/client";
 import * as auth from "../auth/AuthContext";
@@ -30,5 +30,26 @@ describe("LoginPage", () => {
     vi.spyOn(api, "getHealth").mockResolvedValue(health(false));
     render(<MemoryRouter><LoginPage /></MemoryRouter>);
     expect(screen.getByText(t("requestPilot")).closest("a")).toHaveAttribute("href", expect.stringMatching(/#piloto$/));
+  });
+
+  it.each([
+    ["/pilot-invite/abc", "back"],
+    ["//evil.example", "home"],
+  ])("after signing in from %s goes %s", async (from, expected) => {
+    vi.spyOn(api, "getHealth").mockResolvedValue(health(false));
+    vi.spyOn(auth, "useAuth").mockReturnValue({ loginWithPassword: vi.fn().mockResolvedValue(undefined) } as unknown as ReturnType<typeof auth.useAuth>);
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/login", state: { from } }]}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/pilot-invite/:id" element={<p>back</p>} />
+          <Route path="/" element={<p>home</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.change(screen.getByLabelText(t("email")), { target: { value: "ana@example.com" } });
+    fireEvent.change(screen.getByLabelText(t("password")), { target: { value: "Proveedor-Ejemplo-1!" } });
+    fireEvent.submit(screen.getByLabelText(t("email")).closest("form")!);
+    expect(await screen.findByText(expected)).toBeInTheDocument();
   });
 });

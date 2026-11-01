@@ -20,8 +20,9 @@ EMERALD, INK, MUTED, LINE = "#047857", "#1c1917", "#57534e", "#e7e5e4"
 VOLUME = {"<100": "Menos de 100", "100-500": "100–500", "500+": "Más de 500"}
 
 
-def pilot_request_email(body: PilotRequestIn, received: datetime) -> tuple[str, str]:
-    """Returns (subject, html)."""
+def pilot_request_email(body: PilotRequestIn, received: datetime, invite_url: str) -> tuple[str, str]:
+    """Returns (subject, html). invite_url opens the admin-only page that
+    sends this requester an invitation (frontend's PilotInvitePage)."""
     subject = " ".join(f"Solicitud de piloto: {body.firm}".split())
     email = escape(body.email)
     phone = (
@@ -53,7 +54,8 @@ def pilot_request_email(body: PilotRequestIn, received: datetime) -> tuple[str, 
 <tr><td style="padding:8px 28px 4px"><h1 style="margin:0;font-size:20px;color:{INK}">Nueva solicitud de piloto</h1>
 <p style="margin:6px 0 0;color:{MUTED};font-size:14px">{escape(body.firm)} quiere probar tidybridge.</p></td></tr>
 <tr><td style="padding:16px 28px"><table role="presentation" width="100%" style="font-size:14px;border-collapse:collapse">{table}</table></td></tr>
-<tr><td style="padding:4px 28px 24px"><a href="mailto:{email}" style="display:inline-block;background:{EMERALD};color:#ecfdf5;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Responder a {escape(body.name)}</a></td></tr>
+<tr><td style="padding:4px 28px 24px"><a href="{escape(invite_url)}" style="display:inline-block;background:{EMERALD};color:#ecfdf5;text-decoration:none;font-weight:bold;padding:10px 16px;border-radius:6px">Invitar a tidybridge</a>
+<a href="mailto:{email}" style="display:inline-block;margin-left:8px;border:1px solid {LINE};color:{INK};text-decoration:none;padding:9px 16px;border-radius:6px">Responder a {escape(body.name)}</a></td></tr>
 </table>
 <p style="max-width:560px;margin:12px auto 0;color:{MUTED};font-size:12px;text-align:center">Recibida el {when} · Enviada desde el formulario de tidybridge.dev</p>
 </div>"""

@@ -298,6 +298,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         their own - so whoever chooses the password is whoever reads that
         inbox, and nobody can claim an invited address ahead of the firm.
         Re-running it for a pending invite just sends a fresh link."""
+        email = email.strip().lower()
         try:
             user = await self.get_by_email(email)
         except fastapi_users_exceptions.UserNotExists:
@@ -482,6 +483,9 @@ current_active_user = fastapi_users.current_user(active=True, verified=True)
 # an endpoint should still work for anyone, but personalize its response
 # for a signed-in engineer (none of tidybridge's endpoints use this yet).
 current_active_user_optional = fastapi_users.current_user(active=True, optional=True)
+# The app's only admin action: inviting a pilot request (main.py). Set
+# is_superuser by hand in the database for the owner's own account.
+current_superuser = fastapi_users.current_user(active=True, verified=True, superuser=True)
 
 
 async def forgot_password_handler(

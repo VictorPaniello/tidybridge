@@ -25,6 +25,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_users import exceptions as fastapi_users_exceptions
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -43,12 +44,15 @@ from tidybridge.auth import (
     UserRead,
     UserUpdate,
     _send_email,
+    UserManager,
     accept_invite_handler,
     auth_backend,
     current_active_user,
+    current_superuser,
     fastapi_users,
     forgot_password_handler,
     get_github_oauth_client,
+    get_user_manager,
     make_github_authorize_redirect,
     oauth_redirect_backend,
 )
@@ -355,10 +359,11 @@ if _github_oauth_client is not None:
 PILOT_INBOX = "hello@tidybridge.dev"
 
 
-async def _notify_pilot_request(body: PilotRequestIn) -> None:
+async def _notify_pilot_request(body: PilotRequestIn, request_id: uuid.UUID) -> None:
     """Runs after the response, once the row is stored - a failed email
     never loses the request or shows the visitor an error."""
-    subject, html = pilot_request_email(body, datetime.now(UTC))
+    invite_url = f"{settings.frontend_url}/pilot-invite/{request_id}"
+    subject, html = pilot_request_email(body, datetime.now(UTC), invite_url)
     try:
         # Reply-To the requester: "Reply" in the inbox answers them directly
         await _send_email(PILOT_INBOX, subject, html, reply_to=body.email)
@@ -383,10 +388,48 @@ def create_pilot_request(
     """The landing's "Solicitar piloto" form. Public: the requester has no
     account yet. A filled honeypot gets the same 202, stored nowhere."""
     if not body.website:
-        db.add(PilotRequest(**body.model_dump(exclude={"privacy_accepted", "website"})))
+        row = PilotRequest(**body.model_dump(exclude={"privacy_accepted", "website"}))
+        db.add(row)
         db.commit()
-        background_tasks.add_task(_notify_pilot_request, body)
+        background_tasks.add_task(_notify_pilot_request, body, row.id)
     return {"status": "received"}
+
+
+def _pilot_request_or_404(db: Session, request_id: uuid.UUID) -> PilotRequest:
+    row = db.get(PilotRequest, request_id)
+    if row is None:  # also once the retention sweep has deleted it
+        raise HTTPException(status_code=404, detail="Pilot request not found")
+    return row
+
+
+@app.get("/pilot-requests/{request_id}")
+def get_pilot_request(
+    request_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(current_superuser),
+) -> dict:
+    """Admin only - the "Invitar" button in the pilot request email opens
+    the frontend page that shows this before sending the invitation."""
+    row = _pilot_request_or_404(db, request_id)
+    return {"name": row.name, "firm": row.firm, "email": row.email}
+
+
+@app.post("/pilot-requests/{request_id}/invite")
+async def invite_pilot_request(
+    request_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(current_superuser),
+    user_manager: UserManager = Depends(get_user_manager),
+) -> dict:
+    """Admin only. Same as scripts/invite.py for the requester's email: a
+    POST behind a confirm button, never on opening the emailed link, since
+    mail scanners open every link in a message."""
+    row = _pilot_request_or_404(db, request_id)
+    try:
+        await user_manager.invite(row.email)
+    except fastapi_users_exceptions.UserAlreadyVerified:
+        raise HTTPException(status_code=409, detail="INVITE_ALREADY_ACCEPTED") from None
+    return {"status": "sent", "email": row.email}
 
 
 @app.get("/health")

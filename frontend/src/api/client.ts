@@ -220,6 +220,22 @@ export async function acceptInvite(token: string, password: string): Promise<voi
   });
 }
 
+export interface PilotRequestSummary {
+  name: string;
+  firm: string;
+  email: string;
+}
+
+// Admin only (is_superuser) - 403 for anyone else.
+export async function getPilotRequest(id: string): Promise<PilotRequestSummary> {
+  return request<PilotRequestSummary>(`/pilot-requests/${encodeURIComponent(id)}`);
+}
+
+// Throws ApiError INVITE_ALREADY_ACCEPTED (409) once the firm has activated.
+export async function invitePilotRequest(id: string): Promise<void> {
+  await request<void>(`/pilot-requests/${encodeURIComponent(id)}/invite`, { method: "POST" });
+}
+
 export async function getCurrentUser(): Promise<CurrentUser> {
   return request<CurrentUser>("/users/me");
 }

@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { PilotInvitePage } from "./pages/PilotInvitePage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { CompleteProfilePage } from "./pages/CompleteProfilePage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -75,6 +76,16 @@ export default function App() {
               <ProtectedRoute>
                 <Layout>
                   <SettingsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pilot-invite/:id"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <PilotInvitePage />
                 </Layout>
               </ProtectedRoute>
             }
