@@ -176,6 +176,23 @@ def test_reset_password_with_valid_token_changes_the_password(_fake_resend):
     assert login_old.status_code == 400
 
 
+def test_reset_password_ends_every_session(_fake_resend):
+    from tidybridge.main import app
+
+    client = TestClient(app)
+    email = f"reset-{uuid.uuid4()}@example.com"
+    _register(client, email, "Original-Password-1!")
+    login = client.post(
+        "/auth/jwt/login", data={"username": email, "password": "Original-Password-1!"}
+    )
+    auth = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    token = _request_reset_token(_fake_resend, client, email)
+    reset = client.post("/auth/reset-password", json={"token": token, "password": "New-Pass-2!"})
+    assert reset.status_code == 200, reset.text
+    assert client.get("/users/me", headers=auth).status_code == 401
+
+
 def test_reset_password_with_invalid_token_is_rejected():
     from tidybridge.main import app
 

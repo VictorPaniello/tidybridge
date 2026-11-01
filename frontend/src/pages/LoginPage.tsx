@@ -19,6 +19,8 @@ export function LoginPage() {
   const justReset = Boolean((location.state as { passwordReset?: boolean } | null)?.passwordReset);
   // Set by the API client's full-page redirect on a 401 (no router there)
   const expired = new URLSearchParams(location.search).has("expired");
+  // Set by SettingsPage's redirect after a password change
+  const passwordChanged = new URLSearchParams(location.search).has("password_changed");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +53,10 @@ export function LoginPage() {
           <p className="mb-6 text-sm text-primary">
             {t("passwordResetDone")}
           </p>
+        )}
+
+        {passwordChanged && (
+          <p className="mb-6 text-sm text-primary">{t("passwordChangedSignIn")}</p>
         )}
 
         {expired && !justReset && (

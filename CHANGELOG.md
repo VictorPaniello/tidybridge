@@ -13,6 +13,15 @@ nothing has been tagged as a release yet, so everything below is under
   403 "Signup is by invitation only", shown in Spanish/English with a
   pointer to request the pilot. Existing users always get back in.
 
+### Security
+- **Account settings can't be used to take over or re-gift an account.**
+  `PATCH /users/me` rejects an email change (422 - the email is the
+  invitation; changing it skipped `SIGNUP_ALLOWLIST` and freed the invited
+  address), and a new password needs the current one (Settings asks for
+  it; a GitHub-only account still sets its first password without it).
+- **Changing or resetting the password signs out every session**, so a
+  token taken before it stops working. Settings sends you to sign in again.
+
 ### Fixed
 - **The "Continue with GitHub" button only shows when GitHub OAuth is
   configured.** `/health` now reports `github`; before, the button showed
