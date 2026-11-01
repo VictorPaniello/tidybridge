@@ -18,7 +18,7 @@ export function LoginPage() {
   // rather than a query param so it can't be bookmarked/shared and shown
   // to someone who didn't just reset anything.
   const state = location.state as
-    | { passwordReset?: boolean; inviteAccepted?: boolean; from?: string }
+    | { passwordReset?: boolean; inviteAccepted?: boolean; email?: string; from?: string }
     | null;
   const justReset = Boolean(state?.passwordReset);
   // Set by AcceptInvitePage
@@ -27,7 +27,8 @@ export function LoginPage() {
   const expired = new URLSearchParams(location.search).has("expired");
   // Set by SettingsPage's redirect after a password change
   const passwordChanged = new URLSearchParams(location.search).has("password_changed");
-  const [email, setEmail] = useState("");
+  // Set by AcceptInvitePage: the account just activated
+  const [email, setEmail] = useState(state?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -100,6 +101,7 @@ export function LoginPage() {
               id="password"
               required
               autoComplete="current-password"
+              autoFocus={Boolean(state?.email)}
               value={password}
               onChange={setPassword}
             />

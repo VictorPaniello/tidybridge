@@ -52,4 +52,15 @@ describe("LoginPage", () => {
     fireEvent.submit(screen.getByLabelText(t("email")).closest("form")!);
     expect(await screen.findByText(expected)).toBeInTheDocument();
   });
+
+  it("arrives from an accepted invitation with the email filled in", () => {
+    vi.spyOn(api, "getHealth").mockResolvedValue(health(false));
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/login", state: { inviteAccepted: true, email: "ana@example.com" } }]}>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+    expect(screen.getByLabelText(t("email"))).toHaveValue("ana@example.com");
+    expect(screen.getByLabelText(t("password"))).toHaveFocus();
+  });
 });
