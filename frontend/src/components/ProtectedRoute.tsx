@@ -16,7 +16,9 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
     );
   }
   if (!user) {
-    return <Navigate to="/login" replace />;
+    // LoginPage sends the user back here after signing in (e.g. the
+    // pilot email's invite link opened while signed out)
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   // Signed in but missing first_name - always a GitHub OAuth signup (see
   // AuthContext's needsProfile). Nothing else in the app is reachable

@@ -17,7 +17,9 @@ export function LoginPage() {
   // Set by ResetPasswordPage's navigate() after a successful reset - state
   // rather than a query param so it can't be bookmarked/shared and shown
   // to someone who didn't just reset anything.
-  const state = location.state as { passwordReset?: boolean; inviteAccepted?: boolean } | null;
+  const state = location.state as
+    | { passwordReset?: boolean; inviteAccepted?: boolean; from?: string }
+    | null;
   const justReset = Boolean(state?.passwordReset);
   // Set by AcceptInvitePage
   const inviteAccepted = Boolean(state?.inviteAccepted);
@@ -36,7 +38,8 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await loginWithPassword(email, password);
-      navigate("/");
+      // Only in-app paths (set by ProtectedRoute), never an external URL
+      navigate(state?.from?.startsWith("/") && !state.from.startsWith("//") ? state.from : "/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {

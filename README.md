@@ -37,6 +37,8 @@ company/client parameter, but because each `ClientRecord` has an
 |---|---|---|
 | `GET` | `/health` | Liveness check |
 | `POST` | `/auth/accept-invite` | Set the password from an invitation link (`token` + `password`) - activates the account. There is no public registration: accounts come from `scripts/invite.py` |
+| `GET` | `/pilot-requests/{id}` | Admin only (`is_superuser`): a pilot request's name, firm and email |
+| `POST` | `/pilot-requests/{id}/invite` | Admin only: send that requester an invitation (same as `scripts/invite.py`) - 409 once they've activated |
 | `POST` | `/auth/jwt/login` | Log in, get back a bearer token |
 | `GET` | `/auth/github/authorize` | Start "Sign in with GitHub" (only present if `GITHUB_CLIENT_ID`/`SECRET` are set) |
 | `GET` | `/users/me` | The logged-in engineer's own profile |
@@ -72,7 +74,10 @@ account:
 - **Email + password**: an invitation (`python scripts/invite.py
   <email>`, in production `railway run python scripts/invite.py <email>`)
   creates the account and emails a 7-day link; the invitee sets their
-  password on `/accept-invite` (`POST /auth/accept-invite`), then
+  password on `/accept-invite` (`POST /auth/accept-invite`). The pilot
+  request email's "Invitar a tidybridge" button does the same from
+  `/pilot-invite/<id>`, for an admin account only - set it once with
+  `UPDATE users SET is_superuser = true WHERE email = '<you>'`. Then
   `POST /auth/jwt/login` (form-encoded `username`/`password`) for a
   bearer token in the response body
 - **GitHub OAuth** (optional - only enabled when `GITHUB_CLIENT_ID`/

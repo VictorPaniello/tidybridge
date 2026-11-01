@@ -97,7 +97,9 @@ def _override_get_db() -> None:
         session.close()
 
 
-def create_user(email: str, password: str, *, verified: bool = True) -> uuid.UUID:
+def create_user(
+    email: str, password: str, *, verified: bool = True, superuser: bool = False
+) -> uuid.UUID:
     """Writes the account row directly - stands in for scripts/invite.py +
     accepting the invite (that flow has its own test, test_invites.py).
     verified=False gives a pending invite with no usable password."""
@@ -109,6 +111,7 @@ def create_user(email: str, password: str, *, verified: bool = True) -> uuid.UUI
                 email=email,
                 hashed_password=PasswordHelper().hash(password),
                 is_verified=verified,
+                is_superuser=superuser,
                 has_password=verified,
                 first_name="Test" if verified else None,
                 last_name="Engineer" if verified else None,

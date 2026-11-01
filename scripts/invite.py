@@ -30,7 +30,7 @@ if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit("usage: python scripts/invite.py <email>")
     try:
-        asyncio.run(invite(sys.argv[1].strip().lower()))
+        asyncio.run(invite(sys.argv[1]))
     except UserAlreadyVerified:
         sys.exit(f"{sys.argv[1]} already accepted an invitation - they can sign in.")
     print(f"Invitation sent to {sys.argv[1]}")
