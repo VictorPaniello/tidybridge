@@ -10,7 +10,7 @@ export function DpaPageEs() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Acuerdo de tratamiento de datos</h1>
-        <p className="text-muted-foreground">Última actualización: octubre de 2026</p>
+        <p className="text-muted-foreground">Última actualización: noviembre de 2026</p>
       </div>
 
       <p>
@@ -99,7 +99,8 @@ export function DpaPageEs() {
           </li>
           <li>Las contraseñas solo se guardan como hashes unidireccionales.</li>
           <li>Las sesiones se pueden revocar; cerrar sesión invalida la sesión en el servidor.</li>
-          <li>Limitación de peticiones en el inicio de sesión, el registro y las subidas, y un tamaño máximo de subida.</li>
+          <li>Las cuentas solo se crean por invitación, y se activan desde el correo invitado.</li>
+          <li>Limitación de peticiones en el inicio de sesión, la activación de cuentas y las subidas, y límites de tamaño y de filas por subida.</li>
           <li>
             La aplicación se conecta a la base de datos con un rol de privilegios mínimos, no como
             propietaria de la base de datos.

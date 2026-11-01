@@ -12,7 +12,7 @@ export function DpaPage() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Data processing agreement</h1>
-        <p className="text-muted-foreground">Last updated: October 2026</p>
+        <p className="text-muted-foreground">Last updated: November 2026</p>
       </div>
 
       <p>
@@ -100,7 +100,8 @@ export function DpaPage() {
           </li>
           <li>Passwords are stored only as one-way hashes.</li>
           <li>Sessions can be revoked; logging out invalidates the session on the server.</li>
-          <li>Rate limiting on login, registration and uploads, and a cap on upload size.</li>
+          <li>Accounts are created by invitation only and activated from the invited email address.</li>
+          <li>Rate limiting on login, account activation and uploads, and limits on upload size and rows per upload.</li>
           <li>
             The application connects to the database with a least-privilege role, not as the
             database owner.

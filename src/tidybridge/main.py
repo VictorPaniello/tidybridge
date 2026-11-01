@@ -60,7 +60,7 @@ from tidybridge.auth_models import User
 from tidybridge.config import settings
 from tidybridge.db import get_db
 from tidybridge.extract import ExtractionError, ExtractionUnavailableError, extraction_enabled
-from tidybridge.ingest import UnreadableFileError, ingest_file, load_schema
+from tidybridge.ingest import UnreadableFileError, UploadTooLargeError, ingest_file, load_schema
 from tidybridge.logging_setup import configure_logging
 from tidybridge.mapping import build_schema, validate_resolution
 from tidybridge.pilot_email import confirmation_email, pilot_request_email
@@ -503,6 +503,8 @@ async def upload_records(
         outcome = await run_in_threadpool(
             ingest_file, db, file.filename or "upload.csv", content, schema, user.id
         )
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnreadableFileError, ExtractionError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ExtractionUnavailableError as exc:

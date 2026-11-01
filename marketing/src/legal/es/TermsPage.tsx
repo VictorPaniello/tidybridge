@@ -7,7 +7,7 @@ export function TermsPageEs() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Términos del servicio</h1>
-        <p className="text-muted-foreground">Última actualización: octubre de 2026</p>
+        <p className="text-muted-foreground">Última actualización: noviembre de 2026</p>
       </div>
 
       <Section title="Qué es">
@@ -92,7 +92,7 @@ export function TermsPageEs() {
           <li>Infringir cualquier ley aplicable, o los derechos de las personas cuyos datos sube.</li>
         </ul>
         <p className="mt-2">
-          Se aplican límites razonables al registro y al inicio de sesión en concreto (5 intentos
+          Se aplican límites razonables al inicio de sesión y a la activación de cuentas en concreto (5 intentos
           por minuto) para evitar abusos; la sección de seguridad del README describe el mecanismo
           exacto.
         </p>
