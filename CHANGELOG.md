@@ -14,6 +14,12 @@ nothing has been tagged as a release yet, so everything below is under
   pointer to request the pilot. Existing users always get back in.
 
 ### Security
+- **Email verification is required before signing in.** Registering sends
+  a confirmation link (Resend, valid 24 h); until it's used, login answers
+  "Confirm your email" with a resend button, and every API route returns
+  403. Stops someone pre-registering an invited address they can't read.
+  Existing accounts are marked verified by a migration; GitHub sign-ups
+  are verified by default.
 - **Account settings can't be used to take over or re-gift an account.**
   `PATCH /users/me` rejects an email change (422 - the email is the
   invitation; changing it skipped `SIGNUP_ALLOWLIST` and freed the invited

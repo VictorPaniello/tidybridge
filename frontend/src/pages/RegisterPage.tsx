@@ -31,7 +31,7 @@ export function RegisterPage() {
     try {
       const phone = phoneNumber.trim() ? `${dialCode} ${phoneNumber.trim()}` : undefined;
       await register({ email, password, firstName, lastName, phone });
-      navigate("/");
+      navigate("/login", { state: { verifyEmailSent: email } });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {

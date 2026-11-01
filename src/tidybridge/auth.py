@@ -93,10 +93,10 @@ def _email_layout(
 
 
 async def _send_email(to: str, subject: str, html: str, reply_to: str | None = None) -> None:
-    """Used by UserManager.on_after_forgot_password below. None of it
-    ever propagates as an exception: a failed send shouldn't turn
-    forgot-password's always-succeed response (anti-enumeration) into a
-    500 that reveals something differs about this particular request."""
+    """Used by UserManager's reset and verification hooks below. None of
+    it ever propagates as an exception: a failed send shouldn't turn
+    forgot-password's or request-verify-token's always-succeed response
+    (anti-enumeration) into a 500 that reveals something differs about this particular request."""
     if not settings.resend_api_key:
         # No email provider configured (e.g. local dev) - log instead of
         # silently dropping, same as webhook_url's None-disables pattern
@@ -179,14 +179,15 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     # over the other (found via a follow-up security review; the "aud"
     # claim fastapi-users adds to each token type stops a leaked token
     # itself being replayed as the other type, but doesn't help if the
-    # secret used to sign it leaks). verification_token_secret is required
-    # by BaseUserManager even though this project doesn't send
-    # verification emails (see README's "doesn't do yet" - real delivery
-    # to anyone but the Resend account owner needs a verified domain this
-    # project doesn't have) - reusing password_reset_secret for it is fine
-    # since it's unused, no need for a third secret.
+    # secret used to sign it leaks). The verification token shares
+    # password_reset_secret - same "email link token" class, and the "aud"
+    # claim keeps one from being replayed as the other.
     reset_password_token_secret = settings.password_reset_secret
     verification_token_secret = settings.password_reset_secret
+    # fastapi-users' default is 1 hour - fine for a reset someone is
+    # actively waiting on, too short for a verification email that may
+    # sit in an inbox (or spam) until the next day.
+    verification_token_lifetime_seconds = 60 * 60 * 24
 
     async def create(
         self,
@@ -316,6 +317,38 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             ),
         )
 
+    async def on_after_register(self, user: User, request: Request | None = None) -> None:
+        """Fires for /auth/register and for a brand-new OAuth signup.
+        The OAuth router is registered with is_verified_by_default=True
+        (the provider already confirmed the email), so request_verify()
+        raises UserAlreadyVerified there and nothing is sent."""
+        try:
+            await self.request_verify(user, request)
+        except fastapi_users_exceptions.UserAlreadyVerified:
+            pass
+
+    async def on_after_request_verify(
+        self, user: User, token: str, request: Request | None = None
+    ) -> None:
+        verify_url = f"{settings.frontend_url}/verify-email?token={token}"
+        await _send_email(
+            user.email,
+            "Verify your tidybridge email",
+            _email_layout(
+                preheader="Confirm your email to start using tidybridge",
+                heading="Verify your email",
+                intro_html="<p>Confirm this is your email address to finish setting up "
+                "your tidybridge account.</p>",
+                cta_text="Verify your email",
+                cta_url=verify_url,
+                note_html="This link expires in 24 hours. If you didn't create a "
+                "tidybridge account, you can safely ignore this email.",
+            ),
+        )
+
+    async def on_after_verify(self, user: User, request: Request | None = None) -> None:
+        logger.info("Email verified for %s", user.email)
+
     async def on_after_reset_password(self, user: User, request: Request | None = None) -> None:
         # Already True by the time this fires (forgot_password() above
         # only ever generates a token when it was) - set again anyway as
@@ -426,7 +459,10 @@ oauth_redirect_backend = AuthenticationBackend(
 
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
 
-current_active_user = fastapi_users.current_user(active=True)
+# verified=True: an unverified account gets 403 on every route that uses
+# this, so someone who pre-registers an invited address can't use it
+# without access to that inbox. Login is also refused for it (main.py, requires_verification=True).
+current_active_user = fastapi_users.current_user(active=True, verified=True)
 # Doesn't 401 on a missing/invalid token - returns None instead. Used where
 # an endpoint should still work for anyone, but personalize its response
 # for a signed-in engineer (none of tidybridge's endpoints use this yet).

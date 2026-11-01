@@ -773,17 +773,10 @@ project's own code or in actually deploying it:
   multi-tenant version would move this to a background worker with
   durable retry state, so a process restart mid-retry can't lose an
   in-flight attempt the way it currently could.
-- No email verification - fastapi-users supports it, but this project
-  deliberately doesn't enforce it: real Resend delivery only reaches the
-  Resend account's own address without a verified custom domain (see
-  [Frontend](#frontend)'s forgot-password caveat), and requiring
-  verification with delivery that broken would permanently lock out
-  every real registrant but the account owner. Considered and reverted
-  after confirming the delivery limitation against real production
-  sends - worth revisiting once a domain is verified. Password-reset
-  **is** implemented despite the same delivery caveat, since a failed
-  reset only leaves someone unable to self-serve a new password, it
-  never locks them out of an account they already had access to. A
+- No fallback if verification email delivery breaks - verification is
+  required (a 24 h link to `/verify-email`; unverified accounts can't log
+  in or call the API), so `EMAIL_FROM` must use the domain verified on
+  Resend, or nobody but the Resend account owner can ever sign in. A
   GitHub-OAuth-only account is deliberately refused a reset token - see
   `UserManager.forgot_password()` in `auth.py` - since there's no real
   password on that account to reset, only Settings (while signed in) can

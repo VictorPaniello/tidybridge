@@ -91,6 +91,14 @@ def _override_get_db() -> None:
         session.close()
 
 
+def mark_verified(email: str) -> None:
+    """Stands in for clicking the verification link (that flow has its own
+    test, test_email_verification.py) so tests that just need a logged-in
+    engineer can log in."""
+    with engine.begin() as conn:
+        conn.exec_driver_sql("UPDATE users SET is_verified = true WHERE email = %s", (email,))
+
+
 def _authenticated_client() -> TestClient:
     """A TestClient logged in as a fresh, real engineer - goes through the
     actual register + JWT login endpoints rather than bypassing auth, so
@@ -111,6 +119,7 @@ def _authenticated_client() -> TestClient:
         },
     )
     assert register_resp.status_code == 201, register_resp.text
+    mark_verified(email)
 
     login_resp = test_client.post(
         "/auth/jwt/login", data={"username": email, "password": password}

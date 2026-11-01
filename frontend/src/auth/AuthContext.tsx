@@ -62,9 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUser]);
 
   const register = useCallback(async (input: RegisterInput) => {
+    // No auto-login: the account can't sign in until its email is
+    // verified (backend requires_verification) - RegisterPage sends the
+    // user to /login with a "check your inbox" notice instead.
     await api.register(input);
-    await loginWithPassword(input.email, input.password);
-  }, [loginWithPassword]);
+  }, []);
 
   const updateProfile = useCallback(async (input: ProfileUpdate) => {
     setUser(await api.updateProfile(input));

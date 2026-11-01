@@ -251,7 +251,9 @@ async def require_staging_gate_password(request: Request, call_next):
 
 _STRICT_AUTH_LIMIT = "5/minute"
 
-_jwt_router = fastapi_users.get_auth_router(auth_backend)
+# requires_verification: login for an unverified account is refused with
+# LOGIN_USER_NOT_VERIFIED (see current_active_user).
+_jwt_router = fastapi_users.get_auth_router(auth_backend, requires_verification=True)
 for _route in _jwt_router.routes:
     if _route.path == "/login":
         _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
@@ -283,6 +285,13 @@ for _route in _reset_router.routes:
         _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
 app.include_router(_reset_router, prefix="/auth", tags=["auth"])
 
+# /request-verify-token sends mail (same spam surface as /forgot-password),
+# /verify is a brute-force surface against the token.
+_verify_router = fastapi_users.get_verify_router(UserRead)
+for _route in _verify_router.routes:
+    _route.endpoint = limiter.limit(_STRICT_AUTH_LIMIT)(_route.endpoint)
+app.include_router(_verify_router, prefix="/auth", tags=["auth"])
+
 # Registered *before* the generic users router below, and matched on the
 # literal path "/users/me" - fastapi-users' own router already has a
 # DELETE /users/{id}, but it's superuser-only (an admin deleting some
@@ -313,7 +322,7 @@ def delete_own_account(
     db.commit()
 
 
-_users_router = fastapi_users.get_users_router(UserRead, UserUpdate)
+_users_router = fastapi_users.get_users_router(UserRead, UserUpdate, requires_verification=True)
 for _route in _users_router.routes:
     # PATCH checks current_password - same brute-force surface as /login
     if _route.path == "/me" and "PATCH" in _route.methods:
@@ -335,6 +344,8 @@ if _github_oauth_client is not None:
         # with GitHub using the same email gets linked to that same
         # account instead of silently creating a second one.
         associate_by_email=True,
+        # GitHub already confirmed the email - no second verification.
+        is_verified_by_default=True,
     )
     # /authorize's own default response is JSON (meant to be fetch()'d by
     # a SPA), which breaks the CSRF cookie it sets under third-party-

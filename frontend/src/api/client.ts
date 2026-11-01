@@ -231,6 +231,28 @@ export async function resetPassword(token: string, password: string): Promise<vo
   });
 }
 
+// Always 202, whether or not the email exists or is already verified -
+// fastapi-users' own anti-enumeration behaviour.
+export async function requestVerifyToken(email: string): Promise<void> {
+  await request<void>("/auth/request-verify-token", {
+    method: "POST",
+    auth: false,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+// Throws ApiError VERIFY_USER_BAD_TOKEN on an invalid/expired token;
+// an already-verified account is VERIFY_USER_ALREADY_VERIFIED.
+export async function verifyEmail(token: string): Promise<void> {
+  await request<void>("/auth/verify", {
+    method: "POST",
+    auth: false,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+}
+
 export async function getCurrentUser(): Promise<CurrentUser> {
   return request<CurrentUser>("/users/me");
 }

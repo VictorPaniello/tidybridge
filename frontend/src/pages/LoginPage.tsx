@@ -3,7 +3,7 @@ import { t } from "../lib/i18n";
 import type { FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { githubAuthorizeUrl, ApiError } from "../api/client";
+import { githubAuthorizeUrl, requestVerifyToken, ApiError } from "../api/client";
 import { PasswordInput } from "../components/PasswordInput";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useHealth } from "../lib/health";
@@ -16,24 +16,44 @@ export function LoginPage() {
   // Set by ResetPasswordPage's navigate() after a successful reset - state
   // rather than a query param so it can't be bookmarked/shared and shown
   // to someone who didn't just reset anything.
-  const justReset = Boolean((location.state as { passwordReset?: boolean } | null)?.passwordReset);
+  const state = location.state as
+    | { passwordReset?: boolean; verifyEmailSent?: string; emailVerified?: boolean }
+    | null;
+  const justReset = Boolean(state?.passwordReset);
+  // Set by RegisterPage (address the link went to) and VerifyEmailPage
+  const verifyEmailSent = state?.verifyEmailSent;
+  const emailVerified = Boolean(state?.emailVerified);
   // Set by the API client's full-page redirect on a 401 (no router there)
   const expired = new URLSearchParams(location.search).has("expired");
   // Set by SettingsPage's redirect after a password change
   const passwordChanged = new URLSearchParams(location.search).has("password_changed");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(verifyEmailSent ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [unverified, setUnverified] = useState(false);
+  const [resent, setResent] = useState(false);
+
+  async function handleResend() {
+    try {
+      await requestVerifyToken(email);
+      setResent(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setUnverified(false);
+    setResent(false);
     setSubmitting(true);
     try {
       await loginWithPassword(email, password);
       navigate("/");
     } catch (err) {
+      setUnverified(err instanceof ApiError && err.code === "LOGIN_USER_NOT_VERIFIED");
       setError(err instanceof ApiError ? err.message : t("somethingWentWrong"));
     } finally {
       setSubmitting(false);
@@ -54,6 +74,12 @@ export function LoginPage() {
             {t("passwordResetDone")}
           </p>
         )}
+
+        {verifyEmailSent && (
+          <p className="mb-6 text-sm text-primary">{t("verifyEmailSent", { email: verifyEmailSent })}</p>
+        )}
+
+        {emailVerified && <p className="mb-6 text-sm text-primary">{t("emailVerifiedSignIn")}</p>}
 
         {passwordChanged && (
           <p className="mb-6 text-sm text-primary">{t("passwordChangedSignIn")}</p>
@@ -97,6 +123,14 @@ export function LoginPage() {
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {unverified &&
+            (resent ? (
+              <p className="text-sm text-primary">{t("verifyEmailResent")}</p>
+            ) : (
+              <button type="button" onClick={handleResend} className="text-sm text-ring hover:underline">
+                {t("resendVerifyEmail")}
+              </button>
+            ))}
 
           <button
             type="submit"

@@ -8,6 +8,7 @@ import uuid
 
 from fastapi.testclient import TestClient
 
+from conftest import mark_verified
 from tidybridge.config import settings
 
 PASSWORD = "Proveedor-Ejemplo-1!"
@@ -20,6 +21,7 @@ def _register(client: TestClient, email: str) -> None:
         json={"email": email, "password": PASSWORD, "first_name": "Ana", "last_name": "Ejemplo"},
     )
     assert resp.status_code == 201, resp.text
+    mark_verified(email)
 
 
 def _login(client: TestClient, email: str, password: str = PASSWORD) -> dict:

@@ -17,6 +17,8 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from conftest import mark_verified
+
 TOKEN_RE = re.compile(r"reset-password\?token=([^\"&\s]+)")
 
 
@@ -50,6 +52,7 @@ def _register(client: TestClient, email: str, password: str) -> None:
         },
     )
     assert resp.status_code == 201, resp.text
+    mark_verified(email)
 
 
 def _request_reset_token(sent: list[dict], client: TestClient, email: str) -> str:
@@ -140,6 +143,7 @@ def test_forgot_password_on_oauth_only_account_sends_nothing(_fake_resend, db):
     user = db.query(User).filter(User.email == email).one()
     user.has_password = False
     db.commit()
+    _fake_resend.clear()  # drop the verification email from registering
 
     resp = client.post("/auth/forgot-password", json={"email": email})
     assert resp.status_code == 202
