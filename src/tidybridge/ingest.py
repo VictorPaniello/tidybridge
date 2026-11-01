@@ -152,7 +152,9 @@ def ingest_file(
             raw, extraction_issues = extract_invoices(filename, content)
         else:
             suffix = Path(filename).suffix or ".csv"
-            if suffix.lower() == ".xlsx":
+            # By content, not extension: pandas picks the Excel reader from
+            # the bytes, so a zip named .xls (or .XLSX) is read just the same.
+            if content.startswith(b"PK\x03\x04"):
                 _check_xlsx_uncompressed_size(filename, content)
             with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
                 tmp.write(content)

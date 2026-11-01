@@ -7,6 +7,7 @@ from __future__ import annotations
 import io
 import zipfile
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tidybridge.config import settings
@@ -36,8 +37,9 @@ def test_csv_at_the_row_limit_is_accepted(client: TestClient, monkeypatch):
     assert _post(client, "ok.csv", _csv(3)).status_code == 200
 
 
+@pytest.mark.parametrize("name", ["bomb.xlsx", "bomb.xls", "BOMB.XLSX"])
 def test_xlsx_that_inflates_past_the_limit_is_rejected_before_reading(
-    client: TestClient, monkeypatch
+    client: TestClient, monkeypatch, name: str
 ):
     """A tiny compressed file that would unzip to 2 MB, against a 1 MB
     limit: refused from the zip directory alone - load_input never runs."""
@@ -53,6 +55,6 @@ def test_xlsx_that_inflates_past_the_limit_is_rejected_before_reading(
         zf.writestr("xl/worksheets/sheet1.xml", b"0" * (2 * 1024 * 1024))
     assert len(buf.getvalue()) < 50_000  # compresses to almost nothing
 
-    response = _post(client, "bomb.xlsx", buf.getvalue())
+    response = _post(client, name, buf.getvalue())
     assert response.status_code == 413
     assert "too large once uncompressed (over 1 MB)" in response.json()["detail"]
