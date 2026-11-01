@@ -13,6 +13,12 @@ nothing has been tagged as a release yet, so everything below is under
   invitation. Signing in from a link now returns to that page.
 
 ### Security
+- **A deployed API won't start with a default secret.** If `JWT_SECRET`
+  or `PASSWORD_RESET_SECRET` is missing on Railway (the public default in
+  `config.py` would be used) or both are equal, startup fails and Railway
+  keeps the previous deploy - instead of signing reset and invitation
+  tokens with a value anyone can read. Workers and cron jobs are not
+  affected: they don't sign anything.
 - **Accounts are invite-only, activated from the invitation email.**
   `/auth/register` is gone; `scripts/invite.py <email>` creates the
   account and emails a 7-day, single-use link where the invitee sets
