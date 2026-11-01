@@ -189,15 +189,19 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         **kwargs,
     ) -> User:
         """Accounts only come from invite() - an OAuth sign-in never
-        creates one. Someone who already has this OAuth account, or a user
-        with this email, falls through to the library's own handling."""
+        creates one, and never touches a pending invite: linking a GitHub
+        account to it by email would let whoever owns that GitHub account
+        in once the invitee activates it. An activated user (by OAuth
+        account or email) falls through to the library's own handling."""
         try:
-            await self.get_by_oauth_account(oauth_name, account_id)
+            user = await self.get_by_oauth_account(oauth_name, account_id)
         except fastapi_users_exceptions.UserNotExists:
             try:
-                await self.get_by_email(account_email)
+                user = await self.get_by_email(account_email)
             except fastapi_users_exceptions.UserNotExists:
                 raise HTTPException(status_code=403, detail=SIGNUP_CLOSED) from None
+        if not user.is_verified:
+            raise HTTPException(status_code=403, detail=SIGNUP_CLOSED)
         return await super().oauth_callback(
             oauth_name, access_token, account_id, account_email, *args, **kwargs
         )

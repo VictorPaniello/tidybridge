@@ -157,3 +157,17 @@ async def test_oauth_signs_an_existing_account_back_in():
         )  # as main.py's router does
     )
     assert user.id == user_id
+
+
+@pytest.mark.asyncio
+async def test_oauth_cannot_attach_to_a_pending_invite(db):
+    email = f"pending-{uuid.uuid4()}@example.com"
+    user_id = create_user(email, PASSWORD, verified=False)
+    with pytest.raises(HTTPException) as exc:
+        await _with_manager(
+            lambda m: m.oauth_callback(
+                "github", "token", "gh-attacker", email, associate_by_email=True
+            )
+        )
+    assert exc.value.status_code == 403
+    assert db.query(OAuthAccount).filter(OAuthAccount.user_id == user_id).count() == 0
