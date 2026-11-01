@@ -211,13 +211,15 @@ export async function resetPassword(token: string, password: string): Promise<vo
 // The invitation link's page (scripts/invite.py emails it). Throws ApiError
 // VERIFY_USER_BAD_TOKEN (invalid/expired), VERIFY_USER_ALREADY_VERIFIED
 // (already used) or RESET_PASSWORD_INVALID_PASSWORD (with its `reason`).
-export async function acceptInvite(token: string, password: string): Promise<void> {
-  await request<void>("/auth/accept-invite", {
+// Returns the activated account's email, for the login form.
+export async function acceptInvite(token: string, password: string): Promise<string> {
+  const { email } = await request<{ email: string }>("/auth/accept-invite", {
     method: "POST",
     auth: false,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, password }),
   });
+  return email;
 }
 
 export interface PilotRequestSummary {

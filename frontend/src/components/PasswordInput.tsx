@@ -11,12 +11,14 @@ export function PasswordInput({
   onChange,
   autoComplete,
   required,
+  autoFocus,
 }: {
   id: string;
   value: string;
   onChange: (value: string) => void;
   autoComplete: string;
   required?: boolean;
+  autoFocus?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -26,6 +28,7 @@ export function PasswordInput({
         id={id}
         type={visible ? "text" : "password"}
         required={required}
+        autoFocus={autoFocus}
         autoComplete={autoComplete}
         value={value}
         onChange={(e) => onChange(e.target.value)}

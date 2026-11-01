@@ -31,8 +31,9 @@ export function AcceptInvitePage() {
 
     setSubmitting(true);
     try {
-      await acceptInvite(token!, password);
-      navigate("/login", { state: { inviteAccepted: true } });
+      const email = await acceptInvite(token!, password);
+      // Pre-fills the login form - retyping the address invites typos
+      navigate("/login", { state: { inviteAccepted: true, email } });
     } catch (err) {
       if (err instanceof ApiError && err.code === "VERIFY_USER_BAD_TOKEN") {
         setError(t("inviteLinkInvalid"));
