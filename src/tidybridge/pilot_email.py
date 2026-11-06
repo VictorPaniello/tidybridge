@@ -64,15 +64,15 @@ def pilot_request_email(body: PilotRequestIn, received: datetime, invite_url: st
 
 CONFIRMATION = {
     "es": (
-        "Hemos recibido tu solicitud de piloto",
-        "Gracias por tu interés en tidybridge. Hemos recibido tu solicitud de piloto "
-        "y te escribimos en 2 días laborables.",
+        "Hemos recibido tu solicitud de acceso",
+        "Gracias por tu interés en tidybridge. Hemos recibido tu solicitud de acceso "
+        "gratuito y te escribimos en 2 días laborables.",
         "Si tienes cualquier pregunta mientras tanto, responde a este correo.",
     ),
     "en": (
-        "We've received your pilot request",
-        "Thanks for your interest in tidybridge. We've received your pilot request "
-        "and will write back within 2 working days.",
+        "We've received your access request",
+        "Thanks for your interest in tidybridge. We've received your request for free "
+        "access and will write back within 2 working days.",
         "If you have any questions in the meantime, just reply to this email.",
     ),
 }
