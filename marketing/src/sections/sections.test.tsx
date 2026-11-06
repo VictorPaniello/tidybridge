@@ -47,8 +47,15 @@ describe("landing sections", () => {
     expect(container.textContent).toContain("Mistral AI (Francia)");
   });
 
-  it("the pilot promises 2 working days", () => {
+  it("getting started is self-serve, free, and DPA first", () => {
     const { container } = render(<Pilot />);
-    expect(container.textContent).toContain("2 días laborables");
+    expect(container.textContent).toContain("DPA");
+    expect(container.textContent).toContain("Es gratis");
+    expect(container.textContent).not.toContain("2 días laborables");
+  });
+
+  it("links the open-source code", () => {
+    render(<Security />);
+    expect(screen.getByRole("link", { name: /GitHub/ })).toHaveAttribute("href", "https://github.com/VictorPaniello/tidybridge");
   });
 });

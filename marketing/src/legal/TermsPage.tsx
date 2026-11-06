@@ -126,6 +126,15 @@ export function TermsPage() {
         </p>
       </Section>
 
+      <Section title="Price">
+        <p>
+          tidybridge is free: it's a personal, open-source project (MIT licence). If it ever stops
+          being free or shuts down, we'll tell you by email at least 30 days in advance, and during
+          that time you can export and delete your data. We'll never charge you anything you
+          haven't explicitly agreed to first.
+        </p>
+      </Section>
+
       <Section title="Termination">
         <p>
           You can stop using the service and delete your account at any time. Access may be

@@ -6,6 +6,14 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
+### Changed
+- **tidybridge is free.** The landing offers free access (self-serve:
+  accept the DPA, get an invitation, upload, review, export) instead of a
+  manual pilot, says it's a personal open-source project and links the
+  code; the terms add a price clause (free; 30 days' notice and data
+  export if that ever changes). `SECURITY.md` explains how to report a
+  vulnerability privately.
+
 ### Added
 - **Invite a pilot request in one click.** The pilot request email now
   leads with "Invitar a tidybridge" (reply is secondary); it opens an

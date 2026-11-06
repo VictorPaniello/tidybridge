@@ -130,6 +130,15 @@ export function TermsPageEs() {
         </p>
       </Section>
 
+      <Section title="Precio">
+        <p>
+          tidybridge es gratuito: es un proyecto personal y de código abierto (licencia MIT). Si
+          algún día deja de ser gratuito o se cierra, se lo comunicaremos por correo con al menos
+          30 días de antelación, y durante ese plazo podrá exportar y borrar sus datos. Nunca le
+          cobraremos nada sin que usted lo haya aceptado antes expresamente.
+        </p>
+      </Section>
+
       <Section title="Terminación">
         <p>
           Puede dejar de usar el servicio y borrar su cuenta en cualquier momento. El acceso puede

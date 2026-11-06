@@ -10,6 +10,11 @@ by Mistral Document AI - see [Invoice extraction](#invoice-extraction)) → it's
 persisted to PostgreSQL → a webhook fires for each newly ingested record,
 with every delivery attempt logged (success or failure) for auditability.
 
+tidybridge is a free, personal, open-source project (MIT): the hosted
+service at [tidybridge.dev](https://tidybridge.dev) is free for accounting
+firms, by invitation. Security reports go to hello@tidybridge.dev - see
+[SECURITY.md](SECURITY.md).
+
 ## Why this exists
 
 `tidycsv` solves "the client's data is messy." This project solves the next
@@ -906,4 +911,4 @@ Found via a deliberate review, not a user report:
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE). Vulnerabilities: [SECURITY.md](SECURITY.md).
