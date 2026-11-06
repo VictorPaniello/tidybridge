@@ -11,14 +11,14 @@ describe("site header and footer", () => {
     document.documentElement.lang = "es";
     render(<SiteHeader />);
     const nav = screen.getByRole("navigation", { name: "Principal" });
-    expect(within(nav).getAllByRole("link", { name: "Solicitar piloto" })[0]).toHaveAttribute("href", "/#piloto");
+    expect(within(nav).getAllByRole("link", { name: "Acceso gratuito" })[0]).toHaveAttribute("href", "/#piloto");
     expect(screen.getByRole("link", { name: "English" })).toHaveAttribute("href", "/en/");
   });
 
   it("is in English on English pages, with a switch back to Spanish", () => {
     document.documentElement.lang = "en";
     render(<SiteHeader />);
-    expect(screen.getAllByRole("link", { name: "Request a pilot" })[0]).toHaveAttribute("href", "/en/#piloto");
+    expect(screen.getAllByRole("link", { name: "Free access" })[0]).toHaveAttribute("href", "/en/#piloto");
     expect(screen.getByRole("link", { name: "Español" })).toHaveAttribute("href", "/");
   });
 

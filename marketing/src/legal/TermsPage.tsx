@@ -5,7 +5,7 @@ export function TermsPage() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Terms of service</h1>
-        <p className="text-muted-foreground">Last updated: October 2026</p>
+        <p className="text-muted-foreground">Last updated: November 2026</p>
       </div>
 
       <Section title="What this is">
@@ -89,7 +89,7 @@ export function TermsPage() {
           <li>Violate any applicable law, or the rights of the people whose data you upload.</li>
         </ul>
         <p className="mt-2">
-          Reasonable rate limits apply to registration and login specifically (5 attempts/minute)
+          Reasonable rate limits apply to login and account activation specifically (5 attempts/minute)
           to deter abuse - see the README's Security section for the exact mechanism.
         </p>
       </Section>
@@ -123,6 +123,15 @@ export function TermsPage() {
           service, including loss of data beyond the backup measures described in the README.
           Nothing here limits liability where the law doesn't allow it to be limited (e.g., for
           gross negligence or willful misconduct).
+        </p>
+      </Section>
+
+      <Section title="Price">
+        <p>
+          tidybridge is free: it's a personal, open-source project (MIT licence). If it ever stops
+          being free or shuts down, we'll tell you by email at least 30 days in advance, and during
+          that time you can export and delete your data. We'll never charge you anything you
+          haven't explicitly agreed to first.
         </p>
       </Section>
 

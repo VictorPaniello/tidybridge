@@ -6,8 +6,15 @@ dashboard. Either way, the application code never sees a literal secret."""
 
 from __future__ import annotations
 
+import os
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Public (this repo is): only ever acceptable outside a deployment.
+DEFAULT_JWT_SECRET = "insecure-local-dev-secret-do-not-use-in-production"
+DEFAULT_RESET_SECRET = "insecure-local-dev-reset-secret-do-not-use-in-production"
 
 
 class Settings(BaseSettings):
@@ -102,17 +109,17 @@ class Settings(BaseSettings):
     examples/ is not part of it. The Docker image sets its WORKDIR to where
     examples/ was copied, so the default here resolves correctly there too."""
 
-    jwt_secret: str = "insecure-local-dev-secret-do-not-use-in-production"
+    jwt_secret: str = DEFAULT_JWT_SECRET
     """Signs the short-lived CSRF state token used only during the GitHub
     OAuth handshake (auth.py's generate_state_token/decode call) - login
     sessions themselves are no longer JWTs (see auth.py's DatabaseStrategy,
     replacing the old JWTStrategy). The default is intentionally
-    obviously-fake so a real deployment that forgets to set this notices
-    immediately rather than trusting an unknown value - production sets a
-    real random secret via the environment, never committed."""
+    obviously-fake, and a deployed API refuses to start with it (see
+    require_real_secrets below) - production sets a real
+    random secret via the environment, never committed."""
 
-    password_reset_secret: str = "insecure-local-dev-reset-secret-do-not-use-in-production"
-    """Signs password-reset and email-verification tokens (see auth.py's
+    password_reset_secret: str = DEFAULT_RESET_SECRET
+    """Signs password-reset and invitation tokens (see auth.py's
     UserManager) - deliberately a separate secret from jwt_secret so a
     leak of one doesn't also compromise the other. Same
     obviously-fake-default convention as jwt_secret above."""
@@ -142,6 +149,17 @@ class Settings(BaseSettings):
     real client data export is nowhere near this size, and without a cap
     the whole file is read into memory before tidycsv/pandas ever sees it,
     which makes an oversized upload a cheap way to flood the service."""
+
+    max_upload_rows: int = 5000
+    """Rejects a CSV/Excel upload with more rows than this (413, see
+    ingest.py). Ingest runs a dedup query per row in one transaction, so a
+    10 MB CSV of ~a million short rows would tie up the API and DB for
+    minutes. A gestoría's quarter is hundreds of invoices."""
+
+    max_uncompressed_mb: int = 100
+    """Rejects an .xlsx whose contents add up to more than this once
+    unzipped (413) - a 10 MB upload can expand to gigabytes of XML, all
+    loaded into memory by pandas. Checked before reading it."""
 
     backup_dir: str = "/data/backups"
     """Where scripts/backup_db.py writes dumps - a Railway Volume mounted
@@ -197,6 +215,26 @@ class Settings(BaseSettings):
     browsable is free reconnaissance for no real benefit once the API is
     actually live. Defaults True for local development convenience;
     production sets this to False via Railway's environment variables."""
+
+
+    def require_real_secrets(self) -> None:
+        """Called by main.py at startup - the API is the only process that
+        signs anything (reset/invitation tokens, the OAuth state), so a
+        deployment missing a secret fails to start (Railway keeps the
+        previous deploy running) instead of signing with a value anyone
+        can read in this repo. Workers and cron jobs don't hold these
+        secrets and don't run this. Railway sets RAILWAY_ENVIRONMENT on
+        every deploy; local dev and tests don't."""
+        if not os.environ.get("RAILWAY_ENVIRONMENT"):
+            return
+        if self.jwt_secret == DEFAULT_JWT_SECRET:
+            raise RuntimeError("JWT_SECRET is not set - refusing to start with the public default")
+        if self.password_reset_secret == DEFAULT_RESET_SECRET:
+            raise RuntimeError(
+                "PASSWORD_RESET_SECRET is not set - refusing to start with the public default"
+            )
+        if self.jwt_secret == self.password_reset_secret:
+            raise RuntimeError("JWT_SECRET and PASSWORD_RESET_SECRET must be different")
 
 
 settings = Settings()

@@ -7,7 +7,7 @@ export function TermsPageEs() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Términos del servicio</h1>
-        <p className="text-muted-foreground">Última actualización: octubre de 2026</p>
+        <p className="text-muted-foreground">Última actualización: noviembre de 2026</p>
       </div>
 
       <Section title="Qué es">
@@ -92,7 +92,7 @@ export function TermsPageEs() {
           <li>Infringir cualquier ley aplicable, o los derechos de las personas cuyos datos sube.</li>
         </ul>
         <p className="mt-2">
-          Se aplican límites razonables al registro y al inicio de sesión en concreto (5 intentos
+          Se aplican límites razonables al inicio de sesión y a la activación de cuentas en concreto (5 intentos
           por minuto) para evitar abusos; la sección de seguridad del README describe el mecanismo
           exacto.
         </p>
@@ -127,6 +127,15 @@ export function TermsPageEs() {
           de este servicio, incluida la pérdida de datos más allá de las medidas de copia de
           seguridad descritas en el README. Nada de lo aquí dispuesto limita la responsabilidad
           cuando la ley no permite limitarla (por ejemplo, en caso de negligencia grave o dolo).
+        </p>
+      </Section>
+
+      <Section title="Precio">
+        <p>
+          tidybridge es gratuito: es un proyecto personal y de código abierto (licencia MIT). Si
+          algún día deja de ser gratuito o se cierra, se lo comunicaremos por correo con al menos
+          30 días de antelación, y durante ese plazo podrá exportar y borrar sus datos. Nunca le
+          cobraremos nada sin que usted lo haya aceptado antes expresamente.
         </p>
       </Section>
 

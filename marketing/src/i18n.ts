@@ -30,7 +30,7 @@ const es = {
     security: "Seguridad",
     faq: "Preguntas",
     signIn: "Iniciar sesión",
-    pilot: "Solicitar piloto",
+    pilot: "Acceso gratuito",
     menu: "Menú",
     skip: "Saltar al contenido",
     main: "Principal",
@@ -42,7 +42,7 @@ const es = {
     title: "Las facturas de tus clientes, listas para tu programa contable.",
     subtitle:
       "Sube PDFs o fotos. Extraemos NIF, base, IVA y retención, y marcamos lo dudoso para que lo revises. Sin teclear.",
-    cta: "Solicitar piloto gratuito",
+    cta: "Solicitar acceso gratuito",
     secondary: "Ver cómo funciona",
     demoLabel: "Ejemplo: una factura y los datos que extraemos de ella",
   },
@@ -92,13 +92,13 @@ const es = {
     alt: "Revisión de una factura con una incidencia marcada",
   },
   pilot: {
-    title: "El piloto gratuito, paso a paso",
+    title: "Cómo empezar, paso a paso",
     steps: [
-      { when: "Día 1", text: "Nos envías las facturas de un cliente." },
-      { when: "En 2 días laborables", text: "Te las devolvemos revisadas en una hoja de cálculo." },
-      { when: "Después", text: "Decides si quieres seguir. Sin compromiso." },
+      { when: "1 · Acceso", text: "Aceptas el acuerdo de tratamiento de datos (DPA) y te enviamos una invitación." },
+      { when: "2 · Subes", text: "Las facturas de un cliente, en PDF o fotos. Te ayudamos con la primera subida." },
+      { when: "3 · Revisas", text: "Solo lo marcado, y exportas a CSV o Excel para tu programa contable." },
     ],
-    dpa: "Antes de enviar nada, firmamos un acuerdo de tratamiento de datos (DPA).",
+    dpa: "Es gratis: tidybridge es un proyecto personal y de código abierto.",
   },
   security: {
     title: "Seguridad y privacidad",
@@ -107,7 +107,7 @@ const es = {
         title: "Servidores en la UE",
         text: "El servidor y la base de datos están en Ámsterdam; la extracción, con Mistral AI (Francia).",
       },
-      { title: "RGPD y DPA", text: "Firmamos un DPA antes de que nos envíes ninguna factura." },
+      { title: "RGPD y DPA", text: "Firmamos un DPA antes de que subas ninguna factura." },
       {
         title: "Sin entrenar modelos",
         text: "No entrenamos modelos con tus facturas, y Mistral tampoco.",
@@ -115,6 +115,7 @@ const es = {
       { title: "Borrado cuando lo pidas", text: "Puedes borrar cualquier dato en cualquier momento." },
     ],
     more: "Detalles en la política de privacidad y el DPA",
+    code: "Código abierto (MIT) · ver en GitHub",
   },
   faq: {
     title: "Preguntas frecuentes",
@@ -133,7 +134,7 @@ const es = {
       },
       {
         q: "¿Cuánto cuesta?",
-        a: "El piloto es gratis. Los precios los acordamos contigo después.",
+        a: "Es gratis: tidybridge es un proyecto personal y de código abierto. Si algún día deja de serlo o se cierra, te avisamos con 30 días de antelación y puedes exportar tus datos.",
       },
       {
         q: "¿Y si se equivoca?",
@@ -142,7 +143,7 @@ const es = {
     ],
   },
   form: {
-    title: "Solicitar piloto",
+    title: "Solicitar acceso gratuito",
     intro: "Cuéntanos quién eres y te escribimos en 2 días laborables.",
     name: "Nombre",
     firm: "Gestoría",
@@ -193,7 +194,7 @@ const en: Copy = {
     security: "Security",
     faq: "FAQ",
     signIn: "Sign in",
-    pilot: "Request a pilot",
+    pilot: "Free access",
     menu: "Menu",
     skip: "Skip to content",
     main: "Main",
@@ -205,7 +206,7 @@ const en: Copy = {
     title: "Your clients' invoices, ready for your accounting software.",
     subtitle:
       "Upload PDFs or photos. We extract tax IDs, net amount, VAT and withholding, and flag anything doubtful for you to review. No typing.",
-    cta: "Request a free pilot",
+    cta: "Request free access",
     secondary: "See how it works",
     demoLabel: "Example: an invoice and the data we extract from it",
   },
@@ -255,13 +256,13 @@ const en: Copy = {
     alt: "Reviewing an invoice with a flagged issue",
   },
   pilot: {
-    title: "The free pilot, step by step",
+    title: "How to start, step by step",
     steps: [
-      { when: "Day 1", text: "You send us one client's invoices." },
-      { when: "Within 2 working days", text: "We send them back reviewed, in a spreadsheet." },
-      { when: "Then", text: "You decide whether to continue. No commitment." },
+      { when: "1 · Access", text: "You accept the data processing agreement (DPA) and we send you an invitation." },
+      { when: "2 · Upload", text: "One client's invoices, as PDFs or photos. We help you with the first upload." },
+      { when: "3 · Review", text: "Only what's flagged, then export to CSV or Excel for your accounting software." },
     ],
-    dpa: "Before you send anything, we sign a data processing agreement (DPA).",
+    dpa: "It's free: tidybridge is a personal, open-source project.",
   },
   security: {
     title: "Security and privacy",
@@ -270,7 +271,7 @@ const en: Copy = {
         title: "Servers in the EU",
         text: "The server and its database are in Amsterdam; extraction runs on Mistral AI (France).",
       },
-      { title: "GDPR and DPA", text: "We sign a DPA before you send us any invoice." },
+      { title: "GDPR and DPA", text: "We sign a DPA before you upload any invoice." },
       {
         title: "No model training",
         text: "We don't train models on your invoices, and neither does Mistral.",
@@ -278,6 +279,7 @@ const en: Copy = {
       { title: "Deletion on request", text: "You can delete any data at any time." },
     ],
     more: "Details in the privacy policy and the DPA",
+    code: "Open source (MIT) · see it on GitHub",
   },
   faq: {
     title: "Frequently asked questions",
@@ -296,7 +298,7 @@ const en: Copy = {
       },
       {
         q: "How much does it cost?",
-        a: "The pilot is free. We agree on prices with you afterwards.",
+        a: "It's free: tidybridge is a personal, open-source project. If that ever changes or it shuts down, we give you 30 days' notice and you can export your data.",
       },
       {
         q: "What if it gets something wrong?",
@@ -305,7 +307,7 @@ const en: Copy = {
     ],
   },
   form: {
-    title: "Request a pilot",
+    title: "Request free access",
     intro: "Tell us who you are and we'll write back within 2 working days.",
     name: "Name",
     firm: "Firm",

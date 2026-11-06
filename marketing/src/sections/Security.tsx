@@ -17,6 +17,10 @@ export function Security() {
         <a href={legalHref(pageLang(), "privacy")} className="text-ring hover:underline">
           {security.more}
         </a>
+        <span className="text-muted-foreground"> · </span>
+        <a href="https://github.com/VictorPaniello/tidybridge" className="text-ring hover:underline">
+          {security.code}
+        </a>
       </p>
     </Section>
   );

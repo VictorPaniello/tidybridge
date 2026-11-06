@@ -7,7 +7,7 @@ export function PrivacyPageEs() {
     <div className="max-w-2xl space-y-8 text-sm leading-relaxed">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight mb-1">Política de privacidad</h1>
-        <p className="text-muted-foreground">Última actualización: octubre de 2026</p>
+        <p className="text-muted-foreground">Última actualización: noviembre de 2026</p>
       </div>
 
       <Section title="Responsable del tratamiento">
@@ -96,7 +96,7 @@ export function PrivacyPageEs() {
         </ul>
         <p className="mt-2">
           Su dirección IP se usa, solo en memoria, para limitar el número de inicios de sesión,
-          registros y subidas, y puede aparecer en los registros de peticiones del proveedor de
+          activaciones de cuenta y subidas, y puede aparecer en los registros de peticiones del proveedor de
           alojamiento. Los registros del propio servidor anotan eventos como un restablecimiento
           de contraseña, que pueden incluir su correo; el proveedor de alojamiento conserva los
           registros durante un tiempo limitado. Las copias de seguridad de la base de datos se

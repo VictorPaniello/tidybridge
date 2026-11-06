@@ -10,6 +10,11 @@ by Mistral Document AI - see [Invoice extraction](#invoice-extraction)) → it's
 persisted to PostgreSQL → a webhook fires for each newly ingested record,
 with every delivery attempt logged (success or failure) for auditability.
 
+tidybridge is a free, personal, open-source project (MIT): the hosted
+service at [tidybridge.dev](https://tidybridge.dev) is free for accounting
+firms, by invitation. Security reports go to hello@tidybridge.dev - see
+[SECURITY.md](SECURITY.md).
+
 ## Why this exists
 
 `tidycsv` solves "the client's data is messy." This project solves the next
@@ -503,7 +508,10 @@ Deployed on [Railway](https://railway.app): a Postgres instance and this
 service in the same project. Environment variables (`DATABASE_URL`,
 `WEBHOOK_URL`, `WEBHOOK_SECRET`, `JWT_SECRET`, `PASSWORD_RESET_SECRET`,
 `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `RESEND_API_KEY`,
-`EMAIL_FROM`) are set in Railway's dashboard, never committed.
+`EMAIL_FROM`) are set in Railway's dashboard, never committed. A deployed
+API (`RAILWAY_ENVIRONMENT` set) refuses to start if `JWT_SECRET` or
+`PASSWORD_RESET_SECRET` is missing (still the public default) or both are
+equal - Railway then keeps the previous deploy running.
 
 Uvicorn runs with `--proxy-headers --forwarded-allow-ips='*'` (see the
 Dockerfile) - without it, every request looks like plain `http://` to the
@@ -827,12 +835,18 @@ Found via a deliberate review, not a user report:
   a JWT for a real user with that known default and it authenticated
   successfully against the live `/users/me`. Fixed by generating a real
   random secret and setting it in Railway - re-verified afterwards that
-  the forged token now gets 401 and a fresh real login still works.
+  the forged token now gets 401 and a fresh real login still works. Since
+  then the API also refuses to start on a deployment with a default
+  secret, so this can't silently happen again.
 - **No cap on `/records/upload`** - an oversized file was read entirely
   into memory before tidycsv/pandas ever saw it. Fixed: reads in bounded
   1 MB chunks and rejects (413) as soon as `max_upload_size_mb` (default
   10) is crossed, rather than trusting the client-controlled
-  `Content-Length` header.
+  `Content-Length` header. The bytes cap alone left two gaps, closed later:
+  an `.xlsx` that unzips to gigabytes (now refused from the zip directory
+  past `max_uncompressed_mb`, default 100, before pandas reads it) and a
+  CSV with ~a million short rows tying up the API and DB (now refused past
+  `max_upload_rows`, default 5000). Both 413, nothing stored.
 - **No rate limiting** on `/auth/jwt/login` or `/auth/register` -
   unthrottled brute-force and credential-stuffing. Fixed with
   [slowapi](https://github.com/laurentS/slowapi): 5/minute on those two
@@ -897,4 +911,4 @@ Found via a deliberate review, not a user report:
 
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE). Vulnerabilities: [SECURITY.md](SECURITY.md).

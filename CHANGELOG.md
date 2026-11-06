@@ -6,6 +6,14 @@ nothing has been tagged as a release yet, so everything below is under
 
 ## [Unreleased]
 
+### Changed
+- **tidybridge is free.** The landing offers free access (self-serve:
+  accept the DPA, get an invitation, upload, review, export) instead of a
+  manual pilot, says it's a personal open-source project and links the
+  code; the terms add a price clause (free; 30 days' notice and data
+  export if that ever changes). `SECURITY.md` explains how to report a
+  vulnerability privately.
+
 ### Added
 - **Invite a pilot request in one click.** The pilot request email now
   leads with "Invitar a tidybridge" (reply is secondary); it opens an
@@ -13,6 +21,18 @@ nothing has been tagged as a release yet, so everything below is under
   invitation. Signing in from a link now returns to that page.
 
 ### Security
+- **Upload limits beyond the 10 MB cap.** A CSV/Excel upload with more
+  than 5,000 rows, or an `.xlsx` that would unzip to more than 100 MB, is
+  refused with 413 before anything is processed or stored (both
+  configurable: `MAX_UPLOAD_ROWS`, `MAX_UNCOMPRESSED_MB`). Messages in
+  Spanish and English. The DPA, privacy and terms pages now describe
+  invite-only accounts and these limits instead of registration.
+- **A deployed API won't start with a default secret.** If `JWT_SECRET`
+  or `PASSWORD_RESET_SECRET` is missing on Railway (the public default in
+  `config.py` would be used) or both are equal, startup fails and Railway
+  keeps the previous deploy - instead of signing reset and invitation
+  tokens with a value anyone can read. Workers and cron jobs are not
+  affected: they don't sign anything.
 - **Accounts are invite-only, activated from the invitation email.**
   `/auth/register` is gone; `scripts/invite.py <email>` creates the
   account and emails a 7-day, single-use link where the invitee sets
