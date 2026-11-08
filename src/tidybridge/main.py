@@ -167,7 +167,16 @@ logger = logging.getLogger(__name__)
 def client_ip(request: Request) -> str:
     """The IP Railway's proxy saw: the LAST X-Forwarded-For entry. uvicorn's
     --forwarded-allow-ips='*' makes request.client the FIRST entry, which the
-    caller writes - a fresh fake one per request dodged every limit."""
+    caller writes - a fresh fake one per request dodged every limit.
+    With CLIENT_IP_HEADER set (behind Cloudflare), that header instead:
+    the last X-Forwarded-For entry there is our own proxy's peer, the same
+    for every caller."""
+    if settings.client_ip_header:
+        value = request.headers.get(settings.client_ip_header, "")
+        try:
+            return str(ipaddress.ip_address(value.strip()))
+        except ValueError:
+            return "unknown"  # fail closed, as below
     # Every header line, not just the first: a caller-sent line may come
     # before the one the proxy adds
     lines = request.headers.getlist("x-forwarded-for")
