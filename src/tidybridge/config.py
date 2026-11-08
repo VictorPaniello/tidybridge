@@ -6,10 +6,9 @@ dashboard. Either way, the application code never sees a literal secret."""
 
 from __future__ import annotations
 
-import os
-
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 
 # Public (this repo is): only ever acceptable outside a deployment.
@@ -217,15 +216,26 @@ class Settings(BaseSettings):
     production sets this to False via Railway's environment variables."""
 
 
+    client_ip_header: str | None = None
+    """Header holding the real client IP, set by a trusted proxy that
+    overwrites any caller-sent value - e.g. CF-Connecting-IP behind
+    Cloudflare (Tunnel or proxied DNS). Unset (Railway): the last
+    X-Forwarded-For entry is used instead. Only set it when every request
+    reaches the API through that proxy, or callers can pick their own
+    rate-limit bucket."""
+
     def require_real_secrets(self) -> None:
         """Called by main.py at startup - the API is the only process that
         signs anything (reset/invitation tokens, the OAuth state), so a
         deployment missing a secret fails to start (Railway keeps the
         previous deploy running) instead of signing with a value anyone
         can read in this repo. Workers and cron jobs don't hold these
-        secrets and don't run this. Railway sets RAILWAY_ENVIRONMENT on
-        every deploy; local dev and tests don't."""
-        if not os.environ.get("RAILWAY_ENVIRONMENT"):
+        secrets and don't run this. "Deployed" = the database isn't on
+        this machine: true on Railway, Coolify or any other host without
+        relying on a platform-specific variable (this used to key on
+        RAILWAY_ENVIRONMENT, which silently skipped the check anywhere
+        else); local dev and tests use localhost."""
+        if make_url(self.database_url).host in ("localhost", "127.0.0.1", "::1"):
             return
         if self.jwt_secret == DEFAULT_JWT_SECRET:
             raise RuntimeError("JWT_SECRET is not set - refusing to start with the public default")

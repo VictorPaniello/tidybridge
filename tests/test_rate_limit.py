@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
+from tidybridge.config import settings
 from tidybridge.main import app, limiter
 
 FIXTURES = Path(__file__).parent.parent / "examples"
@@ -154,3 +155,31 @@ def test_current_password_guessing_is_rate_limited(client: TestClient):
 
     assert statuses[:5] == [400, 400, 400, 400, 400]
     assert statuses[5] == 429
+
+
+def test_client_ip_header_behind_cloudflare(monkeypatch):
+    # Cloudflare Tunnel -> Traefik: the last X-Forwarded-For entry is the
+    # tunnel's own container, the same for everyone; CF-Connecting-IP is
+    # the real caller (Cloudflare overwrites any value the caller sends).
+    monkeypatch.setattr(settings, "client_ip_header", "CF-Connecting-IP")
+    limiter.reset()  # the "unknown" bucket is shared with the junk-header test
+    limiter.enabled = True
+    try:
+        behind_cloudflare = TestClient(ProxyHeadersMiddleware(app, trusted_hosts="*"))
+
+        def post(ip):
+            return behind_cloudflare.post(
+                "/pilot-requests",
+                json={"name": "x", "firm": "x", "email": "a@example.com", "language": "es",
+                      "privacy_accepted": True, "website": "bot"},
+                headers={"X-Forwarded-For": "172.18.0.5", "CF-Connecting-IP": ip},
+            ).status_code
+
+        first_caller = [post("203.0.113.20") for _ in range(6)]
+        other_caller = post("203.0.113.21")  # same last XFF entry, own bucket
+        missing = [post("") for _ in range(6)]  # no header: one shared bucket
+    finally:
+        limiter.enabled = False
+    assert first_caller == [202] * 5 + [429]
+    assert other_caller == 202
+    assert missing == [202] * 5 + [429]
