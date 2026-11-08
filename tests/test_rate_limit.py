@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from tidybridge.config import settings
-from tidybridge.main import app, limiter
+from tidybridge.main import _rate_limit_key, app, limiter
 
 FIXTURES = Path(__file__).parent.parent / "examples"
 
@@ -183,3 +183,13 @@ def test_client_ip_header_behind_cloudflare(monkeypatch):
     assert first_caller == [202] * 5 + [429]
     assert other_caller == 202
     assert missing == [202] * 5 + [429]
+
+
+def test_ipv6_callers_share_a_bucket_per_64():
+    # One connection usually gets a whole /64: rotating within it must
+    # not hand out a fresh bucket per address
+    assert _rate_limit_key("2001:db8:1:2::1") == _rate_limit_key("2001:db8:1:2:ffff::9")
+    assert _rate_limit_key("2001:db8:1:2::1") != _rate_limit_key("2001:db8:1:3::1")
+    assert _rate_limit_key("::ffff:203.0.113.9") == "203.0.113.9"
+    assert _rate_limit_key("203.0.113.9") == "203.0.113.9"
+    assert _rate_limit_key("not-an-ip") == "unknown"
