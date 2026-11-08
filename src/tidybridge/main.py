@@ -164,23 +164,39 @@ app.add_middleware(
 logger = logging.getLogger(__name__)
 
 
+def _rate_limit_key(value: str) -> str:
+    """One bucket per IPv4 address, but per /64 for IPv6: a single
+    connection usually holds a whole /64, so keying on the full address let
+    one caller rotate through billions of buckets. Not an IP -> the shared
+    "unknown" bucket (fail closed: the caller may have written it)."""
+    try:
+        addr = ipaddress.ip_address(value.strip())
+    except ValueError:
+        return "unknown"
+    if addr.version == 6 and addr.ipv4_mapped:
+        return str(addr.ipv4_mapped)
+    if addr.version == 6:
+        return str(ipaddress.ip_network((addr, 64), strict=False))
+    return str(addr)
+
+
 def client_ip(request: Request) -> str:
     """The IP Railway's proxy saw: the LAST X-Forwarded-For entry. uvicorn's
     --forwarded-allow-ips='*' makes request.client the FIRST entry, which the
-    caller writes - a fresh fake one per request dodged every limit."""
+    caller writes - a fresh fake one per request dodged every limit.
+    With CLIENT_IP_HEADER set (behind Cloudflare), that header instead:
+    the last X-Forwarded-For entry there is our own proxy's peer, the same
+    for every caller."""
+    if settings.client_ip_header:
+        return _rate_limit_key(request.headers.get(settings.client_ip_header, ""))
     # Every header line, not just the first: a caller-sent line may come
     # before the one the proxy adds
     lines = request.headers.getlist("x-forwarded-for")
     if not lines:  # no proxy in front: request.client is the real peer
-        return get_remote_address(request)
-    last = ",".join(lines).split(",")[-1].strip()
-    try:
-        return str(ipaddress.ip_address(last))
-    except ValueError:
-        # Fail closed: request.client was already rewritten from the
-        # caller-written first entry, so it can't be trusted here
-        return "unknown"
-
+        peer = get_remote_address(request)
+        key = _rate_limit_key(peer)
+        return peer if key == "unknown" else key  # the socket peer isn't caller-written
+    return _rate_limit_key(",".join(lines).split(",")[-1])
 
 limiter = Limiter(key_func=client_ip, default_limits=["60/minute"])
 app.state.limiter = limiter

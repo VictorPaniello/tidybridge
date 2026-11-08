@@ -509,7 +509,7 @@ service in the same project. Environment variables (`DATABASE_URL`,
 `WEBHOOK_URL`, `WEBHOOK_SECRET`, `JWT_SECRET`, `PASSWORD_RESET_SECRET`,
 `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `RESEND_API_KEY`,
 `EMAIL_FROM`) are set in Railway's dashboard, never committed. A deployed
-API (`RAILWAY_ENVIRONMENT` set) refuses to start if `JWT_SECRET` or
+API (`DATABASE_URL` not on localhost - Railway or any other host) refuses to start if `JWT_SECRET` or
 `PASSWORD_RESET_SECRET` is missing (still the public default) or both are
 equal - Railway then keeps the previous deploy running.
 
@@ -517,6 +517,10 @@ Uvicorn runs with `--proxy-headers --forwarded-allow-ips='*'` (see the
 Dockerfile) - without it, every request looks like plain `http://` to the
 app behind Railway's TLS-terminating proxy, which broke GitHub OAuth's
 callback URL matching (see [Bugs found while building this](#bugs-found-while-building-this)).
+The rate limiter keys on the last `X-Forwarded-For` entry (Railway's
+proxy). Behind Cloudflare (e.g. a Cloudflare Tunnel to a self-hosted
+Coolify), set `CLIENT_IP_HEADER=CF-Connecting-IP` instead - there the
+last entry is the local proxy, the same for every caller.
 
 On this project, Railway's own `${{Postgres.DATABASE_URL}}` service
 reference consistently resolved to an empty string at runtime (confirmed via
